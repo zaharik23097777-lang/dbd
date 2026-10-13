@@ -260,6 +260,7 @@ print("== Генераторы: повреждение и Руина")
 do
 	local c = setup({ "K", "A" }, "Trapper")
 	local K, A = c.P[1], c.P[2]
+	c.State.Map.Traps:ClearAllChildren() -- капканы не должны мешать этому сценарию
 	local gen = c.State.Map.Generators:GetChildren()[1]
 	gen:SetAttribute("Progress", 0.5)
 	c.place(K, gen.PrimaryPart.Position + V3.new(0, 1.45, -2.8), gen.PrimaryPart.Position)

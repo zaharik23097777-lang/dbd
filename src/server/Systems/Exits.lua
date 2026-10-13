@@ -1,6 +1,5 @@
 -- Ворота, обрушение Сущности (эндгейм) и люк.
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local TweenService = game:GetService("TweenService")
 
 local Config = require(ReplicatedStorage.Shared.Config)
 local Core = script.Parent.Parent.Core
@@ -8,7 +7,7 @@ local State = require(Core.State)
 local Actions = require(Core.Actions)
 local Lifecycle = require(Core.Lifecycle)
 local Scoring = require(Core.Scoring)
-local Props = require(script.Parent.Parent.Map.Props)
+local PropFX = require(script.Parent.Parent.Map.PropFX)
 
 local Exits = {}
 
@@ -32,10 +31,7 @@ function Exits.powerGates()
 	State.setGame("GensLeft", 0)
 	for _, gate in State.Map.ExitGates:GetChildren() do
 		gate:SetAttribute("Powered", true)
-		local sw = gate:FindFirstChild("Switch") :: BasePart?
-		if sw then
-			sw.Color = Color3.fromRGB(150, 130, 40)
-		end
+		PropFX.gatePowered(gate)
 	end
 	State.sfx("GatePowered", nil)
 	State.notifyAll("Все генераторы починены! Ворота запитаны — открывайте их!", State.YELLOW)
@@ -44,19 +40,9 @@ end
 local function openGate(gate: Model, opener: Player?)
 	gate:SetAttribute("Progress", 1)
 	gate:SetAttribute("Open", true)
-	Props.setGateLever(gate, 1)
-	local door = gate:FindFirstChild("Door") :: BasePart?
-	if door then
-		door.CanCollide = false
-		local info = TweenInfo.new(2.5, Enum.EasingStyle.Quad)
-		TweenService:Create(door, info, { CFrame = door.CFrame + Vector3.new(0, 11.8, 0) }):Play()
-		for _, rib in gate:GetChildren() do
-			if rib.Name == "DoorRib" and rib:IsA("BasePart") then
-				TweenService:Create(rib, info, { CFrame = rib.CFrame + Vector3.new(0, 11.8, 0) }):Play()
-			end
-		end
-		State.sfx("GateOpen", door)
-	end
+	PropFX.gateOpen(gate)
+	local sw = gate:FindFirstChild("Switch", true)
+	State.sfx("GateOpen", sw)
 	if opener then
 		Scoring.add(opener, "Objectives", 1250, "Ворота открыты")
 	end
@@ -68,15 +54,7 @@ local function openGate(gate: Model, opener: Player?)
 end
 
 local function setSiren(gate: Model, on: boolean)
-	local siren = gate:FindFirstChild("Siren")
-	local light = siren and siren:FindFirstChild("SirenLight") :: SpotLight?
-	if light then
-		light.Enabled = on
-	end
-	if siren and siren:IsA("BasePart") then
-		siren.Material = on and Enum.Material.Neon or Enum.Material.Glass
-		siren.Color = on and Color3.fromRGB(255, 40, 30) or Color3.fromRGB(80, 10, 10)
-	end
+	PropFX.gateSiren(gate, on)
 end
 
 Actions.register("OpenGate", {
@@ -93,7 +71,7 @@ Actions.register("OpenGate", {
 			openGate(target :: Model, data.Player)
 		else
 			target:SetAttribute("Progress", p)
-			Props.setGateLever(target :: Model, p)
+			PropFX.gateProgress(target :: Model, p)
 		end
 	end,
 	Progress = function(_data, target)
@@ -127,7 +105,7 @@ Actions.register("CloseHatch", {
 	Complete = function(data, target)
 		target:SetAttribute("Open", false)
 		target:SetAttribute("Closed", true)
-		Props.setHatchOpen(target :: Model, false)
+		PropFX.hatch(target :: Model, false)
 		State.sfx("Clank", (target :: Model).PrimaryPart)
 		Scoring.add(data.Player, "Hunter", 1000, "Люк закрыт")
 		Exits.powerGates()
@@ -175,7 +153,7 @@ function Exits.update(_dt: number)
 		local earned = State.InitialSurvivors >= 2 or State.GensDone >= 2
 		if earned and State.remainingSurvivors() == 1 and not State.EndgameDeadline then
 			hatch:SetAttribute("Open", true)
-			Props.setHatchOpen(hatch, true)
+			PropFX.hatch(hatch, true)
 			State.sfx("Clank", hatch.PrimaryPart)
 			for _, data in State.survivors() do
 				if State.isInGame(data) then

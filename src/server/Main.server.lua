@@ -13,8 +13,10 @@ local Lobby = require(script.Parent.Core.Lobby)
 local State = require(script.Parent.Core.State)
 local Match = require(script.Parent.Core.Match)
 
-MapBuilder.BuildLobby()
 MapBuilder.SetupLighting()
+MapBuilder.BuildLobby()
+-- Все объекты карты строятся один раз заранее (с CSG), раунды только копируют их
+require(script.Parent.Map.Art.Templates).prebuild()
 
 local function onPlayerAdded(player: Player)
 	-- Shift — это бег, поэтому Shift Lock отключаем

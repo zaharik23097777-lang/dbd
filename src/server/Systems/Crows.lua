@@ -3,7 +3,7 @@ local TweenService = game:GetService("TweenService")
 
 local Core = script.Parent.Parent.Core
 local State = require(Core.State)
-local Props = require(script.Parent.Parent.Map.Props)
+local Templates = require(script.Parent.Parent.Map.Art.Templates)
 
 local Crows = {}
 
@@ -20,7 +20,7 @@ local function spawnCrow()
 	end
 	local spot = spots[rng:NextInteger(1, #spots)]
 	local cf = spot * CFrame.Angles(0, rng:NextNumber(0, math.pi * 2), 0)
-	local model = Props.crow(State.Map.Crows, cf)
+	local model = Templates.spawn("Crow", cf, State.Map.Crows)
 	table.insert(crows, { Model = model, Pos = cf.Position })
 end
 

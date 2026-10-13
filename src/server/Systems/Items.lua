@@ -10,7 +10,8 @@ local State = require(Core.State)
 local Actions = require(Core.Actions)
 local Lifecycle = require(Core.Lifecycle)
 local Scoring = require(Core.Scoring)
-local Props = require(script.Parent.Parent.Map.Props)
+local PropFX = require(script.Parent.Parent.Map.PropFX)
+local ItemArt = require(script.Parent.Parent.Map.Art.Items)
 local Combat = require(script.Parent.Combat)
 local Generators = require(script.Parent.Generators)
 
@@ -40,7 +41,7 @@ local function removeModel(data)
 	end
 end
 
--- Предмет в руке (виден всем)
+-- Предмет в руке (виден всем); модель — в Art/Items
 local function buildModel(data, item: string)
 	removeModel(data)
 	local char = data.Player.Character
@@ -48,40 +49,9 @@ local function buildModel(data, item: string)
 	if not arm then
 		return
 	end
-	local def = ItemDefs[item]
-	local p = Instance.new("Part")
-	p.Name = "HeldItem"
-	p.CanCollide = false
-	p.CanQuery = false
-	p.CanTouch = false
-	p.Massless = true
-	p.Color = def.Color
-	p.Material = Enum.Material.SmoothPlastic
-	if item == "Flashlight" then
-		p.Shape = Enum.PartType.Cylinder
-		p.Size = Vector3.new(1.3, 0.4, 0.4)
-		-- Ось цилиндра вдоль руки: луч светит туда, куда указывает кисть
-		p.CFrame = arm.CFrame * CFrame.new(0, -1.3, -0.25) * CFrame.Angles(0, 0, math.rad(90))
-		local beam = Instance.new("SpotLight")
-		beam.Name = "Beam"
-		beam.Color = Color3.fromRGB(255, 250, 220)
-		beam.Range = Config.FlashlightRange + 4
-		beam.Angle = Config.FlashlightAngle * 2.5
-		beam.Brightness = 6
-		beam.Shadows = true
-		beam.Face = Enum.NormalId.Left
-		beam.Enabled = false
-		beam.Parent = p
-	elseif item == "Medkit" then
-		p.Size = Vector3.new(1, 0.7, 0.4)
-		p.CFrame = arm.CFrame * CFrame.new(0, -1.2, -0.3)
-	else
-		p.Size = Vector3.new(1.2, 0.6, 0.5)
-		p.CFrame = arm.CFrame * CFrame.new(0, -1.25, -0.2)
-	end
-	Util.weld(arm, p)
-	p.Parent = char
-	data.ItemModel = p
+	local m = ItemArt.held(item, arm)
+	m.Parent = char
+	data.ItemModel = m
 end
 
 function Items.give(data, item: string)
@@ -112,7 +82,7 @@ Generators.onItemEmpty = Items.remove
 local function setFlashlight(data, on: boolean)
 	data.ItemActive = on
 	data.Player:SetAttribute("ItemActive", on)
-	local beam = data.ItemModel and data.ItemModel:FindFirstChild("Beam") :: SpotLight?
+	local beam = data.ItemModel and data.ItemModel:FindFirstChild("Beam", true) :: SpotLight?
 	if beam then
 		beam.Enabled = on
 	end
@@ -133,7 +103,7 @@ Actions.register("OpenChest", {
 			return
 		end
 		target:SetAttribute("Opened", true)
-		Props.openChest(target :: Model)
+		PropFX.chestOpen(target :: Model)
 		local item = rollItem()
 		Items.give(data, item)
 		State.notify(data.Player, "Ты нашёл: " .. ItemDefs[item].Name .. ". " .. ItemDefs[item].Hint, State.YELLOW)

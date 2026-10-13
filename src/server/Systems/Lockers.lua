@@ -6,7 +6,7 @@ local State = require(Core.State)
 local Actions = require(Core.Actions)
 local Lifecycle = require(Core.Lifecycle)
 local Scoring = require(Core.Scoring)
-local Props = require(script.Parent.Parent.Map.Props)
+local PropFX = require(script.Parent.Parent.Map.PropFX)
 local Carry = require(script.Parent.Carry)
 local Powers = require(script.Parent.Parent.Powers)
 
@@ -14,20 +14,7 @@ local Lockers = {}
 
 -- Открыть и закрыть дверь (анимация на сервере, видят все)
 local function swingDoor(locker: Model, holdTime: number)
-	local value = Instance.new("NumberValue")
-	value.Value = 0
-	value.Changed:Connect(function(v)
-		Props.setLockerDoor(locker, v)
-	end)
-	local open = TweenService:Create(value, TweenInfo.new(0.2), { Value = 100 })
-	open:Play()
-	State.sfx("LockerDoor", locker.PrimaryPart)
-	task.delay(0.2 + holdTime, function()
-		local close = TweenService:Create(value, TweenInfo.new(0.25), { Value = 0 })
-		close:Play()
-		close.Completed:Wait()
-		Props.setLockerDoor(locker, 0)
-		value:Destroy()
+	PropFX.swingLockerDoor(locker, holdTime, function()
 		if locker.Parent then
 			State.sfx("LockerDoor", locker.PrimaryPart)
 		end

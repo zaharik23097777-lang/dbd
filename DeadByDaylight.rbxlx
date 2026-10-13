@@ -718,7 +718,49 @@ return Rig
           </Properties>
         </Item>
       </Item>
-      <Item class="ModuleScript" referent="8">
+      <Item class="Folder" referent="8">
+        <Properties>
+          <string name="Name">Art</string>
+        </Properties>
+        <Item class="ModuleScript" referent="9">
+          <Properties>
+            <string name="Name">Hatchet</string>
+            <string name="Source"><![CDATA[-- Метательный топор Охотницы (строится на клиенте для полёта снаряда).
+-- Hatchet.build() возвращает Model с PrimaryPart; «вперёд» (-Z) — направление полёта,
+-- модель вращается вокруг своей оси X. Все детали Anchored, без столкновений.
+local Hatchet = {}
+
+local function part(m: Model, size: Vector3, cf: CFrame, color: Color3, material: Enum.Material): Part
+	local p = Instance.new("Part")
+	p.Anchored = true
+	p.CanCollide = false
+	p.CanQuery = false
+	p.CanTouch = false
+	p.CastShadow = false
+	p.Size = size
+	p.CFrame = cf
+	p.Color = color
+	p.Material = material
+	p.Parent = m
+	return p
+end
+
+function Hatchet.build(): Model
+	local m = Instance.new("Model")
+	m.Name = "Hatchet"
+	local handle = part(m, Vector3.new(0.18, 0.18, 1.8), CFrame.identity, Color3.fromRGB(80, 55, 35), Enum.Material.Wood)
+	handle.Name = "Handle"
+	part(m, Vector3.new(0.1, 0.8, 0.6), CFrame.new(0, 0.3, -0.8), Color3.fromRGB(170, 165, 160), Enum.Material.Metal)
+	m.PrimaryPart = handle
+	return m
+end
+
+return Hatchet
+]]></string>
+          </Properties>
+        </Item>
+      </Item>
+      <Item class="ModuleScript" referent="10">
         <Properties>
           <string name="Name">Config</string>
           <string name="Source"><![CDATA[-- Все настройки игры в одном месте. Меняй числа, чтобы настроить баланс.
@@ -829,7 +871,7 @@ return Config
 ]]></string>
         </Properties>
       </Item>
-      <Item class="ModuleScript" referent="9">
+      <Item class="ModuleScript" referent="11">
         <Properties>
           <string name="Name">ItemDefs</string>
           <string name="Source"><![CDATA[-- Предметы выживших из сундуков.
@@ -858,7 +900,7 @@ return {
 ]]></string>
         </Properties>
       </Item>
-      <Item class="ModuleScript" referent="10">
+      <Item class="ModuleScript" referent="12">
         <Properties>
           <string name="Name">KillerDefs</string>
           <string name="Source"><![CDATA[-- Маньяки: характеристики и способности.
@@ -930,7 +972,7 @@ return KillerDefs
 ]]></string>
         </Properties>
       </Item>
-      <Item class="ModuleScript" referent="11">
+      <Item class="ModuleScript" referent="13">
         <Properties>
           <string name="Name">Remotes</string>
           <string name="Source"><![CDATA[-- Создаёт (на сервере) или находит (на клиенте) все RemoteEvent'ы игры.
@@ -987,7 +1029,7 @@ return Remotes
 ]]></string>
         </Properties>
       </Item>
-      <Item class="ModuleScript" referent="12">
+      <Item class="ModuleScript" referent="14">
         <Properties>
           <string name="Name">Sounds</string>
           <string name="Source"><![CDATA[-- Библиотека звуков.
@@ -1080,7 +1122,7 @@ return Sounds
 ]]></string>
         </Properties>
       </Item>
-      <Item class="ModuleScript" referent="13">
+      <Item class="ModuleScript" referent="15">
         <Properties>
           <string name="Name">Util</string>
           <string name="Source"><![CDATA[-- Общие функции для сервера и клиента.
@@ -1150,19 +1192,19 @@ return Util
       </Item>
     </Item>
   </Item>
-  <Item class="ServerScriptService" referent="14">
+  <Item class="ServerScriptService" referent="16">
     <Properties>
       <string name="Name">ServerScriptService</string>
     </Properties>
-    <Item class="Folder" referent="15">
+    <Item class="Folder" referent="17">
       <Properties>
         <string name="Name">Server</string>
       </Properties>
-      <Item class="Folder" referent="16">
+      <Item class="Folder" referent="18">
         <Properties>
           <string name="Name">Core</string>
         </Properties>
-        <Item class="ModuleScript" referent="17">
+        <Item class="ModuleScript" referent="19">
           <Properties>
             <string name="Name">Actions</string>
             <string name="Source"><![CDATA[-- Реестр действий (ремонт, лечение, крюк, шкафчики и т.д.).
@@ -1403,7 +1445,7 @@ return Actions
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="18">
+        <Item class="ModuleScript" referent="20">
           <Properties>
             <string name="Name">Characters</string>
             <string name="Source"><![CDATA[-- Персонажи R6: появление, внешний вид маньяков, группы столкновений.
@@ -1417,6 +1459,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local KillerDefs = require(ReplicatedStorage.Shared.KillerDefs)
 local Util = require(ReplicatedStorage.Shared.Util)
 local MapBuilder = require(script.Parent.Parent.Map.MapBuilder)
+local KillerGear = require(script.Parent.Parent.Map.Art.KillerGear)
 
 local Characters = {}
 
@@ -1494,139 +1537,6 @@ function Characters.getDescription(player: Player): HumanoidDescription
 end
 
 ------------------------------------------------------------------------
--- Снаряжение маньяков (из деталей, приваривается к телу)
-------------------------------------------------------------------------
-
-local function gear(char: Model, attachTo: string, name: string, size: Vector3, offset: CFrame, color: Color3, material: Enum.Material?, shape: Enum.PartType?): Part?
-	local base = char:FindFirstChild(attachTo) :: BasePart?
-	if not base then
-		return nil
-	end
-	local p = Instance.new("Part")
-	p.Name = name
-	p.Size = size
-	p.Color = color
-	p.Material = material or Enum.Material.SmoothPlastic
-	if shape then
-		p.Shape = shape
-	end
-	p.CanCollide = false
-	p.CanQuery = false
-	p.CanTouch = false
-	p.Massless = true
-	p.CFrame = base.CFrame * offset
-	Util.weld(base, p)
-	p.Parent = char
-	return p
-end
-
-local A = function(x, y, z)
-	return CFrame.Angles(math.rad(x or 0), math.rad(y or 0), math.rad(z or 0))
-end
-
-local GEAR = {}
-
-function GEAR.Trapper(char: Model)
-	local bone = Color3.fromRGB(225, 215, 195)
-	gear(char, "Head", "Mask", Vector3.new(1.25, 1.25, 0.3), CFrame.new(0, 0, -0.6), bone)
-	gear(char, "Head", "MaskMouth", Vector3.new(0.9, 0.3, 0.1), CFrame.new(0, -0.3, -0.78), Color3.fromRGB(40, 10, 10))
-	for i = -3, 3 do
-		gear(char, "Head", "Tooth", Vector3.new(0.1, 0.18, 0.08), CFrame.new(i * 0.12, -0.25, -0.83), bone)
-	end
-	for _, x in { -0.25, 0.25 } do
-		gear(char, "Head", "Eye", Vector3.new(0.22, 0.12, 0.08), CFrame.new(x, 0.15, -0.78), Color3.fromRGB(10, 10, 10))
-	end
-	gear(char, "Torso", "Apron", Vector3.new(1.9, 2.4, 0.2), CFrame.new(0, -0.4, -0.55), Color3.fromRGB(80, 60, 45), Enum.Material.Fabric)
-	gear(char, "Torso", "Belt", Vector3.new(2.1, 0.3, 1.1), CFrame.new(0, -0.9, 0), Color3.fromRGB(40, 30, 25), Enum.Material.Fabric)
-	gear(char, "Torso", "BackTrap", Vector3.new(0.2, 1.4, 1.4), CFrame.new(0, 0.2, 0.62) * A(0, 90, 0), Color3.fromRGB(110, 105, 100), Enum.Material.Metal, Enum.PartType.Cylinder)
-	-- Тесак
-	gear(char, "Right Arm", "Handle", Vector3.new(0.25, 1.2, 0.25), CFrame.new(0, -1.2, -0.4) * A(90, 0, 0), Color3.fromRGB(60, 40, 25), Enum.Material.Wood)
-	gear(char, "Right Arm", "Blade", Vector3.new(0.12, 1, 2.2), CFrame.new(0, -1.5, -1.9), Color3.fromRGB(160, 150, 145), Enum.Material.Metal)
-	gear(char, "Right Arm", "BladeBlood", Vector3.new(0.13, 0.5, 1.2), CFrame.new(0, -1.75, -2.2), Color3.fromRGB(90, 10, 10), Enum.Material.SmoothPlastic)
-end
-
-function GEAR.Huntress(char: Model)
-	local white = Color3.fromRGB(235, 230, 220)
-	gear(char, "Head", "Mask", Vector3.new(1.3, 1.3, 0.4), CFrame.new(0, 0, -0.55), white)
-	for _, x in { -0.3, 0.3 } do
-		gear(char, "Head", "Ear", Vector3.new(0.3, 1.6, 0.15), CFrame.new(x, 1.25, -0.2) * A(-10, 0, x * 25), white)
-		gear(char, "Head", "Eye", Vector3.new(0.18, 0.18, 0.08), CFrame.new(x * 0.8, 0.12, -0.78), Color3.fromRGB(10, 10, 10))
-	end
-	gear(char, "Head", "Hood", Vector3.new(1.5, 1.4, 1.2), CFrame.new(0, 0.1, 0.25), Color3.fromRGB(90, 60, 40), Enum.Material.Fabric)
-	gear(char, "Torso", "Fur", Vector3.new(2.6, 0.7, 1.4), CFrame.new(0, 0.85, 0), Color3.fromRGB(110, 85, 60), Enum.Material.Fabric)
-	gear(char, "Torso", "Cloak", Vector3.new(2.2, 2.6, 0.2), CFrame.new(0, -0.3, 0.6), Color3.fromRGB(80, 55, 35), Enum.Material.Fabric)
-	-- Топор
-	gear(char, "Right Arm", "Handle", Vector3.new(0.22, 0.22, 2.6), CFrame.new(0, -1.15, -1.1), Color3.fromRGB(70, 50, 30), Enum.Material.Wood)
-	gear(char, "Right Arm", "AxeHead", Vector3.new(0.12, 1.1, 0.8), CFrame.new(0, -0.75, -2.2), Color3.fromRGB(150, 145, 140), Enum.Material.Metal)
-end
-
-function GEAR.Wraith(char: Model)
-	local wrap = Color3.fromRGB(150, 140, 120)
-	for _, partName in { "Torso", "Left Arm", "Right Arm", "Left Leg", "Right Leg" } do
-		local part = char:FindFirstChild(partName) :: BasePart?
-		if part then
-			local w = part.Size.X + 0.06
-			for i = -2, 2 do
-				gear(char, partName, "Bandage", Vector3.new(w, 0.18, part.Size.Z + 0.06), CFrame.new(0, i * 0.4, 0) * A(0, 0, (i % 2) * 8 - 4), wrap, Enum.Material.Fabric)
-			end
-		end
-	end
-	gear(char, "Head", "Wraps", Vector3.new(1.3, 1.25, 1.1), CFrame.new(0, 0, 0), wrap, Enum.Material.Fabric)
-	for _, x in { -0.25, 0.25 } do
-		gear(char, "Head", "Eye", Vector3.new(0.2, 0.1, 0.06), CFrame.new(x, 0.12, -0.56), Color3.fromRGB(255, 240, 200), Enum.Material.Neon)
-	end
-	gear(char, "Torso", "Rags", Vector3.new(2.1, 1.6, 1.1), CFrame.new(0, -1.3, 0), Color3.fromRGB(60, 55, 50), Enum.Material.Fabric)
-	-- Дубина с черепом
-	gear(char, "Right Arm", "Club", Vector3.new(0.25, 0.25, 2.4), CFrame.new(0, -1.15, -1.1), Color3.fromRGB(80, 70, 60), Enum.Material.Wood)
-	gear(char, "Right Arm", "Skull", Vector3.new(0.75, 0.75, 0.75), CFrame.new(0, -1.15, -2.4), Color3.fromRGB(220, 210, 190), Enum.Material.SmoothPlastic, Enum.PartType.Ball)
-	-- Колокол
-	gear(char, "Left Arm", "Bell", Vector3.new(0.8, 0.9, 0.9), CFrame.new(0, -1.5, -0.2) * A(0, 0, 90), Color3.fromRGB(150, 120, 60), Enum.Material.Metal, Enum.PartType.Cylinder)
-end
-
-local function dressKiller(char: Model, def)
-	for _, d in char:GetDescendants() do
-		if d:IsA("Shirt") or d:IsA("Pants") or d:IsA("ShirtGraphic") or d:IsA("Accessory") then
-			d:Destroy()
-		end
-	end
-	local head = char:FindFirstChild("Head")
-	if head then
-		for _, d in head:GetChildren() do
-			if d:IsA("Decal") then
-				d:Destroy()
-			end
-		end
-	end
-	for _, partName in { "Torso", "Left Leg", "Right Leg" } do
-		local p = char:FindFirstChild(partName) :: BasePart?
-		if p then
-			p.Color = def.ClothColor
-		end
-	end
-	for _, partName in { "Head", "Left Arm", "Right Arm" } do
-		local p = char:FindFirstChild(partName) :: BasePart?
-		if p then
-			p.Color = def.BodyColor
-		end
-	end
-	local builder = GEAR[def.Id]
-	if builder then
-		builder(char)
-	end
-	-- Красное пятно перед маньяком (видят выжившие)
-	if head then
-		local stain = Instance.new("SpotLight")
-		stain.Name = "RedStain"
-		stain.Color = Color3.fromRGB(255, 20, 20)
-		stain.Range = 24
-		stain.Angle = 35
-		stain.Brightness = 4
-		stain.Face = Enum.NormalId.Front
-		stain.Parent = head
-	end
-end
-
-------------------------------------------------------------------------
 -- Создание и появление
 ------------------------------------------------------------------------
 
@@ -1672,7 +1582,7 @@ function Characters.build(player: Player, role: string?, killerType: string?): M
 	char.Name = player.Name
 	stripDefaults(char)
 	if def then
-		dressKiller(char, def)
+		KillerGear.dress(char, def)
 		if def.Scale ~= 1 then
 			pcall(function()
 				char:ScaleTo(def.Scale)
@@ -1741,7 +1651,7 @@ return Characters
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="19">
+        <Item class="ModuleScript" referent="21">
           <Properties>
             <string name="Name">Lifecycle</string>
             <string name="Source"><![CDATA[-- Выбывание из раунда (смерть, побег, выход) и «отцепление» от объектов
@@ -1792,7 +1702,7 @@ return Lifecycle
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="20">
+        <Item class="ModuleScript" referent="22">
           <Properties>
             <string name="Name">Lobby</string>
             <string name="Source"><![CDATA[-- Выбор в лобби: «хочу быть маньяком» и выбор маньяка.
@@ -1842,7 +1752,7 @@ return Lobby
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="21">
+        <Item class="ModuleScript" referent="23">
           <Properties>
             <string name="Name">Match</string>
             <string name="Source"><![CDATA[-- Один раунд: старт, главный цикл, конец.
@@ -2233,7 +2143,7 @@ return Match
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="22">
+        <Item class="ModuleScript" referent="24">
           <Properties>
             <string name="Name">Scoring</string>
             <string name="Source"><![CDATA[-- Очки крови: 4 категории у выживших и 4 у маньяка, сохраняются в DataStore.
@@ -2348,7 +2258,7 @@ return Scoring
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="23">
+        <Item class="ModuleScript" referent="25">
           <Properties>
             <string name="Name">State</string>
             <string name="Source"><![CDATA[-- Общее состояние раунда и вспомогательные функции для всех систем.
@@ -2478,7 +2388,7 @@ return State
           </Properties>
         </Item>
       </Item>
-      <Item class="Script" referent="24">
+      <Item class="Script" referent="26">
         <Properties>
           <string name="Name">Main</string>
           <token name="RunContext">0</token>
@@ -2497,8 +2407,10 @@ local Lobby = require(script.Parent.Core.Lobby)
 local State = require(script.Parent.Core.State)
 local Match = require(script.Parent.Core.Match)
 
-MapBuilder.BuildLobby()
 MapBuilder.SetupLighting()
+MapBuilder.BuildLobby()
+-- Все объекты карты строятся один раз заранее (с CSG), раунды только копируют их
+require(script.Parent.Map.Art.Templates).prebuild()
 
 local function onPlayerAdded(player: Player)
 	-- Shift — это бег, поэтому Shift Lock отключаем
@@ -2579,606 +2491,1041 @@ end
 ]]></string>
         </Properties>
       </Item>
-      <Item class="Folder" referent="25">
+      <Item class="Folder" referent="27">
         <Properties>
           <string name="Name">Map</string>
         </Properties>
-        <Item class="ModuleScript" referent="26">
+        <Item class="Folder" referent="28">
           <Properties>
-            <string name="Name">MapBuilder</string>
-            <string name="Source"><![CDATA[-- Процедурно строит карту (каждый раунд новая раскладка), лобби и освещение.
+            <string name="Name">Art</string>
+          </Properties>
+          <Item class="ModuleScript" referent="29">
+            <Properties>
+              <string name="Name">Contract</string>
+              <string name="Source"><![CDATA[-- Контракт моделей: что игровая логика ожидает от каждой модели.
+-- Тесты проверяют каждый шаблон через Contract.check.
+local Contract = {}
+
+-- Бюджеты деталей (ПК + телефоны)
+Contract.Budget = {
+	Generator = 75,
+	Hook = 50,
+	Pallet = 26,
+	Locker = 40,
+	Totem = 45,
+	HexTotem = 50,
+	Chest = 30,
+	Hatch = 30,
+	Trap = 32,
+	Crow = 14,
+	ExitGate = 130,
+}
+
+local function hasAttr(inst: Instance, name: string): boolean
+	return inst:GetAttribute(name) ~= nil
+end
+
+local function countAttr(model: Instance, name: string): number
+	local n = 0
+	for _, d in model:GetDescendants() do
+		if d:GetAttribute(name) ~= nil then
+			n += 1
+		end
+	end
+	return n
+end
+
+local function groupCount(model: Instance, group: string): number
+	local n = 0
+	for _, d in model:GetDescendants() do
+		if d:IsA("BasePart") and d:GetAttribute("FX") == group then
+			n += 1
+			if not (d:GetAttribute("CF0") and d:GetAttribute("CF1")) then
+				return -1
+			end
+		end
+	end
+	return n
+end
+
+local function child(model: Instance, name: string, className: string?): Instance?
+	local c = model:FindFirstChild(name, true)
+	if c and className and not c:IsA(className) then
+		return nil
+	end
+	return c
+end
+
+local function partCount(model: Instance): number
+	local n = 0
+	for _, d in model:GetDescendants() do
+		if d:IsA("BasePart") then
+			n += 1
+		end
+	end
+	return n
+end
+
+local function hasLight(model: Instance, name: string?): boolean
+	for _, d in model:GetDescendants() do
+		if d:IsA("Light") and (name == nil or d.Name == name) then
+			return true
+		end
+	end
+	return false
+end
+
+-- Проверяет модель шаблона. Возвращает список ошибок (пустой = всё хорошо).
+function Contract.check(name: string, model: Model): { string }
+	local errors = {}
+	local function need(cond: boolean, msg: string)
+		if not cond then
+			table.insert(errors, name .. ": " .. msg)
+		end
+	end
+	need(model:IsA("Model"), "должна быть Model")
+	need(model.PrimaryPart ~= nil, "нужен PrimaryPart")
+	if model.PrimaryPart then
+		need(model.PrimaryPart:GetAttribute("FX") == nil or name == "Pallet", "PrimaryPart не должен быть подвижным")
+	end
+	local kind = model:GetAttribute("Kind")
+	local budget = Contract.Budget[name]
+	if budget then
+		need(partCount(model) <= budget, ("деталей %d > бюджет %d"):format(partCount(model), budget))
+	end
+
+	if name == "Generator" then
+		need(kind == "Generator", "Kind=Generator")
+		for _, a in { "Progress", "Done", "Regressing" } do
+			need(hasAttr(model, a), "атрибут " .. a)
+		end
+		need(countAttr(model, "ProgressLight") >= 4, "4 детали ProgressLight")
+		need(countAttr(model, "Bulb") >= 1, "деталь Bulb")
+		need(child(model, "FX", "Attachment") ~= nil, "Attachment FX")
+		need(model.PrimaryPart ~= nil and model.PrimaryPart.CanCollide, "PrimaryPart сталкивается")
+	elseif name == "Hook" then
+		need(kind == "Hook", "Kind=Hook")
+		need(model:GetAttribute("Occupant") == 0, "Occupant=0")
+		need(child(model, "HangPoint", "BasePart") ~= nil, "деталь HangPoint")
+	elseif name == "Pallet" then
+		need(kind == "Pallet", "Kind=Pallet")
+		need(model:GetAttribute("State") == "Up", "State=Up")
+		local hb = model.PrimaryPart
+		need(hb ~= nil and hb.Name == "Hitbox", "PrimaryPart = Hitbox")
+		if hb then
+			need((hb.Size - Vector3.new(5.6, 3, 1.2)).Magnitude < 0.05, "Hitbox 5.6x3x1.2")
+			need(hb.CanCollide == false, "Hitbox изначально не сталкивается")
+		end
+	elseif name == "Locker" then
+		need(kind == "Locker", "Kind=Locker")
+		need(model:GetAttribute("Occupant") == 0, "Occupant=0")
+		need(child(model, "Inside", "BasePart") ~= nil, "деталь Inside")
+		need(groupCount(model, "LockerDoor") > 0, "группа LockerDoor с CF0/CF1")
+	elseif name == "Totem" or name == "HexTotem" then
+		need(kind == "Totem", "Kind=Totem")
+		need(hasAttr(model, "Hex") and hasAttr(model, "Progress") and hasAttr(model, "Cleansed"), "атрибуты Hex/Progress/Cleansed")
+		need(groupCount(model, "Skull") > 0, "группа Skull с CF0/CF1")
+		if name == "HexTotem" then
+			need(model:GetAttribute("Hex") == true, "Hex=true")
+			need(countAttr(model, "HexFlame") > 0, "огни HexFlame")
+		end
+	elseif name == "Chest" then
+		need(kind == "Chest", "Kind=Chest")
+		need(model:GetAttribute("Opened") == false, "Opened=false")
+		need(groupCount(model, "ChestLid") > 0, "группа ChestLid")
+		need(hasLight(model, "Glow"), "PointLight Glow")
+	elseif name == "Hatch" then
+		need(kind == "Hatch", "Kind=Hatch")
+		need(model:GetAttribute("Open") == false and model:GetAttribute("Closed") == false, "Open/Closed=false")
+		need(groupCount(model, "HatchDoor") > 0, "группа HatchDoor")
+		need(hasLight(model, "Glow"), "PointLight Glow")
+	elseif name == "Trap" then
+		need(kind == "Trap", "Kind=Trap")
+		need(model:GetAttribute("Armed") == true and model:GetAttribute("Caught") == 0, "Armed=true, Caught=0")
+		need(groupCount(model, "TrapJaw") > 0, "группа TrapJaw")
+	elseif name == "Crow" then
+		need(kind == "Crow", "Kind=Crow")
+	elseif name == "ExitGate" then
+		need(kind == "ExitGate", "Kind=ExitGate")
+		for _, a in { "Powered", "Progress", "Open" } do
+			need(hasAttr(model, a), "атрибут " .. a)
+		end
+		need(child(model, "Switch", "BasePart") ~= nil, "деталь Switch")
+		need(child(model, "EscapeZone", "BasePart") ~= nil, "деталь EscapeZone")
+		need(child(model, "Siren", "BasePart") ~= nil, "деталь Siren")
+		need(hasLight(model, "SirenLight"), "SpotLight SirenLight")
+		need(countAttr(model, "GateLamp") >= 3, "3 лампы GateLamp")
+		need(groupCount(model, "GateDoor") > 0, "группа GateDoor")
+		need(groupCount(model, "GateLever") > 0, "группа GateLever")
+	end
+	return errors
+end
+
+return Contract
+]]></string>
+            </Properties>
+          </Item>
+          <Item class="ModuleScript" referent="30">
+            <Properties>
+              <string name="Name">Items</string>
+              <string name="Source"><![CDATA[-- Предметы выживших в руке: аптечка, ящик с инструментами, фонарик.
+-- ItemArt.held(item, arm) возвращает Model, приваренную к руке (Massless, без столкновений).
+-- У фонарика внутри должен быть SpotLight с именем "Beam" (светит вдоль руки, Enabled = false).
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local Lighting = game:GetService("Lighting")
 
 local Config = require(ReplicatedStorage.Shared.Config)
-local Props = require(script.Parent.Props)
+local Util = require(ReplicatedStorage.Shared.Util)
+local Kit = require(script.Parent.Kit)
 
-local P = Props.part
-local A = Props.A
+local ItemArt = {}
 
-local MapBuilder = {}
+local function finish(m: Model, arm: BasePart)
+	for _, d in m:GetDescendants() do
+		if d:IsA("BasePart") then
+			d.Anchored = false
+			d.Massless = true
+			Kit.decor(d)
+			Util.weld(arm, d)
+		end
+	end
+end
 
-local CELL = 22
+-- Кисть руки R6 — низ детали "Right Arm"; локальная -Y руки = направление, куда указывает рука
+function ItemArt.held(item: string, arm: BasePart): Model
+	local m = Kit.model("HeldItem")
+	local hand = arm.CFrame * CFrame.new(0, -arm.Size.Y / 2, 0)
+	if item == "Flashlight" then
+		local body = Kit.cyl(m, hand * CFrame.new(0, -0.3, -0.25) * CFrame.Angles(0, 0, math.rad(90)), 1.3, 0.4, Color3.fromRGB(230, 220, 120), Enum.Material.SmoothPlastic)
+		m.PrimaryPart = body
+		local beam = Kit.spotLight(body, Color3.fromRGB(255, 250, 220), Config.FlashlightRange + 4, Config.FlashlightAngle * 2.5, 6, Enum.NormalId.Left, true)
+		beam.Name = "Beam"
+		beam.Enabled = false
+	elseif item == "Medkit" then
+		m.PrimaryPart = Kit.box(m, hand * CFrame.new(0, -0.2, -0.3), Vector3.new(1, 0.7, 0.4), Color3.fromRGB(200, 40, 40), Enum.Material.SmoothPlastic)
+	else
+		m.PrimaryPart = Kit.box(m, hand * CFrame.new(0, -0.25, -0.2), Vector3.new(1.2, 0.6, 0.5), Color3.fromRGB(60, 110, 200), Enum.Material.SmoothPlastic)
+	end
+	finish(m, arm)
+	return m
+end
 
-local function folder(name: string, parent: Instance): Folder
-	local f = Instance.new("Folder")
-	f.Name = name
+return ItemArt
+]]></string>
+            </Properties>
+          </Item>
+          <Item class="ModuleScript" referent="31">
+            <Properties>
+              <string name="Name">KillerGear</string>
+              <string name="Source"><![CDATA[-- Внешний вид маньяков: снаряжение из деталей, приваренное к телу R6.
+-- KillerGear.dress(char, def) вызывается до масштабирования (char:ScaleTo), детали — Massless,
+-- без столкновений. Части рук/оружия с именами из CameraController.VIEWMODEL видны от первого лица.
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local Util = require(ReplicatedStorage.Shared.Util)
+
+local KillerGear = {}
+
+------------------------------------------------------------------------
+-- Снаряжение маньяков (из деталей, приваривается к телу)
+------------------------------------------------------------------------
+
+local function gear(char: Model, attachTo: string, name: string, size: Vector3, offset: CFrame, color: Color3, material: Enum.Material?, shape: Enum.PartType?): Part?
+	local base = char:FindFirstChild(attachTo) :: BasePart?
+	if not base then
+		return nil
+	end
+	local p = Instance.new("Part")
+	p.Name = name
+	p.Size = size
+	p.Color = color
+	p.Material = material or Enum.Material.SmoothPlastic
+	if shape then
+		p.Shape = shape
+	end
+	p.CanCollide = false
+	p.CanQuery = false
+	p.CanTouch = false
+	p.Massless = true
+	p.CFrame = base.CFrame * offset
+	Util.weld(base, p)
+	p.Parent = char
+	return p
+end
+
+local A = function(x, y, z)
+	return CFrame.Angles(math.rad(x or 0), math.rad(y or 0), math.rad(z or 0))
+end
+
+local GEAR = {}
+
+function GEAR.Trapper(char: Model)
+	local bone = Color3.fromRGB(225, 215, 195)
+	gear(char, "Head", "Mask", Vector3.new(1.25, 1.25, 0.3), CFrame.new(0, 0, -0.6), bone)
+	gear(char, "Head", "MaskMouth", Vector3.new(0.9, 0.3, 0.1), CFrame.new(0, -0.3, -0.78), Color3.fromRGB(40, 10, 10))
+	for i = -3, 3 do
+		gear(char, "Head", "Tooth", Vector3.new(0.1, 0.18, 0.08), CFrame.new(i * 0.12, -0.25, -0.83), bone)
+	end
+	for _, x in { -0.25, 0.25 } do
+		gear(char, "Head", "Eye", Vector3.new(0.22, 0.12, 0.08), CFrame.new(x, 0.15, -0.78), Color3.fromRGB(10, 10, 10))
+	end
+	gear(char, "Torso", "Apron", Vector3.new(1.9, 2.4, 0.2), CFrame.new(0, -0.4, -0.55), Color3.fromRGB(80, 60, 45), Enum.Material.Fabric)
+	gear(char, "Torso", "Belt", Vector3.new(2.1, 0.3, 1.1), CFrame.new(0, -0.9, 0), Color3.fromRGB(40, 30, 25), Enum.Material.Fabric)
+	gear(char, "Torso", "BackTrap", Vector3.new(0.2, 1.4, 1.4), CFrame.new(0, 0.2, 0.62) * A(0, 90, 0), Color3.fromRGB(110, 105, 100), Enum.Material.Metal, Enum.PartType.Cylinder)
+	-- Тесак
+	gear(char, "Right Arm", "Handle", Vector3.new(0.25, 1.2, 0.25), CFrame.new(0, -1.2, -0.4) * A(90, 0, 0), Color3.fromRGB(60, 40, 25), Enum.Material.Wood)
+	gear(char, "Right Arm", "Blade", Vector3.new(0.12, 1, 2.2), CFrame.new(0, -1.5, -1.9), Color3.fromRGB(160, 150, 145), Enum.Material.Metal)
+	gear(char, "Right Arm", "BladeBlood", Vector3.new(0.13, 0.5, 1.2), CFrame.new(0, -1.75, -2.2), Color3.fromRGB(90, 10, 10), Enum.Material.SmoothPlastic)
+end
+
+function GEAR.Huntress(char: Model)
+	local white = Color3.fromRGB(235, 230, 220)
+	gear(char, "Head", "Mask", Vector3.new(1.3, 1.3, 0.4), CFrame.new(0, 0, -0.55), white)
+	for _, x in { -0.3, 0.3 } do
+		gear(char, "Head", "Ear", Vector3.new(0.3, 1.6, 0.15), CFrame.new(x, 1.25, -0.2) * A(-10, 0, x * 25), white)
+		gear(char, "Head", "Eye", Vector3.new(0.18, 0.18, 0.08), CFrame.new(x * 0.8, 0.12, -0.78), Color3.fromRGB(10, 10, 10))
+	end
+	gear(char, "Head", "Hood", Vector3.new(1.5, 1.4, 1.2), CFrame.new(0, 0.1, 0.25), Color3.fromRGB(90, 60, 40), Enum.Material.Fabric)
+	gear(char, "Torso", "Fur", Vector3.new(2.6, 0.7, 1.4), CFrame.new(0, 0.85, 0), Color3.fromRGB(110, 85, 60), Enum.Material.Fabric)
+	gear(char, "Torso", "Cloak", Vector3.new(2.2, 2.6, 0.2), CFrame.new(0, -0.3, 0.6), Color3.fromRGB(80, 55, 35), Enum.Material.Fabric)
+	-- Топор
+	gear(char, "Right Arm", "Handle", Vector3.new(0.22, 0.22, 2.6), CFrame.new(0, -1.15, -1.1), Color3.fromRGB(70, 50, 30), Enum.Material.Wood)
+	gear(char, "Right Arm", "AxeHead", Vector3.new(0.12, 1.1, 0.8), CFrame.new(0, -0.75, -2.2), Color3.fromRGB(150, 145, 140), Enum.Material.Metal)
+end
+
+function GEAR.Wraith(char: Model)
+	local wrap = Color3.fromRGB(150, 140, 120)
+	for _, partName in { "Torso", "Left Arm", "Right Arm", "Left Leg", "Right Leg" } do
+		local part = char:FindFirstChild(partName) :: BasePart?
+		if part then
+			local w = part.Size.X + 0.06
+			for i = -2, 2 do
+				gear(char, partName, "Bandage", Vector3.new(w, 0.18, part.Size.Z + 0.06), CFrame.new(0, i * 0.4, 0) * A(0, 0, (i % 2) * 8 - 4), wrap, Enum.Material.Fabric)
+			end
+		end
+	end
+	gear(char, "Head", "Wraps", Vector3.new(1.3, 1.25, 1.1), CFrame.new(0, 0, 0), wrap, Enum.Material.Fabric)
+	for _, x in { -0.25, 0.25 } do
+		gear(char, "Head", "Eye", Vector3.new(0.2, 0.1, 0.06), CFrame.new(x, 0.12, -0.56), Color3.fromRGB(255, 240, 200), Enum.Material.Neon)
+	end
+	gear(char, "Torso", "Rags", Vector3.new(2.1, 1.6, 1.1), CFrame.new(0, -1.3, 0), Color3.fromRGB(60, 55, 50), Enum.Material.Fabric)
+	-- Дубина с черепом
+	gear(char, "Right Arm", "Club", Vector3.new(0.25, 0.25, 2.4), CFrame.new(0, -1.15, -1.1), Color3.fromRGB(80, 70, 60), Enum.Material.Wood)
+	gear(char, "Right Arm", "Skull", Vector3.new(0.75, 0.75, 0.75), CFrame.new(0, -1.15, -2.4), Color3.fromRGB(220, 210, 190), Enum.Material.SmoothPlastic, Enum.PartType.Ball)
+	-- Колокол
+	gear(char, "Left Arm", "Bell", Vector3.new(0.8, 0.9, 0.9), CFrame.new(0, -1.5, -0.2) * A(0, 0, 90), Color3.fromRGB(150, 120, 60), Enum.Material.Metal, Enum.PartType.Cylinder)
+end
+
+function KillerGear.dress(char: Model, def)
+	for _, d in char:GetDescendants() do
+		if d:IsA("Shirt") or d:IsA("Pants") or d:IsA("ShirtGraphic") or d:IsA("Accessory") then
+			d:Destroy()
+		end
+	end
+	local head = char:FindFirstChild("Head")
+	if head then
+		for _, d in head:GetChildren() do
+			if d:IsA("Decal") then
+				d:Destroy()
+			end
+		end
+	end
+	for _, partName in { "Torso", "Left Leg", "Right Leg" } do
+		local p = char:FindFirstChild(partName) :: BasePart?
+		if p then
+			p.Color = def.ClothColor
+		end
+	end
+	for _, partName in { "Head", "Left Arm", "Right Arm" } do
+		local p = char:FindFirstChild(partName) :: BasePart?
+		if p then
+			p.Color = def.BodyColor
+		end
+	end
+	local builder = GEAR[def.Id]
+	if builder then
+		builder(char)
+	end
+	-- Красное пятно перед маньяком (видят выжившие)
+	if head then
+		local stain = Instance.new("SpotLight")
+		stain.Name = "RedStain"
+		stain.Color = Color3.fromRGB(255, 20, 20)
+		stain.Range = 24
+		stain.Angle = 35
+		stain.Brightness = 4
+		stain.Face = Enum.NormalId.Front
+		stain.Parent = head
+	end
+end
+
+
+return KillerGear
+]]></string>
+            </Properties>
+          </Item>
+          <Item class="ModuleScript" referent="32">
+            <Properties>
+              <string name="Name">Kit</string>
+              <string name="Source"><![CDATA[-- Набор инструментов для моделирования из деталей (Part).
+-- Все художественные модули (MapProps, Structures, Nature, KillerGear, Items, Lobby) строят модели через Kit,
+-- чтобы стиль, флаги производительности и запасные варианты (CSG) были одинаковыми.
+local Kit = {}
+
+local rad = math.rad
+local Mat = Enum.Material
+Kit.Mat = Mat
+
+------------------------------------------------------------------------
+-- Палитра (мрачная, приглушённая, как в DBD)
+------------------------------------------------------------------------
+
+Kit.Palette = {
+	Rust = Color3.fromRGB(112, 62, 38),
+	DarkRust = Color3.fromRGB(70, 40, 28),
+	Steel = Color3.fromRGB(120, 122, 125),
+	DarkSteel = Color3.fromRGB(58, 60, 64),
+	Iron = Color3.fromRGB(42, 42, 45),
+	Paint = Color3.fromRGB(74, 86, 70), -- облезлая армейская краска
+	Wood = Color3.fromRGB(110, 82, 55),
+	OldWood = Color3.fromRGB(92, 78, 64),
+	DarkWood = Color3.fromRGB(62, 46, 34),
+	Plank = Color3.fromRGB(128, 100, 70),
+	Bone = Color3.fromRGB(222, 212, 186),
+	OldBone = Color3.fromRGB(190, 176, 146),
+	Blood = Color3.fromRGB(92, 8, 8),
+	DryBlood = Color3.fromRGB(60, 10, 8),
+	Concrete = Color3.fromRGB(104, 102, 98),
+	DarkConcrete = Color3.fromRGB(70, 69, 66),
+	Brick = Color3.fromRGB(116, 62, 48),
+	Plaster = Color3.fromRGB(150, 140, 120),
+	Roof = Color3.fromRGB(60, 50, 46),
+	Leaf = Color3.fromRGB(34, 50, 32),
+	Pine = Color3.fromRGB(28, 44, 32),
+	Grass = Color3.fromRGB(56, 70, 40),
+	Hay = Color3.fromRGB(186, 158, 92),
+	Fabric = Color3.fromRGB(90, 78, 60),
+	Leather = Color3.fromRGB(70, 48, 34),
+	Rubber = Color3.fromRGB(28, 28, 30),
+	Warning = Color3.fromRGB(210, 170, 40),
+	Wax = Color3.fromRGB(232, 222, 190),
+	Flame = Color3.fromRGB(255, 170, 70),
+	Neon = Color3.fromRGB(255, 220, 140),
+	Black = Color3.fromRGB(18, 18, 20),
+}
+
+------------------------------------------------------------------------
+-- Случайность и цвет
+------------------------------------------------------------------------
+
+-- Небольшое случайное отклонение яркости/оттенка, чтобы одинаковые детали не выглядели клонами
+function Kit.jitter(color: Color3, amount: number?, rng: Random?): Color3
+	local a = amount or 0.06
+	local r = rng and rng:NextNumber(-a, a) or 0
+	local h, s, v = color:ToHSV()
+	return Color3.fromHSV(h, math.clamp(s + r * 0.5, 0, 1), math.clamp(v + r, 0, 1))
+end
+
+function Kit.dark(color: Color3, k: number): Color3
+	return color:Lerp(Color3.new(0, 0, 0), k)
+end
+
+function Kit.A(x: number?, y: number?, z: number?): CFrame
+	return CFrame.Angles(rad(x or 0), rad(y or 0), rad(z or 0))
+end
+
+------------------------------------------------------------------------
+-- Детали
+------------------------------------------------------------------------
+
+export type Props = { [string]: any }
+
+-- Базовое создание детали. Флаг Decor = мелочь без столкновений/лучей/тени.
+function Kit.part(parent: Instance?, props: Props, className: string?): BasePart
+	local p = Instance.new(className or "Part") :: BasePart
+	p.Anchored = true
+	p.TopSurface = Enum.SurfaceType.Smooth
+	p.BottomSurface = Enum.SurfaceType.Smooth
+	p.Material = Mat.SmoothPlastic
+	local decor = props.Decor
+	for k, v in props do
+		if k ~= "Decor" and k ~= "Parent" then
+			(p :: any)[k] = v
+		end
+	end
+	if decor then
+		Kit.decor(p)
+	end
+	if parent then
+		p.Parent = parent
+	end
+	return p
+end
+
+function Kit.decor(p: BasePart)
+	p.CanCollide = false
+	p.CanQuery = false
+	p.CanTouch = false
+	p.CastShadow = false
+end
+
+local function merge(base: Props, extra: Props?): Props
+	if extra then
+		for k, v in extra do
+			base[k] = v
+		end
+	end
+	return base
+end
+
+function Kit.box(parent: Instance?, cf: CFrame, size: Vector3, color: Color3, material: Enum.Material?, extra: Props?): BasePart
+	return Kit.part(parent, merge({ CFrame = cf, Size = size, Color = color, Material = material or Mat.SmoothPlastic }, extra))
+end
+
+-- Клин: наклонная грань смотрит вперёд (-Z) и вверх, высокая сторона сзади (+Z)
+function Kit.wedge(parent: Instance?, cf: CFrame, size: Vector3, color: Color3, material: Enum.Material?, extra: Props?): BasePart
+	return Kit.part(
+		parent,
+		merge({ CFrame = cf, Size = size, Color = color, Material = material or Mat.SmoothPlastic }, extra),
+		"WedgePart"
+	)
+end
+
+-- Цилиндр вдоль локальной оси X: length — длина, diameter — диаметр
+function Kit.cyl(parent: Instance?, cf: CFrame, length: number, diameter: number, color: Color3, material: Enum.Material?, extra: Props?): BasePart
+	return Kit.part(
+		parent,
+		merge({
+			Shape = Enum.PartType.Cylinder,
+			CFrame = cf,
+			Size = Vector3.new(length, diameter, diameter),
+			Color = color,
+			Material = material or Mat.SmoothPlastic,
+		}, extra)
+	)
+end
+
+-- Вертикальный цилиндр (ось Y) с центром в cf
+function Kit.vcyl(parent: Instance?, cf: CFrame, height: number, diameter: number, color: Color3, material: Enum.Material?, extra: Props?): BasePart
+	return Kit.cyl(parent, cf * CFrame.Angles(0, 0, rad(90)), height, diameter, color, material, extra)
+end
+
+function Kit.ball(parent: Instance?, cf: CFrame, diameter: number, color: Color3, material: Enum.Material?, extra: Props?): BasePart
+	return Kit.part(
+		parent,
+		merge({
+			Shape = Enum.PartType.Ball,
+			CFrame = cf,
+			Size = Vector3.new(diameter, diameter, diameter),
+			Color = color,
+			Material = material or Mat.SmoothPlastic,
+		}, extra)
+	)
+end
+
+-- Брусок/палка между двумя точками (квадратное сечение thickness x depth)
+function Kit.bar(parent: Instance?, a: Vector3, b: Vector3, thickness: number, color: Color3, material: Enum.Material?, extra: Props?, depth: number?): BasePart?
+	local d = b - a
+	local len = d.Magnitude
+	if len < 1e-3 then
+		return nil
+	end
+	local cf = CFrame.lookAt((a + b) / 2, b)
+	return Kit.box(parent, cf, Vector3.new(thickness, depth or thickness, len), color, material, extra)
+end
+
+-- Цилиндр между двумя точками
+function Kit.rod(parent: Instance?, a: Vector3, b: Vector3, diameter: number, color: Color3, material: Enum.Material?, extra: Props?): BasePart?
+	local d = b - a
+	local len = d.Magnitude
+	if len < 1e-3 then
+		return nil
+	end
+	local cf = CFrame.lookAt((a + b) / 2, b) * CFrame.Angles(0, rad(90), 0)
+	return Kit.cyl(parent, cf, len, diameter, color, material, extra)
+end
+
+-- Коробка со скошенными верхними рёбрами (выглядит менее «пластмассово»). 6 деталей.
+function Kit.bevelBox(parent: Instance?, cf: CFrame, size: Vector3, bevel: number, color: Color3, material: Enum.Material?, extra: Props?)
+	local b = math.min(bevel, size.X / 3, size.Z / 3, size.Y / 2)
+	local parts = {}
+	table.insert(parts, Kit.box(parent, cf * CFrame.new(0, -b / 2, 0), Vector3.new(size.X, size.Y - b, size.Z), color, material, extra))
+	table.insert(parts, Kit.box(parent, cf * CFrame.new(0, size.Y / 2 - b / 2, 0), Vector3.new(size.X - 2 * b, b, size.Z - 2 * b), color, material, extra))
+	local hx, hz, y = size.X / 2, size.Z / 2, size.Y / 2 - b / 2
+	-- Клинья вдоль четырёх верхних рёбер
+	table.insert(parts, Kit.wedge(parent, cf * CFrame.new(0, y, -hz + b / 2) * CFrame.Angles(0, 0, 0), Vector3.new(size.X - 2 * b, b, b), color, material, extra))
+	table.insert(parts, Kit.wedge(parent, cf * CFrame.new(0, y, hz - b / 2) * CFrame.Angles(0, math.pi, 0), Vector3.new(size.X - 2 * b, b, b), color, material, extra))
+	table.insert(parts, Kit.wedge(parent, cf * CFrame.new(-hx + b / 2, y, 0) * CFrame.Angles(0, rad(-90), 0), Vector3.new(size.Z - 2 * b, b, b), color, material, extra))
+	table.insert(parts, Kit.wedge(parent, cf * CFrame.new(hx - b / 2, y, 0) * CFrame.Angles(0, rad(90), 0), Vector3.new(size.Z - 2 * b, b, b), color, material, extra))
+	return parts
+end
+
+-- Дуга из цилиндров в плоскости XY локальной системы cf (угол 0 = +X, против часовой к +Y)
+function Kit.arc(parent: Instance?, cf: CFrame, radius: number, a0: number, a1: number, segments: number, thickness: number, color: Color3, material: Enum.Material?, extra: Props?)
+	local parts = {}
+	local prev
+	for i = 0, segments do
+		local a = rad(a0 + (a1 - a0) * i / segments)
+		local p = cf:PointToWorldSpace(Vector3.new(math.cos(a) * radius, math.sin(a) * radius, 0))
+		if prev then
+			local seg = Kit.rod(parent, prev, p, thickness, color, material, extra)
+			if seg then
+				table.insert(parts, seg)
+			end
+		end
+		prev = p
+	end
+	return parts
+end
+
+-- Кольцо (полная дуга)
+function Kit.ring(parent: Instance?, cf: CFrame, radius: number, segments: number, thickness: number, color: Color3, material: Enum.Material?, extra: Props?)
+	return Kit.arc(parent, cf, radius, 0, 360, segments, thickness, color, material, extra)
+end
+
+-- Провисающая кривая (верёвка/кабель/цепь) между a и b
+function Kit.sag(a: Vector3, b: Vector3, sag: number, n: number): { Vector3 }
+	local pts = {}
+	for i = 0, n do
+		local t = i / n
+		local p = a:Lerp(b, t) - Vector3.new(0, sag * 4 * t * (1 - t), 0)
+		table.insert(pts, p)
+	end
+	return pts
+end
+
+function Kit.cable(parent: Instance?, points: { Vector3 }, diameter: number, color: Color3, material: Enum.Material?, extra: Props?)
+	local parts = {}
+	for i = 1, #points - 1 do
+		local seg = Kit.rod(parent, points[i], points[i + 1], diameter, color, material, extra)
+		if seg then
+			table.insert(parts, seg)
+		end
+	end
+	return parts
+end
+
+-- Цепь из чередующихся звеньев вдоль кривой
+function Kit.chain(parent: Instance?, points: { Vector3 }, link: number, color: Color3, extra: Props?)
+	local parts = {}
+	local total = 0
+	for i = 1, #points - 1 do
+		local a, b = points[i], points[i + 1]
+		local len = (b - a).Magnitude
+		local count = math.max(1, math.floor(len / link))
+		for j = 0, count - 1 do
+			local p0 = a:Lerp(b, j / count)
+			local p1 = a:Lerp(b, (j + 1) / count)
+			total += 1
+			local cf = CFrame.lookAt((p0 + p1) / 2, p1) * CFrame.Angles(0, 0, total % 2 == 0 and rad(90) or 0)
+			table.insert(parts, Kit.box(parent, cf, Vector3.new(link * 0.45, link * 0.12, link * 1.05), color, Mat.Metal, merge({ Decor = true }, extra)))
+		end
+	end
+	return parts
+end
+
+-- Ряд заклёпок от a до b
+function Kit.rivets(parent: Instance?, a: Vector3, b: Vector3, count: number, diameter: number, color: Color3)
+	local parts = {}
+	for i = 0, count - 1 do
+		local t = count == 1 and 0.5 or i / (count - 1)
+		table.insert(parts, Kit.ball(parent, CFrame.new(a:Lerp(b, t)), diameter, color, Mat.Metal, { Decor = true }))
+	end
+	return parts
+end
+
+-- Стена из досок. cf — центр стены, size — (ширина, высота, толщина); доски идут вдоль direction ("X" — горизонтально, "Y" — вертикально)
+function Kit.planks(parent: Instance?, cf: CFrame, size: Vector3, options: Props?)
+	local opts: Props = options or {}
+	local rng: Random = opts.Rng or Random.new(1)
+	local dir = opts.Direction or "X"
+	local width = opts.PlankWidth or 0.9
+	local gap = opts.Gap or 0.08
+	local color = opts.Color or Kit.Palette.Plank
+	local material = opts.Material or Mat.WoodPlanks
+	local missing = opts.Missing or 0
+	local tilt = opts.Tilt or 0
+	local parts = {}
+	local span = dir == "X" and size.Y or size.X
+	local count = math.max(1, math.floor(span / (width + gap)))
+	local step = span / count
+	for i = 0, count - 1 do
+		if rng:NextNumber() >= missing then
+			local offset = -span / 2 + step * (i + 0.5)
+			local plankSize, pos
+			if dir == "X" then
+				plankSize = Vector3.new(size.X * rng:NextNumber(0.97, 1), step - gap, size.Z)
+				pos = CFrame.new(rng:NextNumber(-0.05, 0.05), offset, rng:NextNumber(-0.04, 0.04))
+			else
+				plankSize = Vector3.new(step - gap, size.Y * rng:NextNumber(0.94, 1), size.Z)
+				pos = CFrame.new(offset, -size.Y * rng:NextNumber(0, 0.03), rng:NextNumber(-0.04, 0.04))
+			end
+			local rot = tilt > 0 and CFrame.Angles(0, 0, rad(rng:NextNumber(-tilt, tilt))) or CFrame.identity
+			table.insert(parts, Kit.box(parent, cf * pos * rot, plankSize, Kit.jitter(color, 0.08, rng), material, opts.Extra))
+		end
+	end
+	return parts
+end
+
+------------------------------------------------------------------------
+-- Рисунки на поверхности (SurfaceGui), без загрузки текстур
+------------------------------------------------------------------------
+
+local function surface(part: BasePart, face: Enum.NormalId, ppu: number?): SurfaceGui
+	local gui = Instance.new("SurfaceGui")
+	gui.Face = face
+	gui.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
+	gui.PixelsPerStud = ppu or 40
+	gui.LightInfluence = 1
+	gui.Brightness = 1
+	gui.MaxDistance = 120
+	gui.Parent = part
+	return gui
+end
+
+local function frame(parent: Instance, props: Props): Frame
+	local f = Instance.new("Frame")
+	f.BorderSizePixel = 0
+	for k, v in props do
+		(f :: any)[k] = v
+	end
 	f.Parent = parent
 	return f
 end
 
-local function shuffle(list, rng: Random)
-	for i = #list, 2, -1 do
-		local j = rng:NextInteger(1, i)
-		list[i], list[j] = list[j], list[i]
+-- Диагональные полосы «опасность» (жёлто-чёрные)
+function Kit.hazardStripes(part: BasePart, face: Enum.NormalId, color: Color3?, count: number?)
+	local gui = surface(part, face, 30)
+	local holder = frame(gui, { Size = UDim2.fromScale(1, 1), BackgroundColor3 = color or Kit.Palette.Warning, ClipsDescendants = true })
+	local n = count or 6
+	for i = -n, n * 2 do
+		frame(holder, {
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			Position = UDim2.fromScale(i / n, 0.5),
+			Size = UDim2.new(0.5 / n, 0, 3, 0),
+			Rotation = 35,
+			BackgroundColor3 = Kit.Palette.Black,
+		})
 	end
+	return gui
 end
 
-export type MapData = {
-	Model: Model,
-	Walls: Folder,
-	Decor: Folder,
-	Generators: Folder,
-	Hooks: Folder,
-	Pallets: Folder,
-	Windows: Folder,
-	ExitGates: Folder,
-	Lockers: Folder,
-	Totems: Folder,
-	Chests: Folder,
-	Traps: Folder,
-	Crows: Folder,
-	Effects: Folder,
-	Hatch: Model,
-	TrapSpots: { CFrame },
-	CrowSpots: { CFrame },
-	SurvivorSpawn: Vector3,
-	KillerSpawn: Vector3,
-	ChestSpots: { CFrame },
-	TotemSpots: { CFrame },
+-- Ржавые потёки сверху вниз
+function Kit.rustStreaks(part: BasePart, face: Enum.NormalId, rng: Random, count: number?, color: Color3?)
+	local gui = surface(part, face, 20)
+	for _ = 1, count or 5 do
+		local f = frame(gui, {
+			Position = UDim2.fromScale(rng:NextNumber(0, 0.95), 0),
+			Size = UDim2.fromScale(rng:NextNumber(0.02, 0.07), rng:NextNumber(0.3, 0.9)),
+			BackgroundColor3 = color or Kit.Palette.DarkRust,
+			BackgroundTransparency = rng:NextNumber(0.25, 0.5),
+		})
+		local g = Instance.new("UIGradient")
+		g.Rotation = 90
+		g.Transparency = NumberSequence.new(0, 1)
+		g.Parent = f
+	end
+	return gui
+end
+
+-- Грязь/копоть: тёмный градиент снизу
+function Kit.grime(part: BasePart, face: Enum.NormalId, strength: number?)
+	local gui = surface(part, face, 10)
+	local f = frame(gui, { Size = UDim2.fromScale(1, 1), BackgroundColor3 = Color3.new(0, 0, 0), BackgroundTransparency = 0 })
+	local g = Instance.new("UIGradient")
+	g.Rotation = -90
+	g.Transparency = NumberSequence.new({
+		NumberSequenceKeypoint.new(0, 1 - (strength or 0.6)),
+		NumberSequenceKeypoint.new(0.6, 1),
+		NumberSequenceKeypoint.new(1, 1),
+	})
+	g.Parent = f
+	return gui
+end
+
+-- Круглая шкала со стрелкой
+function Kit.gauge(part: BasePart, face: Enum.NormalId, value: number?)
+	local gui = surface(part, face, 80)
+	local dial = frame(gui, {
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.fromScale(0.5, 0.5),
+		Size = UDim2.fromScale(0.86, 0.86),
+		BackgroundColor3 = Color3.fromRGB(220, 214, 190),
+	})
+	local c = Instance.new("UICorner")
+	c.CornerRadius = UDim.new(0.5, 0)
+	c.Parent = dial
+	local stroke = Instance.new("UIStroke")
+	stroke.Thickness = 3
+	stroke.Color = Kit.Palette.Iron
+	stroke.Parent = dial
+	frame(dial, {
+		AnchorPoint = Vector2.new(0.5, 1),
+		Position = UDim2.fromScale(0.5, 0.5),
+		Size = UDim2.fromScale(0.05, 0.42),
+		Rotation = -60 + 120 * (value or 0.3),
+		BackgroundColor3 = Color3.fromRGB(170, 20, 20),
+	})
+	return gui
+end
+
+-- Надпись
+function Kit.label(part: BasePart, face: Enum.NormalId, text: string, color: Color3?, font: Enum.Font?)
+	local gui = surface(part, face, 40)
+	local l = Instance.new("TextLabel")
+	l.Size = UDim2.fromScale(1, 1)
+	l.BackgroundTransparency = 1
+	l.Text = text
+	l.TextScaled = true
+	l.Font = font or Enum.Font.SpecialElite
+	l.TextColor3 = color or Kit.Palette.Black
+	l.Parent = gui
+	return gui
+end
+
+-- Красный крест (аптечка)
+function Kit.cross(part: BasePart, face: Enum.NormalId)
+	local gui = surface(part, face, 60)
+	frame(gui, { Size = UDim2.fromScale(1, 1), BackgroundColor3 = Color3.fromRGB(230, 228, 220) })
+	frame(gui, { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromScale(0.6, 0.2), BackgroundColor3 = Color3.fromRGB(190, 20, 20) })
+	frame(gui, { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromScale(0.2, 0.6), BackgroundColor3 = Color3.fromRGB(190, 20, 20) })
+	return gui
+end
+
+------------------------------------------------------------------------
+-- Свет и частицы (только встроенные текстуры)
+------------------------------------------------------------------------
+
+Kit.Tex = {
+	Smoke = "rbxasset://textures/particles/smoke_main.dds",
+	Sparkles = "rbxasset://textures/particles/sparkles_main.dds",
+	Fire = "rbxasset://textures/particles/fire_main.dds",
+	FireSparks = "rbxasset://textures/particles/fire_sparks_main.dds",
 }
 
-------------------------------------------------------------------------
--- Постройки
-------------------------------------------------------------------------
-
-local function palletLoop(map, cf: CFrame, rng: Random)
-	local style = rng:NextNumber() < 0.5 and "Wood" or "Concrete"
-	local walls = map.Walls
-	Props.wall(walls, cf * CFrame.new(-5.6, 4, 0), Vector3.new(5.6, 8, 1.5), style)
-	Props.wall(walls, cf * CFrame.new(5.6, 4, 0), Vector3.new(5.6, 8, 1.5), style)
-	Props.wall(walls, cf * CFrame.new(-8.6, 4, 4), Vector3.new(1.5, 8, 8), style)
-	Props.wall(walls, cf * CFrame.new(8.6, 4, -4), Vector3.new(1.5, 8, 8), style)
-	local upCF = cf * CFrame.new(-1.8, 3, 1) * A(0, 0, 78)
-	Props.pallet(map.Pallets, upCF, cf * CFrame.new(0, 1.5, 0))
-	table.insert(map.TrapSpots, cf * CFrame.new(0, 0, rng:NextNumber() < 0.5 and 3.5 or -3.5))
-	table.insert(map.CrowSpots, cf * CFrame.new(-5.6, 8, 0))
+function Kit.pointLight(parent: Instance, color: Color3, range: number, brightness: number, shadows: boolean?): PointLight
+	local l = Instance.new("PointLight")
+	l.Color = color
+	l.Range = range
+	l.Brightness = brightness
+	l.Shadows = shadows == true
+	l.Parent = parent
+	return l
 end
 
-local function windowLoop(map, cf: CFrame, rng: Random)
-	local style = rng:NextNumber() < 0.5 and "Brick" or "Concrete"
-	Props.wallWithOpenings(map.Walls, cf, 18, 10, 1.5, {
-		{ Center = 0, Width = 4, Sill = 3, Top = 7 },
-	}, style, map.Windows)
-	Props.wall(map.Walls, cf * CFrame.new(-9.75, 5, -5), Vector3.new(1.5, 10, 10), style)
-	Props.wall(map.Walls, cf * CFrame.new(9.75, 5, 5), Vector3.new(1.5, 10, 10), style)
-	table.insert(map.TrapSpots, cf * CFrame.new(0, 0, -3))
+function Kit.spotLight(parent: Instance, color: Color3, range: number, angle: number, brightness: number, face: Enum.NormalId, shadows: boolean?): SpotLight
+	local l = Instance.new("SpotLight")
+	l.Color = color
+	l.Range = range
+	l.Angle = angle
+	l.Brightness = brightness
+	l.Face = face
+	l.Shadows = shadows == true
+	l.Parent = parent
+	return l
 end
 
-local function roof(parent: Instance, cf: CFrame, size: Vector3)
-	P(parent, {
-		Name = "Roof",
-		Size = size,
-		CFrame = cf,
-		Color = Color3.fromRGB(90, 60, 45),
-		Material = Enum.Material.CorrodedMetal,
-	})
-end
-
-local function floor(parent: Instance, cf: CFrame, size: Vector2)
-	P(parent, {
-		Name = "Floor",
-		Size = Vector3.new(size.X, 0.2, size.Y),
-		CFrame = cf * CFrame.new(0, 0.1, 0),
-		Color = Color3.fromRGB(80, 60, 45),
-		Material = Enum.Material.WoodPlanks,
-	})
-end
-
--- Хижина маньяка в центре карты
-local function shack(map, cf: CFrame)
-	local walls = map.Walls
-	local h = 9
-	Props.wallWithOpenings(walls, cf * CFrame.new(0, 0, -8), 17, h, 1, {
-		{ Center = 0, Width = 5.8, Sill = 0, Top = 7 },
-	}, "Wood", map.Windows)
-	Props.wallWithOpenings(walls, cf * CFrame.new(0, 0, 8), 17, h, 1, {
-		{ Center = 3, Width = 4, Sill = 3, Top = 7 },
-	}, "Wood", map.Windows)
-	Props.wallWithOpenings(walls, cf * CFrame.new(-8, 0, 0) * A(0, 90, 0), 15, h, 1, {
-		{ Center = 2, Width = 4, Sill = 3, Top = 7 },
-	}, "Wood", map.Windows)
-	Props.wallWithOpenings(walls, cf * CFrame.new(8, 0, 0) * A(0, 90, 0), 15, h, 1, {
-		{ Center = -2, Width = 5, Sill = 0, Top = 7 },
-	}, "Wood", map.Windows)
-	roof(walls, cf * CFrame.new(0, h + 0.3, 0) * A(0, 0, 4), Vector3.new(19, 0.6, 19))
-	floor(map.Decor, cf, Vector2.new(15.5, 15.5))
-	Props.pallet(map.Pallets, cf * CFrame.new(-1.8, 3, -7) * A(0, 0, 78), cf * CFrame.new(0, 1.5, -8))
-	Props.locker(map.Lockers, cf * CFrame.new(-5.5, 0, 6.2))
-	table.insert(map.ChestSpots, cf * CFrame.new(5.2, 0, 5.4))
-	table.insert(map.TotemSpots, cf * CFrame.new(-11, 0, -9))
-	table.insert(map.CrowSpots, cf * CFrame.new(6, h + 0.6, -6))
-	-- Тусклая лампочка внутри
-	local bulb = P(map.Decor, {
-		Name = "Bulb",
-		Shape = Enum.PartType.Ball,
-		Size = Vector3.new(0.6, 0.6, 0.6),
-		CFrame = cf * CFrame.new(0, h - 1, 0),
-		Color = Color3.fromRGB(255, 200, 120),
-		Material = Enum.Material.Neon,
-		Decor = true,
-	})
-	local light = Instance.new("PointLight")
-	light.Color = Color3.fromRGB(255, 160, 90)
-	light.Range = 16
-	light.Brightness = 1.2
-	light.Shadows = true
-	light.Parent = bulb
-end
-
--- Дом из двух комнат
-local function house(map, cf: CFrame)
-	local walls = map.Walls
-	local h = 10
-	Props.wallWithOpenings(walls, cf * CFrame.new(0, 0, -9), 21, h, 1, {
-		{ Center = -5, Width = 5.8, Sill = 0, Top = 7.5 },
-		{ Center = 5, Width = 4, Sill = 3, Top = 7 },
-	}, "Brick", map.Windows)
-	Props.wallWithOpenings(walls, cf * CFrame.new(0, 0, 9), 21, h, 1, {
-		{ Center = -5, Width = 4, Sill = 3, Top = 7 },
-		{ Center = 5, Width = 4.5, Sill = 0, Top = 7.5 },
-	}, "Brick", map.Windows)
-	Props.wallWithOpenings(walls, cf * CFrame.new(-10, 0, 0) * A(0, 90, 0), 17, h, 1, {
-		{ Center = 2, Width = 4, Sill = 3, Top = 7 },
-	}, "Brick", map.Windows)
-	Props.wall(walls, cf * CFrame.new(10, h / 2, 0), Vector3.new(1, h, 17), "Brick")
-	Props.wallWithOpenings(walls, cf * CFrame.new(0, 0, 0) * A(0, 90, 0), 17, h, 0.8, {
-		{ Center = 3, Width = 4.5, Sill = 0, Top = 7.5 },
-	}, "Wood", map.Windows)
-	roof(walls, cf * CFrame.new(0, h + 0.3, 0), Vector3.new(23, 0.6, 21))
-	floor(map.Decor, cf, Vector2.new(19.5, 17.5))
-	Props.pallet(map.Pallets, cf * CFrame.new(-6.8, 3, -8) * A(0, 0, 78), cf * CFrame.new(-5, 1.5, -9))
-	Props.locker(map.Lockers, cf * CFrame.new(-8, 0, 6.8))
-	Props.locker(map.Lockers, cf * CFrame.new(7.6, 0, 6.8))
-	table.insert(map.ChestSpots, cf * CFrame.new(-7.5, 0, -2) * A(0, 90, 0))
-	table.insert(map.TotemSpots, cf * CFrame.new(7, 0, -6))
-	for _, x in { -5, 5 } do
-		local bulb = P(map.Decor, {
-			Name = "Bulb",
-			Shape = Enum.PartType.Ball,
-			Size = Vector3.new(0.6, 0.6, 0.6),
-			CFrame = cf * CFrame.new(x, h - 1, 0),
-			Color = Color3.fromRGB(255, 210, 140),
-			Material = Enum.Material.Neon,
-			Decor = true,
+-- Готовые наборы частиц: "Fire", "Embers", "Smoke", "Sparks", "Fog", "Fireflies", "Dust"
+function Kit.emitter(parent: Instance, preset: string, scale: number?): ParticleEmitter
+	local s = scale or 1
+	local e = Instance.new("ParticleEmitter")
+	e.Name = preset
+	if preset == "Fire" then
+		e.Texture = Kit.Tex.Fire
+		e.Color = ColorSequence.new(Color3.fromRGB(255, 170, 60), Color3.fromRGB(255, 70, 20))
+		e.LightEmission = 1
+		e.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.9 * s), NumberSequenceKeypoint.new(1, 0) })
+		e.Transparency = NumberSequence.new(0.1, 1)
+		e.Lifetime = NumberRange.new(0.5, 1)
+		e.Rate = 35
+		e.Speed = NumberRange.new(2 * s, 4 * s)
+		e.SpreadAngle = Vector2.new(12, 12)
+		e.RotSpeed = NumberRange.new(-60, 60)
+		e.Rotation = NumberRange.new(0, 360)
+	elseif preset == "Embers" then
+		e.Texture = Kit.Tex.FireSparks
+		e.Color = ColorSequence.new(Color3.fromRGB(255, 160, 60))
+		e.LightEmission = 1
+		e.Size = NumberSequence.new(0.12 * s, 0)
+		e.Lifetime = NumberRange.new(1.5, 3)
+		e.Rate = 6
+		e.Speed = NumberRange.new(2, 5)
+		e.SpreadAngle = Vector2.new(25, 25)
+		e.Acceleration = Vector3.new(0, 1.5, 0)
+	elseif preset == "Smoke" then
+		e.Texture = Kit.Tex.Smoke
+		e.Color = ColorSequence.new(Color3.fromRGB(40, 40, 42))
+		e.Size = NumberSequence.new(1.2 * s, 4 * s)
+		e.Transparency = NumberSequence.new(0.35, 1)
+		e.Lifetime = NumberRange.new(2, 4)
+		e.Rate = 4
+		e.Speed = NumberRange.new(1.5, 3)
+		e.SpreadAngle = Vector2.new(15, 15)
+		e.RotSpeed = NumberRange.new(-20, 20)
+	elseif preset == "Sparks" then
+		e.Texture = Kit.Tex.Sparkles
+		e.Color = ColorSequence.new(Color3.fromRGB(255, 190, 80))
+		e.LightEmission = 1
+		e.Size = NumberSequence.new(0.3 * s, 0)
+		e.Speed = NumberRange.new(10, 18)
+		e.SpreadAngle = Vector2.new(70, 70)
+		e.Lifetime = NumberRange.new(0.3, 0.7)
+		e.Acceleration = Vector3.new(0, -40, 0)
+		e.Rate = 0
+	elseif preset == "Fog" then
+		e.Texture = Kit.Tex.Smoke
+		e.Color = ColorSequence.new(Color3.fromRGB(150, 155, 170))
+		e.Size = NumberSequence.new(8 * s, 14 * s)
+		e.Transparency = NumberSequence.new({
+			NumberSequenceKeypoint.new(0, 1),
+			NumberSequenceKeypoint.new(0.3, 0.88),
+			NumberSequenceKeypoint.new(1, 1),
 		})
-		local light = Instance.new("PointLight")
-		light.Color = Color3.fromRGB(255, 170, 100)
-		light.Range = 14
-		light.Brightness = 1
-		light.Parent = bulb
+		e.Lifetime = NumberRange.new(10, 16)
+		e.Rate = 0.6
+		e.Speed = NumberRange.new(0.3, 1)
+		e.SpreadAngle = Vector2.new(180, 10)
+		e.Rotation = NumberRange.new(0, 360)
+		e.RotSpeed = NumberRange.new(-5, 5)
+	elseif preset == "Fireflies" then
+		e.Texture = Kit.Tex.Sparkles
+		e.Color = ColorSequence.new(Color3.fromRGB(220, 255, 140))
+		e.LightEmission = 1
+		e.Size = NumberSequence.new(0.15 * s)
+		e.Lifetime = NumberRange.new(4, 7)
+		e.Rate = 1.5
+		e.Speed = NumberRange.new(0.5, 1.2)
+		e.SpreadAngle = Vector2.new(180, 180)
+	else -- Dust
+		e.Texture = Kit.Tex.Smoke
+		e.Color = ColorSequence.new(Color3.fromRGB(120, 110, 95))
+		e.Size = NumberSequence.new(0.6 * s, 1.6 * s)
+		e.Transparency = NumberSequence.new(0.6, 1)
+		e.Lifetime = NumberRange.new(1, 2)
+		e.Rate = 0
+		e.Speed = NumberRange.new(1, 3)
+		e.SpreadAngle = Vector2.new(60, 60)
 	end
+	e.Parent = parent
+	return e
 end
 
 ------------------------------------------------------------------------
--- Карта
+-- CSG (объединение/вычитание). Если движок не может (или мы в тестах) — остаются обычные детали.
 ------------------------------------------------------------------------
 
-function MapBuilder.BuildMap(seed: number?): MapData
-	local old = workspace:FindFirstChild("Map")
-	if old then
-		old:Destroy()
+function Kit.union(parts: { BasePart }, name: string?): BasePart?
+	if #parts < 2 then
+		return parts[1]
 	end
-
-	local rng = Random.new(seed or os.clock() * 1000)
-	local size = Config.MapSize
-	local half = size / 2
-
-	local model = Instance.new("Model")
-	model.Name = "Map"
-	local map = {
-		Model = model,
-		Walls = folder("Walls", model),
-		Decor = folder("Decor", model),
-		Generators = folder("Generators", model),
-		Hooks = folder("Hooks", model),
-		Pallets = folder("Pallets", model),
-		Windows = folder("Windows", model),
-		ExitGates = folder("ExitGates", model),
-		Lockers = folder("Lockers", model),
-		Totems = folder("Totems", model),
-		Chests = folder("Chests", model),
-		Traps = folder("Traps", model),
-		Crows = folder("Crows", model),
-		Effects = folder("Effects", model),
-		TrapSpots = {},
-		CrowSpots = {},
-		ChestSpots = {},
-		TotemSpots = {},
-	}
-
-	P(model, {
-		Name = "Ground",
-		Size = Vector3.new(size + 4, 2, size + 4),
-		CFrame = CFrame.new(0, -1, 0),
-		Color = Color3.fromRGB(42, 52, 33),
-		Material = Enum.Material.Grass,
-	})
-
-	-- Внешние стены с проёмами под ворота на севере и юге
-	local wallH = 16
-	local gateGap = 16
-	local sideLen = (size - gateGap) / 2
-	for _, side in { 1, -1 } do
-		for _, dir in { 1, -1 } do
-			Props.wall(
-				map.Walls,
-				CFrame.new(dir * (gateGap / 2 + sideLen / 2), wallH / 2, side * half),
-				Vector3.new(sideLen, wallH, 2)
-			)
-		end
-		Props.wall(map.Walls, CFrame.new(side * half, wallH / 2, 0), Vector3.new(2, wallH, size))
+	local first = parts[1]
+	local rest = table.move(parts, 2, #parts, 1, {})
+	local ok, result = pcall(function()
+		return (first :: any):UnionAsync(rest)
+	end)
+	if not ok or not result then
+		return nil
 	end
-	for i, side in { 1, -1 } do
-		Props.exitGate(map.ExitGates, side, i)
+	local u = result :: BasePart
+	u.Name = name or first.Name
+	u.Anchored = true
+	u.CanCollide = first.CanCollide
+	u.CanQuery = first.CanQuery
+	u.CanTouch = first.CanTouch
+	u.CastShadow = first.CastShadow
+	pcall(function()
+		(u :: any).UsePartColor = true
+	end)
+	u.Color = first.Color
+	u.Material = first.Material
+	u.Parent = first.Parent
+	for _, p in parts do
+		p:Destroy()
 	end
+	return u
+end
 
-	-- Сетка ячеек
-	local n = math.floor(size / CELL)
-	local cells = {}
-	local center
-	for ix = 1, n do
-		for iz = 1, n do
-			local cx = -half + CELL * (ix - 0.5)
-			local cz = -half + CELL * (iz - 0.5)
-			local nearGate = math.abs(cx) < CELL and (iz == 1 or iz == n)
-			if ix == math.ceil(n / 2) and iz == math.ceil(n / 2) then
-				center = Vector3.new(cx, 0, cz)
-			elseif not nearGate then
-				table.insert(cells, Vector3.new(cx, 0, cz))
-			end
+-- Вычесть cutters из base. При неудаче резаки просто удаляются, остаётся base.
+function Kit.subtract(base: BasePart, cutters: { BasePart }): BasePart
+	local ok, result = pcall(function()
+		return (base :: any):SubtractAsync(cutters)
+	end)
+	for _, c in cutters do
+		c:Destroy()
+	end
+	if not ok or not result then
+		return base
+	end
+	local u = result :: BasePart
+	u.Name = base.Name
+	u.Anchored = true
+	u.CanCollide = base.CanCollide
+	u.CastShadow = base.CastShadow
+	pcall(function()
+		(u :: any).UsePartColor = true
+	end)
+	u.Color = base.Color
+	u.Material = base.Material
+	u.Parent = base.Parent
+	base:Destroy()
+	return u
+end
+
+------------------------------------------------------------------------
+-- Модели
+------------------------------------------------------------------------
+
+function Kit.model(name: string, parent: Instance?): Model
+	local m = Instance.new("Model")
+	m.Name = name
+	if parent then
+		m.Parent = parent
+	end
+	return m
+end
+
+-- Назначить PrimaryPart и сделать опору модели равной origin (по умолчанию — начало координат).
+-- Вызывать сразу после создания PrimaryPart и ДО Kit.movable.
+function Kit.setOrigin(model: Model, primary: BasePart, origin: CFrame?)
+	model.PrimaryPart = primary
+	primary.PivotOffset = primary.CFrame:ToObjectSpace(origin or CFrame.identity)
+end
+
+function Kit.count(root: Instance): number
+	local n = 0
+	for _, d in root:GetDescendants() do
+		if d:IsA("BasePart") then
+			n += 1
 		end
 	end
-	shuffle(cells, rng)
-
-	local idx = 0
-	local function nextCell(): (CFrame, Vector3)
-		idx += 1
-		local c = cells[idx]
-		local rot = rng:NextInteger(0, 3) * 90
-		return CFrame.new(c) * A(0, rot, 0), c
-	end
-
-	shack(map, CFrame.new(center) * A(0, rng:NextInteger(0, 3) * 90, 0))
-	house(map, (nextCell()))
-
-	for i = 1, Config.GeneratorCount do
-		local cf = nextCell()
-		Props.generator(map.Generators, cf, i)
-		Props.wall(map.Walls, cf * CFrame.new(0, 3, 6.5), Vector3.new(10, 6, 1.5), rng:NextNumber() < 0.5 and "Wood" or "Brick")
-		table.insert(map.TrapSpots, cf * CFrame.new(rng:NextNumber(-4, 4), 0, -4))
-	end
-	for i = 1, 8 do
-		local cf = nextCell()
-		Props.hook(map.Hooks, cf, i)
-		table.insert(map.CrowSpots, cf * CFrame.new(0, 12, 0))
-	end
-	for _ = 1, 8 do
-		palletLoop(map, (nextCell()), rng)
-	end
-	for _ = 1, 3 do
-		windowLoop(map, (nextCell()), rng)
-	end
-	for _ = 1, 2 do
-		local cf = nextCell()
-		Props.wall(map.Walls, cf * CFrame.new(0, 4, 2), Vector3.new(8, 8, 1.2), "Wood")
-		Props.locker(map.Lockers, cf * CFrame.new(-2, 0, 0.3))
-		Props.locker(map.Lockers, cf * CFrame.new(1.4, 0, 0.3))
-	end
-	for _ = 1, 3 do
-		local cf = nextCell()
-		table.insert(map.TotemSpots, cf)
-		Props.rock(map.Walls, cf * CFrame.new(0, 0, 6), rng)
-	end
-	for _ = 1, 3 do
-		local cf = nextCell()
-		table.insert(map.ChestSpots, cf)
-		Props.hay(map.Walls, cf * CFrame.new(0, 0, 5), rng)
-	end
-
-	-- Люк
-	local hatchCF = nextCell()
-	map.Hatch = Props.hatch(map.Model, hatchCF)
-
-	-- Тотемы (один — проклятый) и сундуки
-	shuffle(map.TotemSpots, rng)
-	for i = 1, math.min(5, #map.TotemSpots) do
-		Props.totem(map.Totems, map.TotemSpots[i], i == 1, rng)
-	end
-	for _, cf in map.ChestSpots do
-		Props.chest(map.Chests, cf)
-	end
-
-	-- Декор
-	for _ = 1, 4 do
-		Props.junkPile(map.Walls, (nextCell()), rng)
-	end
-	for _ = 1, 3 do
-		Props.corn(map.Decor, (nextCell()), rng)
-	end
-	for _ = 1, 6 do
-		local cf = nextCell()
-		for _ = 1, rng:NextInteger(2, 3) do
-			Props.tree(map.Walls, cf * CFrame.new(rng:NextNumber(-8, 8), 0, rng:NextNumber(-8, 8)), rng)
-		end
-	end
-	for _ = 1, 3 do
-		local cf = nextCell()
-		Props.deadTree(map.Walls, cf, rng)
-		table.insert(map.CrowSpots, cf * CFrame.new(0, 0, 3))
-	end
-	for _ = 1, 4 do
-		Props.rock(map.Walls, (nextCell()), rng)
-	end
-	for _ = 1, 2 do
-		Props.tombstones(map.Walls, (nextCell()), rng)
-	end
-	for _ = 1, 3 do
-		local cf = nextCell()
-		Props.barrel(map.Walls, cf * CFrame.new(-3, 0, 0), rng)
-		Props.barrel(map.Walls, cf * CFrame.new(-0.6, 0, 1), rng)
-		Props.fire(map.Decor, cf * CFrame.new(-3, 3.2, 0), 1)
-		Props.hay(map.Walls, cf * CFrame.new(4, 0, 0), rng)
-	end
-	for _ = 1, 3 do
-		local cf = nextCell()
-		Props.fence(map.Walls, cf * CFrame.new(0, 0, -4), 16)
-		table.insert(map.CrowSpots, cf * CFrame.new(rng:NextNumber(-6, 6), 4.5, -4))
-	end
-	for _ = 1, 5 do
-		Props.lamp(map.Decor, (nextCell()))
-	end
-
-	-- Туман по всей карте
-	for _ = 1, 14 do
-		Props.fog(map.Decor, Vector3.new(rng:NextNumber(-half, half), 1, rng:NextNumber(-half, half)), rng)
-	end
-
-	-- Оставшиеся пустые ячейки — для спавна
-	local free = {}
-	for i = idx + 1, #cells do
-		table.insert(free, cells[i])
-	end
-	local survivorSpawn = free[1] or Vector3.new(30, 0, 30)
-	local killerSpawn = survivorSpawn
-	local best = -1
-	for _, c in free do
-		local d = (c - survivorSpawn).Magnitude
-		if d > best then
-			best = d
-			killerSpawn = c
-		end
-	end
-	map.SurvivorSpawn = survivorSpawn + Vector3.new(0, 3.2, 0)
-	map.KillerSpawn = killerSpawn + Vector3.new(0, 3.5, 0)
-	for i = 2, #free do
-		table.insert(map.CrowSpots, CFrame.new(free[i] + Vector3.new(rng:NextNumber(-6, 6), 0, rng:NextNumber(-6, 6))))
-	end
-
-	model.Parent = workspace
-	return map :: any
+	return n
 end
 
-------------------------------------------------------------------------
--- Лобби у костра
-------------------------------------------------------------------------
-
-function MapBuilder.BuildLobby(): Model
-	local existing = workspace:FindFirstChild("Lobby")
-	if existing then
-		return existing :: Model
-	end
-	local rng = Random.new(42)
-	local lobby = Instance.new("Model")
-	lobby.Name = "Lobby"
-	local pos = Config.LobbyPosition
-	local base = CFrame.new(pos)
-
-	P(lobby, {
-		Name = "Ground",
-		Size = Vector3.new(120, 2, 120),
-		CFrame = base * CFrame.new(0, -1, 0),
-		Color = Color3.fromRGB(38, 48, 30),
-		Material = Enum.Material.Grass,
-	})
-	-- Невидимые стены
-	for _, d in
-		{
-			{ Vector3.new(0, 15, 60), Vector3.new(120, 30, 2) },
-			{ Vector3.new(0, 15, -60), Vector3.new(120, 30, 2) },
-			{ Vector3.new(60, 15, 0), Vector3.new(2, 30, 120) },
-			{ Vector3.new(-60, 15, 0), Vector3.new(2, 30, 120) },
-		}
-	do
-		P(lobby, { Name = "Barrier", Size = d[2], CFrame = base * CFrame.new(d[1]), Transparency = 1 })
-	end
-
-	-- Костёр
-	for i = 1, 8 do
-		local a = i / 8 * math.pi * 2
-		P(lobby, {
-			Name = "FireStone",
-			Size = Vector3.new(1.2, 0.8, 1),
-			CFrame = base * CFrame.new(math.cos(a) * 2.4, 0.4, math.sin(a) * 2.4) * A(0, -math.deg(a), 0),
-			Color = Color3.fromRGB(80, 78, 75),
-			Material = Enum.Material.Slate,
-		})
-	end
-	for i = 1, 4 do
-		P(lobby, {
-			Name = "FireLog",
-			Shape = Enum.PartType.Cylinder,
-			Size = Vector3.new(3, 0.6, 0.6),
-			CFrame = base * CFrame.new(0, 0.5, 0) * A(0, i * 45, 25),
-			Color = Color3.fromRGB(50, 35, 25),
-			Material = Enum.Material.Wood,
-		})
-	end
-	Props.fire(lobby, base * CFrame.new(0, 1.2, 0), 2.2)
-
-	-- Брёвна-сиденья вокруг костра
-	for i = 1, 6 do
-		local a = i / 6 * math.pi * 2
-		local seatPos = pos + Vector3.new(math.cos(a) * 9, 0.7, math.sin(a) * 9)
-		local seat = Instance.new("Seat")
-		seat.Name = "LogSeat"
-		seat.Anchored = true
-		seat.Shape = Enum.PartType.Cylinder
-		seat.Size = Vector3.new(5, 1.4, 1.4)
-		seat.CFrame = CFrame.lookAt(seatPos, Vector3.new(pos.X, seatPos.Y, pos.Z))
-		seat.Color = Color3.fromRGB(70, 50, 35)
-		seat.Material = Enum.Material.Wood
-		seat.CollisionGroup = "DBDSeats"
-		seat.Parent = lobby
-	end
-
-	-- Палатки, деревья, туман
-	for i = 1, 3 do
-		local a = i / 3 * math.pi * 2 + 0.5
-		local tcf = CFrame.lookAt(pos + Vector3.new(math.cos(a) * 22, 0, math.sin(a) * 22), pos)
-		for _, side in { -1, 1 } do
-			local w = Instance.new("WedgePart")
-			w.Anchored = true
-			w.Size = Vector3.new(0.3, 4, 3)
-			w.CFrame = tcf * CFrame.new(side * 1.5, 2, 0) * A(0, side * 90, 0)
-			w.Color = Color3.fromRGB(70 + i * 20, 80, 60)
-			w.Material = Enum.Material.Fabric
-			w.Parent = lobby
-		end
-		P(lobby, {
-			Name = "TentFloor",
-			Size = Vector3.new(6, 0.2, 6),
-			CFrame = tcf * CFrame.new(0, 0.1, 0),
-			Color = Color3.fromRGB(60, 55, 45),
-			Material = Enum.Material.Fabric,
-		})
-	end
-	for _ = 1, 26 do
-		local a = rng:NextNumber(0, math.pi * 2)
-		local r = rng:NextNumber(32, 55)
-		Props.tree(lobby, base * CFrame.new(math.cos(a) * r, 0, math.sin(a) * r), rng)
-	end
-	for _ = 1, 6 do
-		Props.fog(lobby, pos + Vector3.new(rng:NextNumber(-40, 40), 1, rng:NextNumber(-40, 40)), rng)
-	end
-
-	-- Табличка
-	local board = P(lobby, {
-		Name = "Sign",
-		Size = Vector3.new(12, 4, 0.4),
-		CFrame = base * CFrame.new(0, 5, -26),
-		Color = Color3.fromRGB(60, 40, 30),
-		Material = Enum.Material.WoodPlanks,
-	})
-	for _, x in { -5, 5 } do
-		P(lobby, {
-			Name = "SignPost",
-			Size = Vector3.new(0.5, 5, 0.5),
-			CFrame = base * CFrame.new(x, 2.5, -26),
-			Color = Color3.fromRGB(50, 35, 25),
-			Material = Enum.Material.Wood,
-		})
-	end
-	local gui = Instance.new("SurfaceGui")
-	gui.Face = Enum.NormalId.Back
-	gui.CanvasSize = Vector2.new(600, 200)
-	gui.Parent = board
-	local text = Instance.new("TextLabel")
-	text.Size = UDim2.fromScale(1, 1)
-	text.BackgroundTransparency = 1
-	text.Text = "DEAD BY DAYLIGHT"
-	text.Font = Enum.Font.Creepster
-	text.TextScaled = true
-	text.TextColor3 = Color3.fromRGB(190, 20, 20)
-	text.Parent = gui
-
-	lobby.Parent = workspace
-	return lobby
+-- Пометить подвижную деталь: группа FX и два состояния (мировые CFrame на момент постройки).
+-- Хранятся относительно опоры модели (model:GetPivot()), поэтому PrimaryPart модели должен быть
+-- уже назначен и сам НЕ должен быть подвижным. PropFX.setGroup(model, group, alpha) двигает детали
+-- группы между CF0 (alpha = 0) и CF1 (alpha = 1).
+function Kit.movable(model: Model, part: BasePart, group: string, cf0: CFrame, cf1: CFrame)
+	local pivot = model:GetPivot()
+	part:SetAttribute("FX", group)
+	part:SetAttribute("CF0", pivot:ToObjectSpace(cf0))
+	part:SetAttribute("CF1", pivot:ToObjectSpace(cf1))
+	part.CFrame = cf0
 end
 
--- Точка появления в лобби (по кругу у костра)
-function MapBuilder.LobbySpawn(): CFrame
-	local pos = Config.LobbyPosition
-	local a = math.random() * math.pi * 2
-	local p = pos + Vector3.new(math.cos(a) * 14, 3.5, math.sin(a) * 14)
-	return CFrame.lookAt(p, Vector3.new(pos.X, p.Y, pos.Z))
+-- Повернуть CFrame вокруг шарнира (для подготовки CF1 у дверей/крышек)
+function Kit.aroundHinge(cf: CFrame, hinge: CFrame, rotation: CFrame): CFrame
+	return hinge * rotation * hinge:Inverse() * cf
 end
 
-------------------------------------------------------------------------
--- Освещение
-------------------------------------------------------------------------
-
-function MapBuilder.SetupLighting()
-	Lighting.ClockTime = 0.3
-	Lighting.Brightness = 1.2
-	Lighting.Ambient = Color3.fromRGB(35, 35, 50)
-	Lighting.OutdoorAmbient = Color3.fromRGB(70, 70, 90)
-	Lighting.EnvironmentDiffuseScale = 0.4
-	Lighting.EnvironmentSpecularScale = 0.4
-	Lighting.GlobalShadows = true
-	Lighting.FogEnd = 100000
-	for _, child in Lighting:GetChildren() do
-		child:Destroy()
-	end
-
-	local atmosphere = Instance.new("Atmosphere")
-	atmosphere.Density = 0.48
-	atmosphere.Offset = 0.1
-	atmosphere.Color = Color3.fromRGB(120, 130, 155)
-	atmosphere.Decay = Color3.fromRGB(40, 45, 60)
-	atmosphere.Glare = 0
-	atmosphere.Haze = 2.2
-	atmosphere.Parent = Lighting
-
-	local sky = Instance.new("Sky")
-	sky.CelestialBodiesShown = true
-	sky.MoonAngularSize = 14
-	sky.StarCount = 1500
-	sky.Parent = Lighting
-
-	local cc = Instance.new("ColorCorrectionEffect")
-	cc.Saturation = -0.35
-	cc.Contrast = 0.15
-	cc.Brightness = 0.02
-	cc.TintColor = Color3.fromRGB(215, 225, 255)
-	cc.Parent = Lighting
-
-	local bloom = Instance.new("BloomEffect")
-	bloom.Intensity = 0.6
-	bloom.Size = 30
-	bloom.Threshold = 1.6
-	bloom.Parent = Lighting
-end
-
-return MapBuilder
+return Kit
 ]]></string>
-          </Properties>
-        </Item>
-        <Item class="ModuleScript" referent="27">
-          <Properties>
-            <string name="Name">Props</string>
-            <string name="Source"><![CDATA[-- Детализированные объекты карты. Всё строится из обычных деталей (Part),
--- поэтому не нужны модели из Toolbox.
+            </Properties>
+          </Item>
+          <Item class="ModuleScript" referent="33">
+            <Properties>
+              <string name="Name">Legacy</string>
+              <string name="Source"><![CDATA[-- ВРЕМЕННЫЙ модуль: старые простые декорации (стены, деревья, камни, свалка...).
+-- Используется Structures/Nature/Lobby, пока они не переписаны качественно; затем удаляется.
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Config = require(ReplicatedStorage.Shared.Config)
@@ -3302,914 +3649,6 @@ function Props.wallWithOpenings(
 	end
 	segment(x, length / 2, 0, height)
 	return sills
-end
-
-------------------------------------------------------------------------
--- Генератор
-------------------------------------------------------------------------
-
-function Props.generator(parent: Instance, cf: CFrame, index: number): Model
-	local m = model("Generator" .. index)
-	P(m, {
-		Name = "Base",
-		Size = Vector3.new(4.6, 0.5, 3.4),
-		CFrame = cf * CFrame.new(0, 0.25, 0),
-		Color = COLORS.Rust,
-		Material = Enum.Material.CorrodedMetal,
-	})
-	local body = P(m, {
-		Name = "Body",
-		Size = Vector3.new(4, 3, 3),
-		CFrame = cf * CFrame.new(0, 2, 0),
-		Color = Color3.fromRGB(78, 84, 74),
-		Material = Enum.Material.DiamondPlate,
-	})
-	P(m, {
-		Name = "Engine",
-		Size = Vector3.new(2.6, 1.3, 2.2),
-		CFrame = cf * CFrame.new(-0.5, 4.15, 0),
-		Color = Color3.fromRGB(45, 45, 45),
-		Material = Enum.Material.Metal,
-	})
-	for i = 1, 2 do
-		P(m, {
-			Name = "Piston" .. i,
-			Shape = Enum.PartType.Cylinder,
-			Size = Vector3.new(1.3, 0.55, 0.55),
-			CFrame = cf * CFrame.new(-1.1 + (i - 1) * 1.1, 5.2, 0) * A(0, 0, 90),
-			Color = Color3.fromRGB(150, 150, 150),
-			Material = Enum.Material.Metal,
-			Decor = true,
-		})
-	end
-	P(m, {
-		Name = "Exhaust",
-		Shape = Enum.PartType.Cylinder,
-		Size = Vector3.new(2.2, 0.35, 0.35),
-		CFrame = cf * CFrame.new(1.4, 4.4, 1) * A(0, 0, 90),
-		Color = COLORS.Black,
-		Material = Enum.Material.Metal,
-		Decor = true,
-	})
-	-- Кабели к земле
-	for i = 1, 3 do
-		P(m, {
-			Name = "Cable",
-			Size = Vector3.new(0.15, 0.15, 3),
-			CFrame = cf * CFrame.new(-1.5 + i * 0.6, 0.6, -2.7) * A(-12, (i - 2) * 15, 0),
-			Color = COLORS.Black,
-			Material = Enum.Material.Rubber,
-			Decor = true,
-		})
-	end
-	-- Лампочки прогресса (4 штуки)
-	P(m, {
-		Name = "LightBar",
-		Size = Vector3.new(2.4, 0.25, 0.4),
-		CFrame = cf * CFrame.new(0, 3.65, -1.55),
-		Color = COLORS.Black,
-		Material = Enum.Material.Metal,
-		Decor = true,
-	})
-	for i = 1, 4 do
-		P(m, {
-			Name = "Light" .. i,
-			Size = Vector3.new(0.35, 0.35, 0.2),
-			CFrame = cf * CFrame.new(-0.9 + (i - 1) * 0.6, 3.65, -1.8),
-			Color = Color3.fromRGB(45, 40, 30),
-			Material = Enum.Material.Glass,
-			Decor = true,
-		})
-	end
-	-- Большая лампа, загорается после ремонта
-	local bulb = P(m, {
-		Name = "Bulb",
-		Shape = Enum.PartType.Ball,
-		Size = Vector3.new(1.1, 1.1, 1.1),
-		CFrame = cf * CFrame.new(1.2, 5.3, -0.6),
-		Color = Color3.fromRGB(60, 60, 50),
-		Material = Enum.Material.Glass,
-		Decor = true,
-	})
-	local light = Instance.new("PointLight")
-	light.Color = Color3.fromRGB(255, 230, 150)
-	light.Range = 28
-	light.Brightness = 3
-	light.Shadows = true
-	light.Enabled = false
-	light.Parent = bulb
-
-	-- Искры и дым при провале проверки навыка
-	local fx = Instance.new("Attachment")
-	fx.Name = "FX"
-	fx.Position = Vector3.new(0, 1.8, 0)
-	fx.Parent = body
-	local sparks = Instance.new("ParticleEmitter")
-	sparks.Name = "Sparks"
-	sparks.Texture = SPARK_TEX
-	sparks.Color = ColorSequence.new(Color3.fromRGB(255, 190, 80))
-	sparks.LightEmission = 1
-	sparks.Size = NumberSequence.new(0.3, 0)
-	sparks.Speed = NumberRange.new(10, 18)
-	sparks.SpreadAngle = Vector2.new(70, 70)
-	sparks.Lifetime = NumberRange.new(0.3, 0.7)
-	sparks.Acceleration = Vector3.new(0, -40, 0)
-	sparks.Enabled = false
-	sparks.Parent = fx
-	local smoke = Instance.new("ParticleEmitter")
-	smoke.Name = "Smoke"
-	smoke.Texture = SMOKE_TEX
-	smoke.Color = ColorSequence.new(Color3.fromRGB(40, 40, 40))
-	smoke.Size = NumberSequence.new(1.5, 5)
-	smoke.Transparency = NumberSequence.new(0.3, 1)
-	smoke.Speed = NumberRange.new(3, 6)
-	smoke.Lifetime = NumberRange.new(1.5, 2.5)
-	smoke.Enabled = false
-	smoke.Parent = fx
-
-	m.PrimaryPart = body
-	m:SetAttribute("Kind", "Generator")
-	m:SetAttribute("Progress", 0)
-	m:SetAttribute("Done", false)
-	m:SetAttribute("Regressing", false)
-	m.Parent = parent
-	return m
-end
-
-------------------------------------------------------------------------
--- Крюк
-------------------------------------------------------------------------
-
-function Props.hook(parent: Instance, cf: CFrame, index: number): Model
-	local m = model("Hook" .. index)
-	local red = Color3.fromRGB(95, 25, 20)
-	P(m, {
-		Name = "Base",
-		Size = Vector3.new(2.6, 0.8, 2.6),
-		CFrame = cf * CFrame.new(0, 0.4, 0) * A(0, 20, 0),
-		Color = Color3.fromRGB(70, 65, 60),
-		Material = Enum.Material.Slate,
-	})
-	local pole = P(m, {
-		Name = "Pole",
-		Size = Vector3.new(0.9, 12, 0.9),
-		CFrame = cf * CFrame.new(0, 6, 0),
-		Color = red,
-		Material = Enum.Material.CorrodedMetal,
-	})
-	P(m, {
-		Name = "Arm",
-		Size = Vector3.new(0.7, 0.7, 4.4),
-		CFrame = cf * CFrame.new(0, 11.4, -2),
-		Color = red,
-		Material = Enum.Material.CorrodedMetal,
-	})
-	P(m, {
-		Name = "Brace",
-		Size = Vector3.new(0.4, 0.4, 3),
-		CFrame = cf * CFrame.new(0, 10.3, -1) * A(-45, 0, 0),
-		Color = red,
-		Material = Enum.Material.CorrodedMetal,
-		Decor = true,
-	})
-	-- Цепь из звеньев
-	for i = 1, 4 do
-		P(m, {
-			Name = "Link",
-			Size = Vector3.new(0.12, 0.45, 0.25),
-			CFrame = cf * CFrame.new(0, 11 - i * 0.4, -3.9) * A(0, i % 2 == 0 and 90 or 0, 0),
-			Color = Color3.fromRGB(80, 80, 80),
-			Material = Enum.Material.Metal,
-			Decor = true,
-		})
-	end
-	-- Сам крюк (изогнутый из трёх частей)
-	local steel = Color3.fromRGB(160, 155, 150)
-	P(m, {
-		Name = "HookShaft",
-		Size = Vector3.new(0.25, 1.4, 0.25),
-		CFrame = cf * CFrame.new(0, 8.8, -3.9),
-		Color = steel,
-		Material = Enum.Material.Metal,
-		Decor = true,
-	})
-	P(m, {
-		Name = "HookCurve",
-		Size = Vector3.new(0.25, 0.25, 0.9),
-		CFrame = cf * CFrame.new(0, 8.1, -3.55),
-		Color = steel,
-		Material = Enum.Material.Metal,
-		Decor = true,
-	})
-	P(m, {
-		Name = "HookTip",
-		Size = Vector3.new(0.22, 0.8, 0.22),
-		CFrame = cf * CFrame.new(0, 8.45, -3.15) * A(-15, 0, 0),
-		Color = steel,
-		Material = Enum.Material.Metal,
-		Decor = true,
-	})
-	-- Пятно крови под крюком
-	P(m, {
-		Name = "Blood",
-		Shape = Enum.PartType.Cylinder,
-		Size = Vector3.new(0.05, 2.6, 2.6),
-		CFrame = cf * CFrame.new(0, 0.03, -3.9) * A(0, 0, 90),
-		Color = Color3.fromRGB(70, 5, 5),
-		Material = Enum.Material.SmoothPlastic,
-		Decor = true,
-	})
-	-- Точка, где висит выживший (HumanoidRootPart), смотрит от столба
-	P(m, {
-		Name = "HangPoint",
-		Size = Vector3.new(1, 1, 1),
-		CFrame = cf * CFrame.new(0.25, 7, -4.3),
-		Transparency = 1,
-		Decor = true,
-	})
-	m.PrimaryPart = pole
-	m:SetAttribute("Kind", "Hook")
-	m:SetAttribute("Occupant", 0)
-	m.Parent = parent
-	return m
-end
-
--- Лапы Сущности вокруг крюка (на 2-й стадии и при жертвоприношении)
-function Props.entityLegs(hook: Model, count: number): Model
-	local hp = hook:FindFirstChild("HangPoint") :: BasePart
-	local m = model("EntityLegs", hook)
-	for i = 1, count do
-		local angle = (i / count) * math.pi * 2
-		local base = hp.CFrame * CFrame.new(math.cos(angle) * 3.5, 5, math.sin(angle) * 3.5)
-		local look = CFrame.lookAt(base.Position, hp.Position + Vector3.new(0, 1, 0))
-		P(m, {
-			Name = "Leg",
-			Size = Vector3.new(0.35, 0.35, 7),
-			CFrame = look * CFrame.new(0, 0, -3.5),
-			Color = Color3.fromRGB(25, 10, 10),
-			Material = Enum.Material.Slate,
-			Decor = true,
-		})
-		P(m, {
-			Name = "Tip",
-			Size = Vector3.new(0.2, 0.2, 1.4),
-			CFrame = look * CFrame.new(0, 0, -7.4),
-			Color = Color3.fromRGB(200, 40, 20),
-			Material = Enum.Material.Neon,
-			Decor = true,
-		})
-	end
-	return m
-end
-
-------------------------------------------------------------------------
--- Паллета (модель из досок + невидимый хитбокс)
-------------------------------------------------------------------------
-
-function Props.pallet(parent: Instance, upCF: CFrame, dropCF: CFrame): Model
-	local m = model("Pallet")
-	local hitbox = P(m, {
-		Name = "Hitbox",
-		Size = Vector3.new(5.6, 3, 1.2),
-		CFrame = upCF,
-		Transparency = 1,
-		CanCollide = false,
-	})
-	local wood = Color3.fromRGB(150, 112, 66)
-	-- Поперечные доски
-	for i = 0, 3 do
-		P(m, {
-			Name = "Slat",
-			Size = Vector3.new(5.6, 0.55, 0.2),
-			CFrame = upCF * CFrame.new(0, -1.15 + i * 0.77, -0.45),
-			Color = wood:Lerp(Color3.new(0, 0, 0), (i % 2) * 0.1),
-			Material = Enum.Material.WoodPlanks,
-			Decor = true,
-		})
-		P(m, {
-			Name = "Slat",
-			Size = Vector3.new(5.6, 0.55, 0.2),
-			CFrame = upCF * CFrame.new(0, -1.15 + i * 0.77, 0.45),
-			Color = wood:Lerp(Color3.new(0, 0, 0), 0.15),
-			Material = Enum.Material.WoodPlanks,
-			Decor = true,
-		})
-	end
-	-- Продольные бруски
-	for _, x in { -2.4, 0, 2.4 } do
-		P(m, {
-			Name = "Stringer",
-			Size = Vector3.new(0.5, 3, 0.7),
-			CFrame = upCF * CFrame.new(x, 0, 0),
-			Color = wood:Lerp(Color3.new(0, 0, 0), 0.25),
-			Material = Enum.Material.Wood,
-			Decor = true,
-		})
-	end
-	m.PrimaryPart = hitbox
-	m:SetAttribute("Kind", "Pallet")
-	m:SetAttribute("State", "Up")
-	m:SetAttribute("DropCFrame", dropCF)
-	m.Parent = parent
-	return m
-end
-
-------------------------------------------------------------------------
--- Шкафчик
-------------------------------------------------------------------------
-
--- cf — точка на полу, -Z смотрит наружу (дверь спереди)
-function Props.locker(parent: Instance, cf: CFrame): Model
-	local m = model("Locker")
-	local metal = Color3.fromRGB(70, 85, 80)
-	local back = P(m, {
-		Name = "Back",
-		Size = Vector3.new(3, 7.2, 0.2),
-		CFrame = cf * CFrame.new(0, 3.6, 1.2),
-		Color = metal,
-		Material = Enum.Material.CorrodedMetal,
-	})
-	for _, x in { -1.5, 1.5 } do
-		P(m, {
-			Name = "Side",
-			Size = Vector3.new(0.2, 7.2, 2.6),
-			CFrame = cf * CFrame.new(x, 3.6, 0),
-			Color = metal,
-			Material = Enum.Material.CorrodedMetal,
-		})
-	end
-	P(m, {
-		Name = "Top",
-		Size = Vector3.new(3.2, 0.2, 2.6),
-		CFrame = cf * CFrame.new(0, 7.3, 0),
-		Color = metal,
-		Material = Enum.Material.CorrodedMetal,
-	})
-	P(m, {
-		Name = "Bottom",
-		Size = Vector3.new(3, 0.2, 2.6),
-		CFrame = cf * CFrame.new(0, 0.1, 0),
-		Color = metal,
-		Material = Enum.Material.CorrodedMetal,
-	})
-	-- Дверь крутится вокруг левого края (петли)
-	local closed = cf * CFrame.new(0, 3.6, -1.3)
-	P(m, {
-		Name = "Door",
-		Size = Vector3.new(2.8, 7, 0.15),
-		CFrame = closed,
-		Color = metal:Lerp(Color3.new(1, 1, 1), 0.08),
-		Material = Enum.Material.CorrodedMetal,
-	})
-	for i = 1, 4 do
-		local offset = CFrame.new(0, 2.6 - i * 0.3, -0.1)
-		local slit = P(m, {
-			Name = "Slit",
-			Size = Vector3.new(1.6, 0.12, 0.05),
-			CFrame = closed * offset,
-			Color = COLORS.Black,
-			Decor = true,
-		})
-		slit:SetAttribute("DoorOffset", offset)
-	end
-	m:SetAttribute("DoorClosed", closed)
-	m:SetAttribute("Hinge", cf * CFrame.new(-1.4, 3.6, -1.3))
-	P(m, {
-		Name = "Inside",
-		Size = Vector3.new(1, 1, 1),
-		CFrame = cf * CFrame.new(0, 3, 0.2),
-		Transparency = 1,
-		Decor = true,
-	})
-	m.PrimaryPart = back
-	m:SetAttribute("Kind", "Locker")
-	m:SetAttribute("Occupant", 0)
-	m.Parent = parent
-	return m
-end
-
--- Открывает/закрывает дверь шкафчика (angle = градусы)
-function Props.setLockerDoor(locker: Model, angle: number)
-	local hinge = locker:GetAttribute("Hinge") :: CFrame
-	local closed = locker:GetAttribute("DoorClosed") :: CFrame
-	if not hinge or not closed then
-		return
-	end
-	local rot = hinge * A(0, -angle, 0) * hinge:Inverse()
-	local doorCF = rot * closed
-	local door = locker:FindFirstChild("Door") :: BasePart?
-	if door then
-		door.CFrame = doorCF
-	end
-	for _, d in locker:GetChildren() do
-		local offset = d:GetAttribute("DoorOffset")
-		if offset and d:IsA("BasePart") then
-			d.CFrame = doorCF * (offset :: CFrame)
-		end
-	end
-end
-
-------------------------------------------------------------------------
--- Тотем
-------------------------------------------------------------------------
-
-function Props.totem(parent: Instance, cf: CFrame, hex: boolean, rng: Random): Model
-	local m = model("Totem")
-	local base = P(m, {
-		Name = "Base",
-		Size = Vector3.new(2.4, 0.6, 2.4),
-		CFrame = cf * CFrame.new(0, 0.3, 0) * A(0, 30, 0),
-		Color = Color3.fromRGB(60, 50, 40),
-		Material = Enum.Material.Ground,
-	})
-	-- Кучка костей
-	for _ = 1, 9 do
-		P(m, {
-			Name = "Bone",
-			Shape = Enum.PartType.Cylinder,
-			Size = Vector3.new(rng:NextNumber(0.8, 1.6), 0.25, 0.25),
-			CFrame = cf
-				* CFrame.new(rng:NextNumber(-0.8, 0.8), rng:NextNumber(0.6, 1.8), rng:NextNumber(-0.8, 0.8))
-				* A(rng:NextNumber(-60, 60), rng:NextNumber(0, 180), rng:NextNumber(-60, 60)),
-			Color = COLORS.Bone,
-			Material = Enum.Material.SmoothPlastic,
-			Decor = true,
-		})
-	end
-	P(m, {
-		Name = "Stake",
-		Size = Vector3.new(0.3, 3.2, 0.3),
-		CFrame = cf * CFrame.new(0, 2, 0),
-		Color = COLORS.DarkWood,
-		Material = Enum.Material.Wood,
-		Decor = true,
-	})
-	local skull = P(m, {
-		Name = "Skull",
-		Shape = Enum.PartType.Ball,
-		Size = Vector3.new(1.1, 1.1, 1.1),
-		CFrame = cf * CFrame.new(0, 3.5, 0),
-		Color = COLORS.Bone,
-		Material = Enum.Material.SmoothPlastic,
-		Decor = true,
-	})
-	for _, x in { -0.22, 0.22 } do
-		local eye = P(m, {
-			Name = "Eye",
-			Shape = Enum.PartType.Ball,
-			Size = Vector3.new(0.3, 0.3, 0.3),
-			CFrame = skull.CFrame * CFrame.new(x, 0.08, -0.43),
-			Color = hex and Color3.fromRGB(255, 60, 20) or COLORS.Black,
-			Material = hex and Enum.Material.Neon or Enum.Material.SmoothPlastic,
-			Decor = true,
-		})
-		eye:SetAttribute("SkullPart", true)
-	end
-	-- Свечи вокруг
-	for i = 1, 5 do
-		local angle = i / 5 * math.pi * 2
-		local h = rng:NextNumber(0.4, 0.9)
-		local candle = P(m, {
-			Name = "Candle",
-			Shape = Enum.PartType.Cylinder,
-			Size = Vector3.new(h, 0.25, 0.25),
-			CFrame = cf * CFrame.new(math.cos(angle) * 1.4, 0.6 + h / 2, math.sin(angle) * 1.4) * A(0, 0, 90),
-			Color = Color3.fromRGB(230, 220, 180),
-			Material = Enum.Material.SmoothPlastic,
-			Decor = true,
-		})
-		if hex then
-			local flame = P(m, {
-				Name = "Flame",
-				Size = Vector3.new(0.12, 0.25, 0.12),
-				CFrame = candle.CFrame * A(0, 0, -90) * CFrame.new(0, h / 2 + 0.12, 0),
-				Color = Color3.fromRGB(255, 170, 60),
-				Material = Enum.Material.Neon,
-				Decor = true,
-			})
-			if i == 1 then
-				local light = Instance.new("PointLight")
-				light.Color = Color3.fromRGB(255, 120, 50)
-				light.Range = 10
-				light.Brightness = 2
-				light.Parent = flame
-			end
-		end
-	end
-	m.PrimaryPart = base
-	m:SetAttribute("Kind", "Totem")
-	m:SetAttribute("Hex", hex)
-	m:SetAttribute("Progress", 0)
-	m:SetAttribute("Cleansed", false)
-	m.Parent = parent
-	return m
-end
-
-------------------------------------------------------------------------
--- Сундук
-------------------------------------------------------------------------
-
-function Props.chest(parent: Instance, cf: CFrame): Model
-	local m = model("Chest")
-	local base = P(m, {
-		Name = "Box",
-		Size = Vector3.new(3, 1.6, 2),
-		CFrame = cf * CFrame.new(0, 0.8, 0),
-		Color = COLORS.Wood,
-		Material = Enum.Material.WoodPlanks,
-	})
-	local lidClosed = cf * CFrame.new(0, 1.85, 0)
-	P(m, {
-		Name = "Lid",
-		Size = Vector3.new(3.1, 0.5, 2.1),
-		CFrame = lidClosed,
-		Color = COLORS.DarkWood,
-		Material = Enum.Material.WoodPlanks,
-	})
-	for _, x in { -1, 1 } do
-		P(m, {
-			Name = "Band",
-			Size = Vector3.new(0.25, 2.2, 2.15),
-			CFrame = cf * CFrame.new(x, 1.1, 0),
-			Color = COLORS.Metal,
-			Material = Enum.Material.Metal,
-			Decor = true,
-		})
-	end
-	P(m, {
-		Name = "Lock",
-		Size = Vector3.new(0.4, 0.5, 0.15),
-		CFrame = cf * CFrame.new(0, 1.5, -1.08),
-		Color = Color3.fromRGB(180, 150, 60),
-		Material = Enum.Material.Metal,
-		Decor = true,
-	})
-	m:SetAttribute("LidClosed", lidClosed)
-	m:SetAttribute("LidHinge", cf * CFrame.new(0, 2.1, 1.05))
-	m.PrimaryPart = base
-	m:SetAttribute("Kind", "Chest")
-	m:SetAttribute("Opened", false)
-	m.Parent = parent
-	return m
-end
-
-function Props.openChest(chest: Model)
-	local hinge = chest:GetAttribute("LidHinge") :: CFrame
-	local closed = chest:GetAttribute("LidClosed") :: CFrame
-	local lid = chest:FindFirstChild("Lid") :: BasePart?
-	if hinge and closed and lid then
-		lid.CFrame = hinge * A(70, 0, 0) * hinge:Inverse() * closed
-	end
-	local glow = Instance.new("PointLight")
-	glow.Color = Color3.fromRGB(255, 220, 140)
-	glow.Range = 6
-	glow.Brightness = 1
-	glow.Parent = chest.PrimaryPart
-end
-
-------------------------------------------------------------------------
--- Люк
-------------------------------------------------------------------------
-
-function Props.hatch(parent: Instance, cf: CFrame): Model
-	local m = model("Hatch")
-	local frame = P(m, {
-		Name = "Frame",
-		Size = Vector3.new(4.4, 0.3, 4.4),
-		CFrame = cf * CFrame.new(0, 0.15, 0),
-		Color = COLORS.Rust,
-		Material = Enum.Material.CorrodedMetal,
-		CanCollide = false,
-	})
-	P(m, {
-		Name = "Pit",
-		Size = Vector3.new(3.6, 0.1, 3.6),
-		CFrame = cf * CFrame.new(0, 0.32, 0),
-		Color = COLORS.Black,
-		Material = Enum.Material.SmoothPlastic,
-		Decor = true,
-	})
-	for i, x in { -0.9, 0.9 } do
-		local door = P(m, {
-			Name = "Door" .. i,
-			Size = Vector3.new(1.8, 0.15, 3.6),
-			CFrame = cf * CFrame.new(x, 0.42, 0),
-			Color = COLORS.Metal,
-			Material = Enum.Material.DiamondPlate,
-			Decor = true,
-		})
-		door:SetAttribute("Closed", door.CFrame)
-		door:SetAttribute("Hinge", cf * CFrame.new(x * 2, 0.42, 0))
-		door:SetAttribute("Sign", x > 0 and 1 or -1)
-	end
-	local glow = Instance.new("PointLight")
-	glow.Name = "Glow"
-	glow.Color = Color3.fromRGB(180, 200, 255)
-	glow.Range = 14
-	glow.Brightness = 2
-	glow.Enabled = false
-	glow.Parent = frame
-	m.PrimaryPart = frame
-	m:SetAttribute("Kind", "Hatch")
-	m:SetAttribute("Open", false)
-	m:SetAttribute("Closed", false)
-	m.Parent = parent
-	return m
-end
-
-function Props.setHatchOpen(hatch: Model, open: boolean)
-	for _, d in hatch:GetChildren() do
-		if d:IsA("BasePart") and d.Name:match("^Door") then
-			local closed = d:GetAttribute("Closed") :: CFrame
-			local hinge = d:GetAttribute("Hinge") :: CFrame
-			local sign = d:GetAttribute("Sign") :: number
-			if open then
-				d.CFrame = hinge * A(0, 0, -100 * sign) * hinge:Inverse() * closed
-			else
-				d.CFrame = closed
-			end
-		end
-	end
-	local frame = hatch.PrimaryPart
-	local glow = frame and frame:FindFirstChild("Glow") :: PointLight?
-	if glow then
-		glow.Enabled = open
-	end
-end
-
-------------------------------------------------------------------------
--- Медвежий капкан
-------------------------------------------------------------------------
-
-function Props.trap(parent: Instance, cf: CFrame): Model
-	local m = model("BearTrap")
-	local base = P(m, {
-		Name = "Plate",
-		Shape = Enum.PartType.Cylinder,
-		Size = Vector3.new(0.15, 1.2, 1.2),
-		CFrame = cf * CFrame.new(0, 0.08, 0) * A(0, 0, 90),
-		Color = Color3.fromRGB(70, 65, 60),
-		Material = Enum.Material.CorrodedMetal,
-		CanCollide = false,
-	})
-	for i = 1, 2 do
-		P(m, {
-			Name = "Jaw" .. i,
-			Size = Vector3.new(2.2, 0.12, 0.7),
-			CFrame = cf,
-			Color = Color3.fromRGB(110, 105, 100),
-			Material = Enum.Material.Metal,
-			Decor = true,
-		})
-		for t = -2, 2 do
-			local tooth = P(m, {
-				Name = "Tooth" .. i,
-				Size = Vector3.new(0.14, 0.4, 0.14),
-				CFrame = cf,
-				Color = Color3.fromRGB(150, 145, 140),
-				Material = Enum.Material.Metal,
-				Decor = true,
-			})
-			tooth:SetAttribute("Offset", t * 0.45)
-		end
-	end
-	P(m, {
-		Name = "Chain",
-		Size = Vector3.new(0.12, 0.12, 2),
-		CFrame = cf * CFrame.new(0, 0.06, 1.4),
-		Color = COLORS.Black,
-		Material = Enum.Material.Metal,
-		Decor = true,
-	})
-	m.PrimaryPart = base
-	m:SetAttribute("Kind", "Trap")
-	m:SetAttribute("Armed", true)
-	m:SetAttribute("Caught", 0)
-	m:SetAttribute("Origin", cf)
-	m.Parent = parent
-	Props.setTrapArmed(m, true)
-	return m
-end
-
-function Props.setTrapArmed(trap: Model, armed: boolean)
-	local cf = trap:GetAttribute("Origin") :: CFrame
-	for i = 1, 2 do
-		local side = i == 1 and -1 or 1
-		local jawCF
-		if armed then
-			jawCF = cf * CFrame.new(0, 0.12, side * 0.85)
-		else
-			jawCF = cf * CFrame.new(0, 0.55, side * 0.18) * A(side * 75, 0, 0)
-		end
-		local jaw = trap:FindFirstChild("Jaw" .. i) :: BasePart?
-		if jaw then
-			jaw.CFrame = jawCF
-		end
-		for _, d in trap:GetChildren() do
-			if d.Name == "Tooth" .. i and d:IsA("BasePart") then
-				local off = d:GetAttribute("Offset") :: number
-				d.CFrame = jawCF * CFrame.new(off, 0.2, -side * 0.3)
-			end
-		end
-	end
-end
-
-------------------------------------------------------------------------
--- Ворона
-------------------------------------------------------------------------
-
-function Props.crow(parent: Instance, cf: CFrame): Model
-	local m = model("Crow")
-	local black = Color3.fromRGB(15, 15, 18)
-	local body = P(m, {
-		Name = "Body",
-		Size = Vector3.new(0.45, 0.45, 0.9),
-		CFrame = cf * CFrame.new(0, 0.35, 0),
-		Color = black,
-		Decor = true,
-	})
-	P(m, {
-		Name = "Head",
-		Shape = Enum.PartType.Ball,
-		Size = Vector3.new(0.38, 0.38, 0.38),
-		CFrame = cf * CFrame.new(0, 0.65, -0.45),
-		Color = black,
-		Decor = true,
-	})
-	P(m, {
-		Name = "Beak",
-		Size = Vector3.new(0.1, 0.1, 0.3),
-		CFrame = cf * CFrame.new(0, 0.62, -0.72),
-		Color = Color3.fromRGB(60, 55, 40),
-		Decor = true,
-	})
-	for _, x in { -0.3, 0.3 } do
-		P(m, {
-			Name = "Wing",
-			Size = Vector3.new(0.12, 0.35, 0.75),
-			CFrame = cf * CFrame.new(x, 0.38, 0.05),
-			Color = black,
-			Decor = true,
-		})
-	end
-	P(m, {
-		Name = "Tail",
-		Size = Vector3.new(0.3, 0.08, 0.45),
-		CFrame = cf * CFrame.new(0, 0.4, 0.6) * A(15, 0, 0),
-		Color = black,
-		Decor = true,
-	})
-	m.PrimaryPart = body
-	m:SetAttribute("Kind", "Crow")
-	m.Parent = parent
-	return m
-end
-
-------------------------------------------------------------------------
--- Ворота выхода
-------------------------------------------------------------------------
-
-function Props.exitGate(parent: Instance, side: number, index: number): Model
-	local half = Config.MapSize / 2
-	local cf = CFrame.new(0, 0, side * half) * A(0, side == 1 and 0 or 180, 0)
-	-- В локальных координатах: -Z внутрь карты, +Z наружу.
-	local m = model("ExitGate" .. index)
-	local metal = Color3.fromRGB(60, 60, 65)
-
-	P(m, {
-		Name = "Door",
-		Size = Vector3.new(12, 12, 1),
-		CFrame = cf * CFrame.new(0, 6, 0),
-		Color = metal,
-		Material = Enum.Material.DiamondPlate,
-	})
-	for i = -2, 2 do
-		P(m, {
-			Name = "DoorRib",
-			Size = Vector3.new(0.4, 12, 1.3),
-			CFrame = cf * CFrame.new(i * 2.4, 6, 0),
-			Color = metal:Lerp(Color3.new(0, 0, 0), 0.3),
-			Material = Enum.Material.Metal,
-			Decor = true,
-		})
-	end
-	for _, x in { -7, 7 } do
-		P(m, {
-			Name = "Pillar",
-			Size = Vector3.new(2, 16, 2.5),
-			CFrame = cf * CFrame.new(x, 8, 0),
-			Color = Color3.fromRGB(50, 48, 46),
-			Material = Enum.Material.Concrete,
-		})
-	end
-	P(m, {
-		Name = "Frame",
-		Size = Vector3.new(16, 2.5, 2.5),
-		CFrame = cf * CFrame.new(0, 14.75, 0),
-		Color = Color3.fromRGB(40, 40, 40),
-		Material = Enum.Material.Metal,
-	})
-	-- Пульт с рычагом
-	local switch = P(m, {
-		Name = "Switch",
-		Size = Vector3.new(2.2, 4, 1.4),
-		CFrame = cf * CFrame.new(10, 2, -2.2),
-		Color = Color3.fromRGB(50, 50, 50),
-		Material = Enum.Material.Metal,
-	})
-	P(m, {
-		Name = "LeverBase",
-		Size = Vector3.new(0.5, 0.5, 0.5),
-		CFrame = switch.CFrame * CFrame.new(0, 0.6, -0.8),
-		Color = COLORS.Black,
-		Material = Enum.Material.Metal,
-		Decor = true,
-	})
-	P(m, {
-		Name = "Lever",
-		Size = Vector3.new(0.25, 1.6, 0.25),
-		CFrame = switch.CFrame * CFrame.new(0, 1.3, -0.8) * A(-35, 0, 0),
-		Color = Color3.fromRGB(150, 30, 30),
-		Material = Enum.Material.Metal,
-		Decor = true,
-	})
-	m:SetAttribute("LeverPivot", switch.CFrame * CFrame.new(0, 0.6, -0.8))
-	for i = 1, 3 do
-		P(m, {
-			Name = "Lamp" .. i,
-			Size = Vector3.new(0.5, 0.5, 0.3),
-			CFrame = switch.CFrame * CFrame.new(-0.6 + (i - 1) * 0.6, 1.5, -0.75),
-			Color = Color3.fromRGB(40, 0, 0),
-			Material = Enum.Material.Neon,
-			Decor = true,
-		})
-	end
-	-- Сирена
-	local siren = P(m, {
-		Name = "Siren",
-		Shape = Enum.PartType.Ball,
-		Size = Vector3.new(1, 1, 1),
-		CFrame = cf * CFrame.new(-7, 16.5, -1),
-		Color = Color3.fromRGB(80, 10, 10),
-		Material = Enum.Material.Glass,
-		Decor = true,
-	})
-	local sirenLight = Instance.new("SpotLight")
-	sirenLight.Name = "SirenLight"
-	sirenLight.Color = Color3.fromRGB(255, 30, 20)
-	sirenLight.Range = 30
-	sirenLight.Brightness = 4
-	sirenLight.Angle = 60
-	sirenLight.Face = Enum.NormalId.Front
-	sirenLight.Enabled = false
-	sirenLight.Parent = siren
-
-	-- Коридор за воротами и зона побега
-	P(m, {
-		Name = "Corridor",
-		Size = Vector3.new(12, 1, 30),
-		CFrame = cf * CFrame.new(0, -0.5, 15.75),
-		Color = Color3.fromRGB(50, 45, 40),
-		Material = Enum.Material.Ground,
-	})
-	Props.wall(m, cf * CFrame.new(-6.75, 6, 15.75), Vector3.new(1.5, 12, 30))
-	Props.wall(m, cf * CFrame.new(6.75, 6, 15.75), Vector3.new(1.5, 12, 30))
-	local escape = P(m, {
-		Name = "EscapeZone",
-		Size = Vector3.new(12, 12, 10),
-		CFrame = cf * CFrame.new(0, 6, 24),
-		Transparency = 0.6,
-		Color = Color3.fromRGB(255, 255, 255),
-		Material = Enum.Material.ForceField,
-		Decor = true,
-	})
-	local glow = Instance.new("PointLight")
-	glow.Range = 40
-	glow.Brightness = 2
-	glow.Parent = escape
-
-	m.PrimaryPart = switch
-	m:SetAttribute("Kind", "ExitGate")
-	m:SetAttribute("Powered", false)
-	m:SetAttribute("Progress", 0)
-	m:SetAttribute("Open", false)
-	m.Parent = parent
-	return m
-end
-
-function Props.setGateLever(gate: Model, progress: number)
-	local pivot = gate:GetAttribute("LeverPivot") :: CFrame
-	local lever = gate:FindFirstChild("Lever") :: BasePart?
-	if pivot and lever then
-		local angle = -35 + 70 * math.clamp(progress, 0, 1)
-		lever.CFrame = pivot * A(angle, 0, 0) * CFrame.new(0, 0.7, 0)
-	end
-	for i = 1, 3 do
-		local lamp = gate:FindFirstChild("Lamp" .. i) :: BasePart?
-		if lamp then
-			lamp.Color = progress >= i / 3 and Color3.fromRGB(255, 40, 40) or Color3.fromRGB(40, 0, 0)
-		end
-	end
 end
 
 ------------------------------------------------------------------------
@@ -4537,10 +3976,1695 @@ end
 
 return Props
 ]]></string>
+            </Properties>
+          </Item>
+          <Item class="ModuleScript" referent="34">
+            <Properties>
+              <string name="Name">Lobby</string>
+              <string name="Source"><![CDATA[-- Лобби у костра: Lobby.build() строит модель (сиденья — Seat в группе "DBDSeats"),
+-- Lobby.spawnCFrame() — точка появления игрока.
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local Config = require(ReplicatedStorage.Shared.Config)
+local Legacy = require(script.Parent.Legacy)
+
+local P = Legacy.part
+local A = Legacy.A
+
+local Lobby = {}
+
+
+function Lobby.build(): Model
+	local existing = workspace:FindFirstChild("Lobby")
+	if existing then
+		return existing :: Model
+	end
+	local rng = Random.new(42)
+	local lobby = Instance.new("Model")
+	lobby.Name = "Lobby"
+	local pos = Config.LobbyPosition
+	local base = CFrame.new(pos)
+
+	P(lobby, {
+		Name = "Ground",
+		Size = Vector3.new(120, 2, 120),
+		CFrame = base * CFrame.new(0, -1, 0),
+		Color = Color3.fromRGB(38, 48, 30),
+		Material = Enum.Material.Grass,
+	})
+	-- Невидимые стены
+	for _, d in
+		{
+			{ Vector3.new(0, 15, 60), Vector3.new(120, 30, 2) },
+			{ Vector3.new(0, 15, -60), Vector3.new(120, 30, 2) },
+			{ Vector3.new(60, 15, 0), Vector3.new(2, 30, 120) },
+			{ Vector3.new(-60, 15, 0), Vector3.new(2, 30, 120) },
+		}
+	do
+		P(lobby, { Name = "Barrier", Size = d[2], CFrame = base * CFrame.new(d[1]), Transparency = 1 })
+	end
+
+	-- Костёр
+	for i = 1, 8 do
+		local a = i / 8 * math.pi * 2
+		P(lobby, {
+			Name = "FireStone",
+			Size = Vector3.new(1.2, 0.8, 1),
+			CFrame = base * CFrame.new(math.cos(a) * 2.4, 0.4, math.sin(a) * 2.4) * A(0, -math.deg(a), 0),
+			Color = Color3.fromRGB(80, 78, 75),
+			Material = Enum.Material.Slate,
+		})
+	end
+	for i = 1, 4 do
+		P(lobby, {
+			Name = "FireLog",
+			Shape = Enum.PartType.Cylinder,
+			Size = Vector3.new(3, 0.6, 0.6),
+			CFrame = base * CFrame.new(0, 0.5, 0) * A(0, i * 45, 25),
+			Color = Color3.fromRGB(50, 35, 25),
+			Material = Enum.Material.Wood,
+		})
+	end
+	Legacy.fire(lobby, base * CFrame.new(0, 1.2, 0), 2.2)
+
+	-- Брёвна-сиденья вокруг костра
+	for i = 1, 6 do
+		local a = i / 6 * math.pi * 2
+		local seatPos = pos + Vector3.new(math.cos(a) * 9, 0.7, math.sin(a) * 9)
+		local seat = Instance.new("Seat")
+		seat.Name = "LogSeat"
+		seat.Anchored = true
+		seat.Shape = Enum.PartType.Cylinder
+		seat.Size = Vector3.new(5, 1.4, 1.4)
+		seat.CFrame = CFrame.lookAt(seatPos, Vector3.new(pos.X, seatPos.Y, pos.Z))
+		seat.Color = Color3.fromRGB(70, 50, 35)
+		seat.Material = Enum.Material.Wood
+		seat.CollisionGroup = "DBDSeats"
+		seat.Parent = lobby
+	end
+
+	-- Палатки, деревья, туман
+	for i = 1, 3 do
+		local a = i / 3 * math.pi * 2 + 0.5
+		local tcf = CFrame.lookAt(pos + Vector3.new(math.cos(a) * 22, 0, math.sin(a) * 22), pos)
+		for _, side in { -1, 1 } do
+			local w = Instance.new("WedgePart")
+			w.Anchored = true
+			w.Size = Vector3.new(0.3, 4, 3)
+			w.CFrame = tcf * CFrame.new(side * 1.5, 2, 0) * A(0, side * 90, 0)
+			w.Color = Color3.fromRGB(70 + i * 20, 80, 60)
+			w.Material = Enum.Material.Fabric
+			w.Parent = lobby
+		end
+		P(lobby, {
+			Name = "TentFloor",
+			Size = Vector3.new(6, 0.2, 6),
+			CFrame = tcf * CFrame.new(0, 0.1, 0),
+			Color = Color3.fromRGB(60, 55, 45),
+			Material = Enum.Material.Fabric,
+		})
+	end
+	for _ = 1, 26 do
+		local a = rng:NextNumber(0, math.pi * 2)
+		local r = rng:NextNumber(32, 55)
+		Legacy.tree(lobby, base * CFrame.new(math.cos(a) * r, 0, math.sin(a) * r), rng)
+	end
+	for _ = 1, 6 do
+		Legacy.fog(lobby, pos + Vector3.new(rng:NextNumber(-40, 40), 1, rng:NextNumber(-40, 40)), rng)
+	end
+
+	-- Табличка
+	local board = P(lobby, {
+		Name = "Sign",
+		Size = Vector3.new(12, 4, 0.4),
+		CFrame = base * CFrame.new(0, 5, -26),
+		Color = Color3.fromRGB(60, 40, 30),
+		Material = Enum.Material.WoodPlanks,
+	})
+	for _, x in { -5, 5 } do
+		P(lobby, {
+			Name = "SignPost",
+			Size = Vector3.new(0.5, 5, 0.5),
+			CFrame = base * CFrame.new(x, 2.5, -26),
+			Color = Color3.fromRGB(50, 35, 25),
+			Material = Enum.Material.Wood,
+		})
+	end
+	local gui = Instance.new("SurfaceGui")
+	gui.Face = Enum.NormalId.Back
+	gui.CanvasSize = Vector2.new(600, 200)
+	gui.Parent = board
+	local text = Instance.new("TextLabel")
+	text.Size = UDim2.fromScale(1, 1)
+	text.BackgroundTransparency = 1
+	text.Text = "DEAD BY DAYLIGHT"
+	text.Font = Enum.Font.Creepster
+	text.TextScaled = true
+	text.TextColor3 = Color3.fromRGB(190, 20, 20)
+	text.Parent = gui
+
+	lobby.Parent = workspace
+	return lobby
+end
+
+-- Точка появления в лобби (по кругу у костра)
+function Lobby.spawnCFrame(): CFrame
+	local pos = Config.LobbyPosition
+	local a = math.random() * math.pi * 2
+	local p = pos + Vector3.new(math.cos(a) * 14, 3.5, math.sin(a) * 14)
+	return CFrame.lookAt(p, Vector3.new(pos.X, p.Y, pos.Z))
+end
+
+return Lobby
+]]></string>
+            </Properties>
+          </Item>
+          <Item class="ModuleScript" referent="35">
+            <Properties>
+              <string name="Name">MapProps</string>
+              <string name="Source"><![CDATA[-- Объекты карты: генератор, крюк, паллета, шкафчик, тотем, сундук, люк, капкан, ворона, ворота.
+-- Каждая функция Build строит модель в начале координат: земля y = 0, «перед» модели смотрит в -Z.
+-- Требования к моделям — в Contract.lua, подвижные части — через Kit.movable (см. PropFX.lua).
+local Kit = require(script.Parent.Kit)
+
+local P = Kit.Palette
+local Mat = Kit.Mat
+local A = Kit.A
+local V = Vector3.new
+local C = CFrame.new
+
+local MapProps = {}
+local T = {}
+MapProps.Templates = T
+
+local function base(name: string, kind: string): Model
+	local m = Kit.model(name)
+	m:SetAttribute("Kind", kind)
+	return m
+end
+
+------------------------------------------------------------------------
+-- Генератор
+------------------------------------------------------------------------
+
+T.Generator = {
+	Variants = 3,
+	Build = function(rng: Random)
+		local m = base("Generator", "Generator")
+		local body = Kit.box(m, C(0, 2, 0), V(4, 3, 3), Kit.jitter(P.Paint, 0.05, rng), Mat.DiamondPlate)
+		body.Name = "Body"
+		Kit.setOrigin(m, body)
+		Kit.box(m, C(0, 0.25, 0), V(4.6, 0.5, 3.4), P.Rust, Mat.CorrodedMetal)
+		Kit.box(m, C(-0.5, 4.15, 0), V(2.6, 1.3, 2.2), P.DarkSteel, Mat.Metal)
+		for i = 1, 2 do
+			local piston = Kit.vcyl(m, C(-1.1 + (i - 1) * 1.1, 5.2, 0), 1.3, 0.55, P.Steel, Mat.Metal, { Decor = true })
+			piston:SetAttribute("AnimatedPiston", true)
+		end
+		Kit.vcyl(m, C(1.4, 4.4, 1), 2.2, 0.35, P.Black, Mat.Metal, { Decor = true })
+		Kit.box(m, C(0, 3.65, -1.55), V(2.4, 0.25, 0.4), P.Black, Mat.Metal, { Decor = true })
+		for i = 1, 4 do
+			local l = Kit.box(m, C(-0.9 + (i - 1) * 0.6, 3.65, -1.8), V(0.35, 0.35, 0.2), Color3.fromRGB(45, 40, 30), Mat.Glass, { Decor = true })
+			l:SetAttribute("ProgressLight", i)
+		end
+		local bulb = Kit.ball(m, C(1.2, 5.3, -0.6), 1.1, Color3.fromRGB(60, 60, 50), Mat.Glass, { Decor = true })
+		bulb:SetAttribute("Bulb", true)
+		local light = Kit.pointLight(bulb, Color3.fromRGB(255, 230, 150), 28, 3, true)
+		light.Enabled = false
+		local fx = Instance.new("Attachment")
+		fx.Name = "FX"
+		fx.Position = V(0, 1.8, 0)
+		fx.Parent = body
+		m:SetAttribute("Progress", 0)
+		m:SetAttribute("Done", false)
+		m:SetAttribute("Regressing", false)
+		return m
+	end,
+}
+
+------------------------------------------------------------------------
+-- Крюк
+------------------------------------------------------------------------
+
+T.Hook = {
+	Variants = 2,
+	Build = function(rng: Random)
+		local m = base("Hook", "Hook")
+		local red = Kit.jitter(Color3.fromRGB(95, 25, 20), 0.05, rng)
+		local pole = Kit.box(m, C(0, 6, 0), V(0.9, 12, 0.9), red, Mat.CorrodedMetal)
+		pole.Name = "Pole"
+		Kit.setOrigin(m, pole)
+		Kit.box(m, C(0, 0.4, 0) * A(0, 20, 0), V(2.6, 0.8, 2.6), Color3.fromRGB(70, 65, 60), Mat.Slate)
+		Kit.box(m, C(0, 11.4, -2), V(0.7, 0.7, 4.4), red, Mat.CorrodedMetal)
+		Kit.box(m, C(0, 10.3, -1) * A(-45, 0, 0), V(0.4, 0.4, 3), red, Mat.CorrodedMetal, { Decor = true })
+		Kit.chain(m, { V(0, 11, -3.9), V(0, 9.4, -3.9) }, 0.4, Color3.fromRGB(80, 80, 80))
+		Kit.arc(m, C(0, 8.6, -3.5) * A(0, 90, 0), 0.45, 180, 360, 5, 0.22, P.Steel, Mat.Metal, { Decor = true })
+		Kit.vcyl(m, C(0, 0.03, -3.9), 0.05, 2.6, P.Blood, Mat.SmoothPlastic, { Decor = true })
+		local hp = Kit.box(m, C(0.25, 7, -4.3), V(1, 1, 1), P.Black, Mat.SmoothPlastic, { Decor = true, Transparency = 1 })
+		hp.Name = "HangPoint"
+		m:SetAttribute("Occupant", 0)
+		return m
+	end,
+}
+
+-- Лапы Сущности вокруг висящего (hangPoint — мировой CFrame точки HangPoint)
+function MapProps.entityLegs(hangPoint: CFrame): Model
+	local m = Kit.model("EntityLegs")
+	for i = 1, 6 do
+		local angle = (i / 6) * math.pi * 2
+		local basePos = hangPoint.Position + V(math.cos(angle) * 3.5, 5, math.sin(angle) * 3.5)
+		local look = CFrame.lookAt(basePos, hangPoint.Position + V(0, 1, 0))
+		Kit.box(m, look * C(0, 0, -3.5), V(0.35, 0.35, 7), Color3.fromRGB(25, 10, 10), Mat.Slate, { Decor = true })
+		Kit.box(m, look * C(0, 0, -7.4), V(0.2, 0.2, 1.4), Color3.fromRGB(200, 40, 20), Mat.Neon, { Decor = true })
+	end
+	return m
+end
+
+------------------------------------------------------------------------
+-- Паллета (собирается в ОПУЩЕННОМ положении: хитбокс в начале координат, длинная сторона по X)
+------------------------------------------------------------------------
+
+T.Pallet = {
+	Variants = 3,
+	Build = function(rng: Random)
+		local m = base("Pallet", "Pallet")
+		local hitbox = Kit.box(m, CFrame.identity, V(5.6, 3, 1.2), P.Black, Mat.SmoothPlastic, { Transparency = 1, CanCollide = false })
+		hitbox.Name = "Hitbox"
+		Kit.setOrigin(m, hitbox)
+		local wood = Kit.jitter(Color3.fromRGB(150, 112, 66), 0.06, rng)
+		for i = 0, 3 do
+			for _, z in { -0.45, 0.45 } do
+				Kit.box(m, C(0, -1.15 + i * 0.77, z), V(5.6, 0.55, 0.2), Kit.jitter(wood, 0.08, rng), Mat.WoodPlanks, { Decor = true })
+			end
+		end
+		for _, x in { -2.4, 0, 2.4 } do
+			Kit.box(m, C(x, 0, 0), V(0.5, 3, 0.7), Kit.dark(wood, 0.25), Mat.Wood, { Decor = true })
+		end
+		m:SetAttribute("State", "Up")
+		return m
+	end,
+}
+
+------------------------------------------------------------------------
+-- Шкафчик (опора — пол в центре, дверь спереди -Z)
+------------------------------------------------------------------------
+
+T.Locker = {
+	Variants = 2,
+	Build = function(rng: Random)
+		local m = base("Locker", "Locker")
+		local metal = Kit.jitter(Color3.fromRGB(70, 85, 80), 0.05, rng)
+		local back = Kit.box(m, C(0, 3.6, 1.2), V(3, 7.2, 0.2), metal, Mat.CorrodedMetal)
+		back.Name = "Back"
+		Kit.setOrigin(m, back)
+		for _, x in { -1.5, 1.5 } do
+			Kit.box(m, C(x, 3.6, 0), V(0.2, 7.2, 2.6), metal, Mat.CorrodedMetal)
+		end
+		Kit.box(m, C(0, 7.3, 0), V(3.2, 0.2, 2.6), metal, Mat.CorrodedMetal)
+		Kit.box(m, C(0, 0.1, 0), V(3, 0.2, 2.6), metal, Mat.CorrodedMetal)
+		local closed = C(0, 3.6, -1.3)
+		local hinge = C(-1.4, 3.6, -1.3)
+		local open = Kit.aroundHinge(closed, hinge, A(0, -100, 0))
+		local door = Kit.box(m, closed, V(2.8, 7, 0.15), metal:Lerp(Color3.new(1, 1, 1), 0.08), Mat.CorrodedMetal)
+		door.Name = "Door"
+		Kit.movable(m, door, "LockerDoor", closed, open)
+		for i = 1, 4 do
+			local off = C(0, 2.6 - i * 0.3, -0.1)
+			local slit = Kit.box(m, closed * off, V(1.6, 0.12, 0.05), P.Black, Mat.SmoothPlastic, { Decor = true })
+			Kit.movable(m, slit, "LockerDoor", closed * off, open * off)
+		end
+		local inside = Kit.box(m, C(0, 3, 0.2), V(1, 1, 1), P.Black, Mat.SmoothPlastic, { Decor = true, Transparency = 1 })
+		inside.Name = "Inside"
+		m:SetAttribute("Occupant", 0)
+		return m
+	end,
+}
+
+------------------------------------------------------------------------
+-- Тотем
+------------------------------------------------------------------------
+
+local function buildTotem(rng: Random, hex: boolean): Model
+	local m = base(hex and "HexTotem" or "Totem", "Totem")
+	local root = Kit.box(m, C(0, 0.3, 0) * A(0, 30, 0), V(2.4, 0.6, 2.4), Color3.fromRGB(60, 50, 40), Mat.Ground)
+	root.Name = "Base"
+	Kit.setOrigin(m, root)
+	for _ = 1, 9 do
+		Kit.cyl(
+			m,
+			C(rng:NextNumber(-0.8, 0.8), rng:NextNumber(0.6, 1.8), rng:NextNumber(-0.8, 0.8)) * A(rng:NextNumber(-60, 60), rng:NextNumber(0, 180), rng:NextNumber(-60, 60)),
+			rng:NextNumber(0.8, 1.6),
+			0.25,
+			P.Bone,
+			Mat.SmoothPlastic,
+			{ Decor = true }
+		)
+	end
+	Kit.box(m, C(0, 2, 0), V(0.3, 3.2, 0.3), P.DarkWood, Mat.Wood, { Decor = true })
+	local skullCF = C(0, 3.5, 0)
+	local fallen = C(0.6, 0.9, 0) * A(0, 0, 80)
+	local skull = Kit.ball(m, skullCF, 1.1, P.Bone, Mat.SmoothPlastic, { Decor = true })
+	skull.Name = "Skull"
+	Kit.movable(m, skull, "Skull", skullCF, fallen)
+	for _, x in { -0.22, 0.22 } do
+		local off = C(x, 0.08, -0.43)
+		local eye = Kit.ball(m, skullCF * off, 0.3, hex and Color3.fromRGB(255, 60, 20) or P.Black, hex and Mat.Neon or Mat.SmoothPlastic, { Decor = true })
+		eye:SetAttribute("SkullEye", true)
+		Kit.movable(m, eye, "Skull", skullCF * off, fallen * off)
+	end
+	for i = 1, 5 do
+		local angle = i / 5 * math.pi * 2
+		local h = rng:NextNumber(0.4, 0.9)
+		local pos = V(math.cos(angle) * 1.4, 0.6 + h / 2, math.sin(angle) * 1.4)
+		Kit.vcyl(m, C(pos), h, 0.25, P.Wax, Mat.SmoothPlastic, { Decor = true })
+		if hex then
+			local flame = Kit.box(m, C(pos + V(0, h / 2 + 0.12, 0)), V(0.12, 0.25, 0.12), P.Flame, Mat.Neon, { Decor = true })
+			flame:SetAttribute("HexFlame", true)
+			if i == 1 then
+				Kit.pointLight(flame, Color3.fromRGB(255, 120, 50), 10, 2)
+			end
+		end
+	end
+	m:SetAttribute("Hex", hex)
+	m:SetAttribute("Progress", 0)
+	m:SetAttribute("Cleansed", false)
+	return m
+end
+
+T.Totem = {
+	Variants = 3,
+	Build = function(rng: Random)
+		return buildTotem(rng, false)
+	end,
+}
+T.HexTotem = {
+	Variants = 1,
+	Build = function(rng: Random)
+		return buildTotem(rng, true)
+	end,
+}
+
+------------------------------------------------------------------------
+-- Сундук
+------------------------------------------------------------------------
+
+T.Chest = {
+	Variants = 2,
+	Build = function(rng: Random)
+		local m = base("Chest", "Chest")
+		local box = Kit.box(m, C(0, 0.8, 0), V(3, 1.6, 2), Kit.jitter(P.Wood, 0.06, rng), Mat.WoodPlanks)
+		box.Name = "Box"
+		Kit.setOrigin(m, box)
+		local closed = C(0, 1.85, 0)
+		local hinge = C(0, 2.1, 1.05)
+		local lid = Kit.box(m, closed, V(3.1, 0.5, 2.1), P.DarkWood, Mat.WoodPlanks)
+		lid.Name = "Lid"
+		Kit.movable(m, lid, "ChestLid", closed, Kit.aroundHinge(closed, hinge, A(70, 0, 0)))
+		for _, x in { -1, 1 } do
+			Kit.box(m, C(x, 1.1, 0), V(0.25, 2.2, 2.15), P.Steel, Mat.Metal, { Decor = true })
+		end
+		Kit.box(m, C(0, 1.5, -1.08), V(0.4, 0.5, 0.15), Color3.fromRGB(180, 150, 60), Mat.Metal, { Decor = true })
+		local glow = Kit.pointLight(box, Color3.fromRGB(255, 220, 140), 6, 1)
+		glow.Name = "Glow"
+		glow.Enabled = false
+		m:SetAttribute("Opened", false)
+		return m
+	end,
+}
+
+------------------------------------------------------------------------
+-- Люк
+------------------------------------------------------------------------
+
+T.Hatch = {
+	Variants = 1,
+	Build = function(_rng: Random)
+		local m = base("Hatch", "Hatch")
+		local frame = Kit.box(m, C(0, 0.15, 0), V(4.4, 0.3, 4.4), P.Rust, Mat.CorrodedMetal, { CanCollide = false })
+		frame.Name = "Frame"
+		Kit.setOrigin(m, frame)
+		Kit.box(m, C(0, 0.32, 0), V(3.6, 0.1, 3.6), P.Black, Mat.SmoothPlastic, { Decor = true })
+		for _, x in { -0.9, 0.9 } do
+			local closed = C(x, 0.42, 0)
+			local hinge = C(x * 2, 0.42, 0)
+			local sign = x > 0 and 1 or -1
+			local door = Kit.box(m, closed, V(1.8, 0.15, 3.6), P.Steel, Mat.DiamondPlate, { Decor = true })
+			Kit.movable(m, door, "HatchDoor", closed, Kit.aroundHinge(closed, hinge, A(0, 0, -100 * sign)))
+		end
+		local glow = Kit.pointLight(frame, Color3.fromRGB(180, 200, 255), 14, 2)
+		glow.Name = "Glow"
+		glow.Enabled = false
+		m:SetAttribute("Open", false)
+		m:SetAttribute("Closed", false)
+		return m
+	end,
+}
+
+------------------------------------------------------------------------
+-- Медвежий капкан (CF0 — раскрыт/взведён, CF1 — захлопнут)
+------------------------------------------------------------------------
+
+T.Trap = {
+	Variants = 1,
+	Build = function(_rng: Random)
+		local m = base("BearTrap", "Trap")
+		local plate = Kit.vcyl(m, C(0, 0.08, 0), 0.15, 1.2, Color3.fromRGB(70, 65, 60), Mat.CorrodedMetal, { CanCollide = false })
+		plate.Name = "Plate"
+		Kit.setOrigin(m, plate)
+		for i = 1, 2 do
+			local side = i == 1 and -1 or 1
+			local armed = C(0, 0.12, side * 0.85)
+			local sprung = C(0, 0.55, side * 0.18) * A(side * 75, 0, 0)
+			local jaw = Kit.box(m, armed, V(2.2, 0.12, 0.7), Color3.fromRGB(110, 105, 100), Mat.Metal, { Decor = true })
+			Kit.movable(m, jaw, "TrapJaw", armed, sprung)
+			for t = -2, 2 do
+				local off = C(t * 0.45, 0.2, -side * 0.3)
+				local tooth = Kit.box(m, armed * off, V(0.14, 0.4, 0.14), Color3.fromRGB(150, 145, 140), Mat.Metal, { Decor = true })
+				Kit.movable(m, tooth, "TrapJaw", armed * off, sprung * off)
+			end
+		end
+		Kit.box(m, C(0, 0.06, 1.4), V(0.12, 0.12, 2), P.Black, Mat.Metal, { Decor = true })
+		m:SetAttribute("Armed", true)
+		m:SetAttribute("Caught", 0)
+		return m
+	end,
+}
+
+------------------------------------------------------------------------
+-- Ворона
+------------------------------------------------------------------------
+
+T.Crow = {
+	Variants = 1,
+	Build = function(_rng: Random)
+		local m = base("Crow", "Crow")
+		local black = Color3.fromRGB(15, 15, 18)
+		local body = Kit.box(m, C(0, 0.35, 0), V(0.45, 0.45, 0.9), black, Mat.SmoothPlastic, { Decor = true })
+		body.Name = "Body"
+		Kit.setOrigin(m, body)
+		Kit.ball(m, C(0, 0.65, -0.45), 0.38, black, Mat.SmoothPlastic, { Decor = true })
+		Kit.box(m, C(0, 0.62, -0.72), V(0.1, 0.1, 0.3), Color3.fromRGB(60, 55, 40), Mat.SmoothPlastic, { Decor = true })
+		for _, x in { -0.3, 0.3 } do
+			Kit.box(m, C(x, 0.38, 0.05), V(0.12, 0.35, 0.75), black, Mat.SmoothPlastic, { Decor = true })
+		end
+		Kit.box(m, C(0, 0.4, 0.6) * A(15, 0, 0), V(0.3, 0.08, 0.45), black, Mat.SmoothPlastic, { Decor = true })
+		return m
+	end,
+}
+
+------------------------------------------------------------------------
+-- Ворота выхода (опора — центр проёма на линии стены; -Z внутрь карты, +Z наружу)
+------------------------------------------------------------------------
+
+T.ExitGate = {
+	Variants = 1,
+	Build = function(_rng: Random)
+		local m = base("ExitGate", "ExitGate")
+		local frameTop = Kit.box(m, C(0, 14.75, 0), V(16, 2.5, 2.5), Color3.fromRGB(40, 40, 40), Mat.Metal)
+		frameTop.Name = "Frame"
+		Kit.setOrigin(m, frameTop)
+		local metal = Color3.fromRGB(60, 60, 65)
+		local closed = C(0, 6, 0)
+		local open = C(0, 17.8, 0)
+		local door = Kit.box(m, closed, V(12, 12, 1), metal, Mat.DiamondPlate)
+		door.Name = "Door"
+		Kit.movable(m, door, "GateDoor", closed, open)
+		for i = -2, 2 do
+			local off = C(i * 2.4, 0, 0)
+			local rib = Kit.box(m, closed * off, V(0.4, 12, 1.3), Kit.dark(metal, 0.3), Mat.Metal, { Decor = true })
+			Kit.movable(m, rib, "GateDoor", closed * off, open * off)
+		end
+		for _, x in { -7, 7 } do
+			Kit.box(m, C(x, 8, 0), V(2, 16, 2.5), Color3.fromRGB(50, 48, 46), Mat.Concrete)
+		end
+		local switch = Kit.box(m, C(10, 2, -2.2), V(2.2, 4, 1.4), Color3.fromRGB(50, 50, 50), Mat.Metal)
+		switch.Name = "Switch"
+		local pivot = switch.CFrame * C(0, 0.6, -0.8)
+		Kit.box(m, pivot, V(0.5, 0.5, 0.5), P.Black, Mat.Metal, { Decor = true })
+		local lever = Kit.box(m, pivot, V(0.25, 1.6, 0.25), Color3.fromRGB(150, 30, 30), Mat.Metal, { Decor = true })
+		lever.Name = "Lever"
+		Kit.movable(m, lever, "GateLever", pivot * A(-35, 0, 0) * C(0, 0.7, 0), pivot * A(35, 0, 0) * C(0, 0.7, 0))
+		for i = 1, 3 do
+			local lamp = Kit.box(m, switch.CFrame * C(-0.6 + (i - 1) * 0.6, 1.5, -0.75), V(0.5, 0.5, 0.3), Color3.fromRGB(40, 0, 0), Mat.Neon, { Decor = true })
+			lamp:SetAttribute("GateLamp", i)
+		end
+		local siren = Kit.ball(m, C(-7, 16.5, -1), 1, Color3.fromRGB(80, 10, 10), Mat.Glass, { Decor = true })
+		siren.Name = "Siren"
+		local sirenLight = Kit.spotLight(siren, Color3.fromRGB(255, 30, 20), 30, 60, 4, Enum.NormalId.Front)
+		sirenLight.Name = "SirenLight"
+		sirenLight.Enabled = false
+		-- Коридор за воротами и зона побега
+		Kit.box(m, C(0, -0.5, 15.75), V(12, 1, 30), Color3.fromRGB(50, 45, 40), Mat.Ground)
+		for _, x in { -6.75, 6.75 } do
+			Kit.box(m, C(x, 6, 15.75), V(1.5, 12, 30), P.Concrete, Mat.Concrete)
+		end
+		local escape = Kit.box(m, C(0, 6, 24), V(12, 12, 10), Color3.new(1, 1, 1), Mat.ForceField, { Decor = true, Transparency = 0.6 })
+		escape.Name = "EscapeZone"
+		Kit.pointLight(escape, Color3.new(1, 1, 1), 40, 2)
+		m:SetAttribute("Powered", false)
+		m:SetAttribute("Progress", 0)
+		m:SetAttribute("Open", false)
+		return m
+	end,
+}
+
+return MapProps
+]]></string>
+            </Properties>
+          </Item>
+          <Item class="ModuleScript" referent="36">
+            <Properties>
+              <string name="Name">Nature</string>
+              <string name="Source"><![CDATA[-- Природа: деревья, сухие деревья, камни, кукуруза, туман, огонь.
+-- Функции ячеек получают (map, cf, rng); cf — центр ячейки 22x22, ничего твёрдого дальше ±10.5.
+local Legacy = require(script.Parent.Legacy)
+
+local Nature = {}
+
+-- Группа деревьев в ячейке
+function Nature.trees(map, cf: CFrame, rng: Random)
+	for _ = 1, rng:NextInteger(2, 3) do
+		Legacy.tree(map.Walls, cf * CFrame.new(rng:NextNumber(-8, 8), 0, rng:NextNumber(-8, 8)), rng)
+	end
+end
+
+-- Сухое дерево (на нём сидят вороны)
+function Nature.deadTree(map, cf: CFrame, rng: Random)
+	Legacy.deadTree(map.Walls, cf, rng)
+	table.insert(map.CrowSpots, cf * CFrame.new(0, 0, 3))
+end
+
+function Nature.rocks(map, cf: CFrame, rng: Random)
+	Legacy.rock(map.Walls, cf, rng)
+end
+
+-- Кукурузное поле: сквозь него можно пройти и спрятаться
+function Nature.corn(map, cf: CFrame, rng: Random)
+	Legacy.corn(map.Decor, cf, rng)
+end
+
+function Nature.fog(map, pos: Vector3, rng: Random)
+	Legacy.fog(map.Decor, pos, rng)
+end
+
+-- Огонь (костёр, бочка). Возвращает невидимую деталь-источник.
+function Nature.fire(parent: Instance, cf: CFrame, size: number): BasePart
+	return Legacy.fire(parent, cf, size)
+end
+
+-- Одиночное дерево (лобби, края карты)
+function Nature.tree(parent: Instance, cf: CFrame, rng: Random)
+	Legacy.tree(parent, cf, rng)
+end
+
+-- Мелочи по всей карте (трава, ветки, мусор). Пока пусто.
+function Nature.scatter(_map, _rng: Random) end
+
+return Nature
+]]></string>
+            </Properties>
+          </Item>
+          <Item class="ModuleScript" referent="37">
+            <Properties>
+              <string name="Name">Structures</string>
+              <string name="Source"><![CDATA[-- Постройки (ячейка карты 22x22, центр ячейки = cf, -Z = «перед»).
+-- Каждая функция получает map (папки и списки точек из MapBuilder), cf и rng.
+-- Правила геймплея:
+--   * паллета: Structures.pallet(map, rng, upCF, dropCF) — хитбокс 5.6x3x1.2, проход сквозь проём вдоль локальной Z;
+--   * окно: деталь Kind="Window" в map.Windows, высота подоконника 3, перелезают вдоль локальной Z детали;
+--   * шкафчик: Structures.locker(map, rng, cf) — пол, дверь смотрит в -Z, перед дверью 3 стада свободно;
+--   * ничего твёрдого дальше ±10.5 от центра ячейки; стены «петель» ≥ 7 в высоту (закрывают обзор).
+--   * точки: map.TrapSpots / CrowSpots / ChestSpots / TotemSpots (CFrame на земле или на верхушке стены).
+local Templates = require(script.Parent.Templates)
+local Legacy = require(script.Parent.Legacy)
+
+local P = Legacy.part
+local A = Legacy.A
+
+local Structures = {}
+
+function Structures.pallet(map, rng: Random, upCF: CFrame, dropCF: CFrame): Model
+	local pallet = Templates.spawn("Pallet", upCF, map.Pallets, rng)
+	pallet:SetAttribute("DropCFrame", dropCF)
+	return pallet
+end
+
+function Structures.locker(map, rng: Random, cf: CFrame): Model
+	return Templates.spawn("Locker", cf, map.Lockers, rng)
+end
+
+function Structures.wall(parent: Instance, cf: CFrame, size: Vector3, style: string?)
+	return Legacy.wall(parent, cf, size, style)
+end
+
+-- Внешняя стена карты с проёмами под ворота (север и юг)
+function Structures.outerWalls(map, size: number, gateGap: number)
+	local half = size / 2
+	local wallH = 16
+	local sideLen = (size - gateGap) / 2
+	for _, side in { 1, -1 } do
+		for _, dir in { 1, -1 } do
+			Legacy.wall(map.Walls, CFrame.new(dir * (gateGap / 2 + sideLen / 2), wallH / 2, side * half), Vector3.new(sideLen, wallH, 2))
+		end
+		Legacy.wall(map.Walls, CFrame.new(side * half, wallH / 2, 0), Vector3.new(2, wallH, size))
+	end
+end
+
+-- Укрытие рядом с генератором (генератор стоит в cf)
+function Structures.generatorCover(map, cf: CFrame, rng: Random)
+	Legacy.wall(map.Walls, cf * CFrame.new(0, 3, 6.5), Vector3.new(10, 6, 1.5), rng:NextNumber() < 0.5 and "Wood" or "Brick")
+end
+
+-- Стенка с двумя шкафчиками
+function Structures.lockerNook(map, cf: CFrame, rng: Random)
+	Legacy.wall(map.Walls, cf * CFrame.new(0, 4, 2), Vector3.new(8, 8, 1.2), "Wood")
+	Structures.locker(map, rng, cf * CFrame.new(-2, 0, 0.3))
+	Structures.locker(map, rng, cf * CFrame.new(1.4, 0, 0.3))
+end
+
+function Structures.junk(map, cf: CFrame, rng: Random)
+	Legacy.junkPile(map.Walls, cf, rng)
+end
+
+function Structures.barrelFire(map, cf: CFrame, rng: Random)
+	Legacy.barrel(map.Walls, cf * CFrame.new(-3, 0, 0), rng)
+	Legacy.barrel(map.Walls, cf * CFrame.new(-0.6, 0, 1), rng)
+	Legacy.fire(map.Decor, cf * CFrame.new(-3, 3.2, 0), 1)
+	Legacy.hay(map.Walls, cf * CFrame.new(4, 0, 0), rng)
+end
+
+function Structures.hay(map, cf: CFrame, rng: Random)
+	Legacy.hay(map.Walls, cf, rng)
+end
+
+function Structures.tombstones(map, cf: CFrame, rng: Random)
+	Legacy.tombstones(map.Walls, cf, rng)
+end
+
+function Structures.fence(map, cf: CFrame, rng: Random)
+	Legacy.fence(map.Walls, cf * CFrame.new(0, 0, -4), 16)
+	table.insert(map.CrowSpots, cf * CFrame.new(rng:NextNumber(-6, 6), 4.5, -4))
+end
+
+function Structures.lamp(map, cf: CFrame, _rng: Random)
+	Legacy.lamp(map.Decor, cf)
+end
+
+
+function Structures.palletLoop(map, cf: CFrame, rng: Random)
+	local style = rng:NextNumber() < 0.5 and "Wood" or "Concrete"
+	local walls = map.Walls
+	Legacy.wall(walls, cf * CFrame.new(-5.6, 4, 0), Vector3.new(5.6, 8, 1.5), style)
+	Legacy.wall(walls, cf * CFrame.new(5.6, 4, 0), Vector3.new(5.6, 8, 1.5), style)
+	Legacy.wall(walls, cf * CFrame.new(-8.6, 4, 4), Vector3.new(1.5, 8, 8), style)
+	Legacy.wall(walls, cf * CFrame.new(8.6, 4, -4), Vector3.new(1.5, 8, 8), style)
+	local upCF = cf * CFrame.new(-1.8, 3, 1) * A(0, 0, 78)
+	Structures.pallet(map, rng, upCF, cf * CFrame.new(0, 1.5, 0))
+	table.insert(map.TrapSpots, cf * CFrame.new(0, 0, rng:NextNumber() < 0.5 and 3.5 or -3.5))
+	table.insert(map.CrowSpots, cf * CFrame.new(-5.6, 8, 0))
+end
+
+function Structures.windowLoop(map, cf: CFrame, rng: Random)
+	local style = rng:NextNumber() < 0.5 and "Brick" or "Concrete"
+	Legacy.wallWithOpenings(map.Walls, cf, 18, 10, 1.5, {
+		{ Center = 0, Width = 4, Sill = 3, Top = 7 },
+	}, style, map.Windows)
+	Legacy.wall(map.Walls, cf * CFrame.new(-9.75, 5, -5), Vector3.new(1.5, 10, 10), style)
+	Legacy.wall(map.Walls, cf * CFrame.new(9.75, 5, 5), Vector3.new(1.5, 10, 10), style)
+	table.insert(map.TrapSpots, cf * CFrame.new(0, 0, -3))
+end
+
+local function roof(parent: Instance, cf: CFrame, size: Vector3)
+	P(parent, {
+		Name = "Roof",
+		Size = size,
+		CFrame = cf,
+		Color = Color3.fromRGB(90, 60, 45),
+		Material = Enum.Material.CorrodedMetal,
+	})
+end
+
+local function floor(parent: Instance, cf: CFrame, size: Vector2)
+	P(parent, {
+		Name = "Floor",
+		Size = Vector3.new(size.X, 0.2, size.Y),
+		CFrame = cf * CFrame.new(0, 0.1, 0),
+		Color = Color3.fromRGB(80, 60, 45),
+		Material = Enum.Material.WoodPlanks,
+	})
+end
+
+-- Хижина маньяка в центре карты
+function Structures.shack(map, cf: CFrame, rng: Random)
+	local walls = map.Walls
+	local h = 9
+	Legacy.wallWithOpenings(walls, cf * CFrame.new(0, 0, -8), 17, h, 1, {
+		{ Center = 0, Width = 5.8, Sill = 0, Top = 7 },
+	}, "Wood", map.Windows)
+	Legacy.wallWithOpenings(walls, cf * CFrame.new(0, 0, 8), 17, h, 1, {
+		{ Center = 3, Width = 4, Sill = 3, Top = 7 },
+	}, "Wood", map.Windows)
+	Legacy.wallWithOpenings(walls, cf * CFrame.new(-8, 0, 0) * A(0, 90, 0), 15, h, 1, {
+		{ Center = 2, Width = 4, Sill = 3, Top = 7 },
+	}, "Wood", map.Windows)
+	Legacy.wallWithOpenings(walls, cf * CFrame.new(8, 0, 0) * A(0, 90, 0), 15, h, 1, {
+		{ Center = -2, Width = 5, Sill = 0, Top = 7 },
+	}, "Wood", map.Windows)
+	roof(walls, cf * CFrame.new(0, h + 0.3, 0) * A(0, 0, 4), Vector3.new(19, 0.6, 19))
+	floor(map.Decor, cf, Vector2.new(15.5, 15.5))
+	Structures.pallet(map, rng, cf * CFrame.new(-1.8, 3, -7) * A(0, 0, 78), cf * CFrame.new(0, 1.5, -8))
+	Structures.locker(map, rng, cf * CFrame.new(-5.5, 0, 6.2))
+	table.insert(map.ChestSpots, cf * CFrame.new(5.2, 0, 5.4))
+	table.insert(map.TotemSpots, cf * CFrame.new(-11, 0, -9))
+	table.insert(map.CrowSpots, cf * CFrame.new(6, h + 0.6, -6))
+	-- Тусклая лампочка внутри
+	local bulb = P(map.Decor, {
+		Name = "Bulb",
+		Shape = Enum.PartType.Ball,
+		Size = Vector3.new(0.6, 0.6, 0.6),
+		CFrame = cf * CFrame.new(0, h - 1, 0),
+		Color = Color3.fromRGB(255, 200, 120),
+		Material = Enum.Material.Neon,
+		Decor = true,
+	})
+	local light = Instance.new("PointLight")
+	light.Color = Color3.fromRGB(255, 160, 90)
+	light.Range = 16
+	light.Brightness = 1.2
+	light.Shadows = true
+	light.Parent = bulb
+end
+
+-- Дом из двух комнат
+function Structures.house(map, cf: CFrame, rng: Random)
+	local walls = map.Walls
+	local h = 10
+	Legacy.wallWithOpenings(walls, cf * CFrame.new(0, 0, -9), 21, h, 1, {
+		{ Center = -5, Width = 5.8, Sill = 0, Top = 7.5 },
+		{ Center = 5, Width = 4, Sill = 3, Top = 7 },
+	}, "Brick", map.Windows)
+	Legacy.wallWithOpenings(walls, cf * CFrame.new(0, 0, 9), 21, h, 1, {
+		{ Center = -5, Width = 4, Sill = 3, Top = 7 },
+		{ Center = 5, Width = 4.5, Sill = 0, Top = 7.5 },
+	}, "Brick", map.Windows)
+	Legacy.wallWithOpenings(walls, cf * CFrame.new(-10, 0, 0) * A(0, 90, 0), 17, h, 1, {
+		{ Center = 2, Width = 4, Sill = 3, Top = 7 },
+	}, "Brick", map.Windows)
+	Legacy.wall(walls, cf * CFrame.new(10, h / 2, 0), Vector3.new(1, h, 17), "Brick")
+	Legacy.wallWithOpenings(walls, cf * CFrame.new(0, 0, 0) * A(0, 90, 0), 17, h, 0.8, {
+		{ Center = 3, Width = 4.5, Sill = 0, Top = 7.5 },
+	}, "Wood", map.Windows)
+	roof(walls, cf * CFrame.new(0, h + 0.3, 0), Vector3.new(23, 0.6, 21))
+	floor(map.Decor, cf, Vector2.new(19.5, 17.5))
+	Structures.pallet(map, rng, cf * CFrame.new(-6.8, 3, -8) * A(0, 0, 78), cf * CFrame.new(-5, 1.5, -9))
+	Structures.locker(map, rng, cf * CFrame.new(-8, 0, 6.8))
+	Structures.locker(map, rng, cf * CFrame.new(7.6, 0, 6.8))
+	table.insert(map.ChestSpots, cf * CFrame.new(-7.5, 0, -2) * A(0, 90, 0))
+	table.insert(map.TotemSpots, cf * CFrame.new(7, 0, -6))
+	for _, x in { -5, 5 } do
+		local bulb = P(map.Decor, {
+			Name = "Bulb",
+			Shape = Enum.PartType.Ball,
+			Size = Vector3.new(0.6, 0.6, 0.6),
+			CFrame = cf * CFrame.new(x, h - 1, 0),
+			Color = Color3.fromRGB(255, 210, 140),
+			Material = Enum.Material.Neon,
+			Decor = true,
+		})
+		local light = Instance.new("PointLight")
+		light.Color = Color3.fromRGB(255, 170, 100)
+		light.Range = 14
+		light.Brightness = 1
+		light.Parent = bulb
+	end
+end
+
+
+return Structures
+]]></string>
+            </Properties>
+          </Item>
+          <Item class="ModuleScript" referent="38">
+            <Properties>
+              <string name="Name">Templates</string>
+              <string name="Source"><![CDATA[-- Реестр шаблонов объектов. Каждый объект строится ОДИН раз (с CSG) в начале работы сервера
+-- в нескольких вариантах, хранится в ServerStorage, а на карту попадают копии (Clone + PivotTo).
+local ServerStorage = game:GetService("ServerStorage")
+
+local MapProps = require(script.Parent.MapProps)
+
+local Templates = {}
+
+export type Def = {
+	Build: (rng: Random, variant: number) -> Model,
+	Variants: number?,
+}
+
+local defs: { [string]: Def } = {}
+local built: { [string]: { Model } } = {}
+
+local storage: Folder?
+
+local function getStorage(): Folder
+	if storage and storage.Parent then
+		return storage
+	end
+	local f = ServerStorage:FindFirstChild("PropTemplates") :: Folder?
+	if not f then
+		f = Instance.new("Folder")
+		f.Name = "PropTemplates"
+		f.Parent = ServerStorage
+	end
+	storage = f
+	return f :: Folder
+end
+
+function Templates.register(name: string, def: Def)
+	defs[name] = def
+end
+
+for name, def in MapProps.Templates do
+	Templates.register(name, def)
+end
+
+function Templates.names(): { string }
+	local list = {}
+	for name in defs do
+		table.insert(list, name)
+	end
+	table.sort(list)
+	return list
+end
+
+-- Построить все варианты шаблона (CSG требует, чтобы детали были в workspace — строим в «мастерской» под картой)
+function Templates.build(name: string): { Model }
+	if built[name] then
+		return built[name]
+	end
+	local def = defs[name]
+	assert(def, "нет шаблона " .. name)
+	local list = {}
+	local workshop = Instance.new("Model")
+	workshop.Name = "TemplateWorkshop"
+	workshop.Parent = workspace
+	for v = 1, def.Variants or 1 do
+		local rng = Random.new(v * 7919 + #name * 131)
+		local model = def.Build(rng, v)
+		model.Name = name
+		model.Parent = workshop
+		model:SetAttribute("Template", name)
+		model.Parent = getStorage()
+		table.insert(list, model)
+	end
+	workshop:Destroy()
+	built[name] = list
+	return list
+end
+
+function Templates.prebuild()
+	for name in defs do
+		Templates.build(name)
+	end
+end
+
+-- Поставить копию шаблона. cframe — опора модели (земля в центре, -Z = «перед»).
+function Templates.spawn(name: string, cframe: CFrame, parent: Instance, rng: Random?): Model
+	local list = Templates.build(name)
+	local index = rng and rng:NextInteger(1, #list) or 1
+	local model = list[index]:Clone()
+	model:PivotTo(cframe)
+	model:SetAttribute("Origin", cframe)
+	model.Parent = parent
+	return model
+end
+
+-- Для тестов: последний построенный вариант (без копирования)
+function Templates.get(name: string, variant: number?): Model
+	local list = Templates.build(name)
+	return list[variant or 1]
+end
+
+return Templates
+]]></string>
+            </Properties>
+          </Item>
+        </Item>
+        <Item class="ModuleScript" referent="39">
+          <Properties>
+            <string name="Name">MapBuilder</string>
+            <string name="Source"><![CDATA[-- Процедурно строит карту (каждый раунд новая раскладка) и освещение.
+-- Здесь только РАСКЛАДКА по ячейкам 22x22; внешний вид — в модулях Art/* и Terrain.
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Lighting = game:GetService("Lighting")
+
+local Config = require(ReplicatedStorage.Shared.Config)
+local Templates = require(script.Parent.Art.Templates)
+local Structures = require(script.Parent.Art.Structures)
+local Nature = require(script.Parent.Art.Nature)
+local Lobby = require(script.Parent.Art.Lobby)
+local Terrain = require(script.Parent.Terrain)
+
+local function A(x: number?, y: number?, z: number?): CFrame
+	return CFrame.Angles(math.rad(x or 0), math.rad(y or 0), math.rad(z or 0))
+end
+
+local MapBuilder = {}
+
+local CELL = 22
+local function folder(name: string, parent: Instance): Folder
+	local f = Instance.new("Folder")
+	f.Name = name
+	f.Parent = parent
+	return f
+end
+
+local function shuffle(list, rng: Random)
+	for i = #list, 2, -1 do
+		local j = rng:NextInteger(1, i)
+		list[i], list[j] = list[j], list[i]
+	end
+end
+
+export type MapData = {
+	Model: Model,
+	Walls: Folder,
+	Decor: Folder,
+	Generators: Folder,
+	Hooks: Folder,
+	Pallets: Folder,
+	Windows: Folder,
+	ExitGates: Folder,
+	Lockers: Folder,
+	Totems: Folder,
+	Chests: Folder,
+	Traps: Folder,
+	Crows: Folder,
+	Effects: Folder,
+	Hatch: Model,
+	TrapSpots: { CFrame },
+	CrowSpots: { CFrame },
+	SurvivorSpawn: Vector3,
+	KillerSpawn: Vector3,
+	ChestSpots: { CFrame },
+	TotemSpots: { CFrame },
+}
+
+
+function MapBuilder.BuildMap(seed: number?): MapData
+	local old = workspace:FindFirstChild("Map")
+	if old then
+		old:Destroy()
+	end
+
+	local rng = Random.new(seed or os.clock() * 1000)
+	local size = Config.MapSize
+	local half = size / 2
+
+	local model = Instance.new("Model")
+	model.Name = "Map"
+	local map = {
+		Model = model,
+		Walls = folder("Walls", model),
+		Decor = folder("Decor", model),
+		Generators = folder("Generators", model),
+		Hooks = folder("Hooks", model),
+		Pallets = folder("Pallets", model),
+		Windows = folder("Windows", model),
+		ExitGates = folder("ExitGates", model),
+		Lockers = folder("Lockers", model),
+		Totems = folder("Totems", model),
+		Chests = folder("Chests", model),
+		Traps = folder("Traps", model),
+		Crows = folder("Crows", model),
+		Effects = folder("Effects", model),
+		TrapSpots = {},
+		CrowSpots = {},
+		ChestSpots = {},
+		TotemSpots = {},
+	}
+
+	-- Внешние стены с проёмами под ворота на севере и юге
+	Structures.outerWalls(map, size, 16)
+	for i, side in { 1, -1 } do
+		local gateCF = CFrame.new(0, 0, side * half) * A(0, side == 1 and 0 or 180, 0)
+		local gate = Templates.spawn("ExitGate", gateCF, map.ExitGates)
+		gate.Name = "ExitGate" .. i
+	end
+
+	-- Сетка ячеек
+	local n = math.floor(size / CELL)
+	local cells = {}
+	local center
+	for ix = 1, n do
+		for iz = 1, n do
+			local cx = -half + CELL * (ix - 0.5)
+			local cz = -half + CELL * (iz - 0.5)
+			local nearGate = math.abs(cx) < CELL and (iz == 1 or iz == n)
+			if ix == math.ceil(n / 2) and iz == math.ceil(n / 2) then
+				center = Vector3.new(cx, 0, cz)
+			elseif not nearGate then
+				table.insert(cells, Vector3.new(cx, 0, cz))
+			end
+		end
+	end
+	shuffle(cells, rng)
+
+	local idx = 0
+	local function nextCell(): (CFrame, Vector3)
+		idx += 1
+		local c = cells[idx]
+		local rot = rng:NextInteger(0, 3) * 90
+		return CFrame.new(c) * A(0, rot, 0), c
+	end
+
+	Structures.shack(map, CFrame.new(center) * A(0, rng:NextInteger(0, 3) * 90, 0), rng)
+	Structures.house(map, (nextCell()), rng)
+
+	for i = 1, Config.GeneratorCount do
+		local cf = nextCell()
+		local gen = Templates.spawn("Generator", cf, map.Generators, rng)
+		gen.Name = "Generator" .. i
+		Structures.generatorCover(map, cf, rng)
+		table.insert(map.TrapSpots, cf * CFrame.new(rng:NextNumber(-4, 4), 0, -4))
+	end
+	for i = 1, 8 do
+		local cf = nextCell()
+		local hook = Templates.spawn("Hook", cf, map.Hooks, rng)
+		hook.Name = "Hook" .. i
+		table.insert(map.CrowSpots, cf * CFrame.new(0, 12, 0))
+	end
+	for _ = 1, 8 do
+		Structures.palletLoop(map, (nextCell()), rng)
+	end
+	for _ = 1, 3 do
+		Structures.windowLoop(map, (nextCell()), rng)
+	end
+	for _ = 1, 2 do
+		Structures.lockerNook(map, (nextCell()), rng)
+	end
+	for _ = 1, 3 do
+		local cf = nextCell()
+		table.insert(map.TotemSpots, cf)
+		Nature.rocks(map, cf * CFrame.new(0, 0, 6), rng)
+	end
+	for _ = 1, 3 do
+		local cf = nextCell()
+		table.insert(map.ChestSpots, cf)
+		Structures.hay(map, cf * CFrame.new(0, 0, 5), rng)
+	end
+
+	-- Люк
+	local hatchCF = nextCell()
+	map.Hatch = Templates.spawn("Hatch", hatchCF, map.Model)
+
+	-- Тотемы (один — проклятый) и сундуки
+	shuffle(map.TotemSpots, rng)
+	for i = 1, math.min(5, #map.TotemSpots) do
+		Templates.spawn(i == 1 and "HexTotem" or "Totem", map.TotemSpots[i], map.Totems, rng)
+	end
+	for _, cf in map.ChestSpots do
+		Templates.spawn("Chest", cf, map.Chests, rng)
+	end
+
+	-- Декор
+	for _ = 1, 4 do
+		Structures.junk(map, (nextCell()), rng)
+	end
+	for _ = 1, 3 do
+		Nature.corn(map, (nextCell()), rng)
+	end
+	for _ = 1, 6 do
+		Nature.trees(map, (nextCell()), rng)
+	end
+	for _ = 1, 3 do
+		Nature.deadTree(map, (nextCell()), rng)
+	end
+	for _ = 1, 4 do
+		Nature.rocks(map, (nextCell()), rng)
+	end
+	for _ = 1, 2 do
+		Structures.tombstones(map, (nextCell()), rng)
+	end
+	for _ = 1, 3 do
+		Structures.barrelFire(map, (nextCell()), rng)
+	end
+	for _ = 1, 3 do
+		Structures.fence(map, (nextCell()), rng)
+	end
+	for _ = 1, 5 do
+		Structures.lamp(map, (nextCell()), rng)
+	end
+
+	-- Туман по всей карте
+	for _ = 1, 14 do
+		Nature.fog(map, Vector3.new(rng:NextNumber(-half, half), 1, rng:NextNumber(-half, half)), rng)
+	end
+	Nature.scatter(map, rng)
+
+	-- Оставшиеся пустые ячейки — для спавна
+	local free = {}
+	for i = idx + 1, #cells do
+		table.insert(free, cells[i])
+	end
+	local survivorSpawn = free[1] or Vector3.new(30, 0, 30)
+	local killerSpawn = survivorSpawn
+	local best = -1
+	for _, c in free do
+		local d = (c - survivorSpawn).Magnitude
+		if d > best then
+			best = d
+			killerSpawn = c
+		end
+	end
+	map.SurvivorSpawn = survivorSpawn + Vector3.new(0, 3.2, 0)
+	map.KillerSpawn = killerSpawn + Vector3.new(0, 3.5, 0)
+	for i = 2, #free do
+		table.insert(map.CrowSpots, CFrame.new(free[i] + Vector3.new(rng:NextNumber(-6, 6), 0, rng:NextNumber(-6, 6))))
+	end
+
+	-- Ландшафт: тропинки от центра к воротам и между соседними ячейками
+	local paths = {
+		{ From = center, To = Vector3.new(0, 0, half), Width = 6 },
+		{ From = center, To = Vector3.new(0, 0, -half), Width = 6 },
+	}
+	for i = 1, 10 do
+		local a, b = cells[i], cells[i + 1]
+		if a and b and (a - b).Magnitude < CELL * 3 then
+			table.insert(paths, { From = a, To = b, Width = 4 })
+		end
+	end
+	Terrain.buildMap(rng, paths)
+
+	model.Parent = workspace
+	return map :: any
+end
+
+
+------------------------------------------------------------------------
+-- Освещение
+------------------------------------------------------------------------
+
+-- Лобби (модуль Art/Lobby) и ландшафт поляны
+function MapBuilder.BuildLobby(): Model
+	local existing = workspace:FindFirstChild("Lobby")
+	if existing then
+		return existing :: Model
+	end
+	Terrain.setupColors()
+	Terrain.buildLobby()
+	return Lobby.build()
+end
+
+function MapBuilder.LobbySpawn(): CFrame
+	return Lobby.spawnCFrame()
+end
+
+function MapBuilder.SetupLighting()
+	Lighting.ClockTime = 0.3
+	Lighting.Brightness = 1.2
+	Lighting.Ambient = Color3.fromRGB(35, 35, 50)
+	Lighting.OutdoorAmbient = Color3.fromRGB(70, 70, 90)
+	Lighting.EnvironmentDiffuseScale = 0.4
+	Lighting.EnvironmentSpecularScale = 0.4
+	Lighting.GlobalShadows = true
+	Lighting.FogEnd = 100000
+	for _, child in Lighting:GetChildren() do
+		child:Destroy()
+	end
+
+	local atmosphere = Instance.new("Atmosphere")
+	atmosphere.Density = 0.48
+	atmosphere.Offset = 0.1
+	atmosphere.Color = Color3.fromRGB(120, 130, 155)
+	atmosphere.Decay = Color3.fromRGB(40, 45, 60)
+	atmosphere.Glare = 0
+	atmosphere.Haze = 2.2
+	atmosphere.Parent = Lighting
+
+	local sky = Instance.new("Sky")
+	sky.CelestialBodiesShown = true
+	sky.MoonAngularSize = 14
+	sky.StarCount = 1500
+	sky.Parent = Lighting
+
+	local cc = Instance.new("ColorCorrectionEffect")
+	cc.Saturation = -0.35
+	cc.Contrast = 0.15
+	cc.Brightness = 0.02
+	cc.TintColor = Color3.fromRGB(215, 225, 255)
+	cc.Parent = Lighting
+
+	local bloom = Instance.new("BloomEffect")
+	bloom.Intensity = 0.6
+	bloom.Size = 30
+	bloom.Threshold = 1.6
+	bloom.Parent = Lighting
+end
+
+return MapBuilder
+]]></string>
+          </Properties>
+        </Item>
+        <Item class="ModuleScript" referent="40">
+          <Properties>
+            <string name="Name">PropFX</string>
+            <string name="Source"><![CDATA[-- Визуальные состояния объектов карты. Игровые системы вызывают только эти функции,
+-- поэтому внутреннее устройство моделей (Art/*) можно менять свободно.
+--
+-- Соглашения для моделей (проверяются Art/Contract.lua):
+--   * подвижные детали: атрибуты FX = "<группа>", CF0/CF1 = положения относительно model:GetPivot()
+--     (см. Kit.movable). Группы: LockerDoor, HatchDoor, TrapJaw, ChestLid, GateDoor, GateLever, Skull.
+--   * генератор: детали с атрибутом ProgressLight = 1..4, деталь с атрибутом Bulb (внутри PointLight),
+--     Attachment "FX" (точка для искр/дыма), детали поршней — атрибут AnimatedPiston (анимирует клиент).
+--   * ворота: детали GateLamp = 1..3, деталь "Siren" с SpotLight "SirenLight", деталь "Switch".
+--   * тотем: детали HexFlame (гаснут), SkullEye (темнеют), группа Skull (череп падает).
+--   * люк/сундук: PointLight с именем "Glow" где-нибудь внутри модели.
+local TweenService = game:GetService("TweenService")
+
+local Kit = require(script.Parent.Art.Kit)
+local MapProps = require(script.Parent.Art.MapProps)
+
+local PropFX = {}
+
+------------------------------------------------------------------------
+-- Общие подвижные группы
+------------------------------------------------------------------------
+
+function PropFX.parts(model: Instance, group: string): { BasePart }
+	local out = {}
+	for _, d in model:GetDescendants() do
+		if d:IsA("BasePart") and d:GetAttribute("FX") == group then
+			table.insert(out, d)
+		end
+	end
+	return out
+end
+
+function PropFX.setGroup(model: Model, group: string, alpha: number)
+	local pivot = model:GetPivot()
+	for _, part in PropFX.parts(model, group) do
+		local cf0 = part:GetAttribute("CF0") :: CFrame?
+		local cf1 = part:GetAttribute("CF1") :: CFrame?
+		if cf0 and cf1 then
+			part.CFrame = (pivot * cf0):Lerp(pivot * cf1, math.clamp(alpha, 0, 1))
+		end
+	end
+	model:SetAttribute("FX_" .. group, alpha)
+end
+
+-- Плавно перевести группу в состояние alpha (сервер, все видят)
+function PropFX.tweenGroup(model: Model, group: string, alpha: number, duration: number, style: Enum.EasingStyle?): Tween?
+	local from = (model:GetAttribute("FX_" .. group) :: number?) or 0
+	local value = Instance.new("NumberValue")
+	value.Value = from
+	value.Changed:Connect(function(v)
+		if model.Parent then
+			PropFX.setGroup(model, group, v)
+		end
+	end)
+	local tw = TweenService:Create(value, TweenInfo.new(duration, style or Enum.EasingStyle.Quad), { Value = alpha })
+	tw.Completed:Connect(function()
+		if model.Parent then
+			PropFX.setGroup(model, group, alpha)
+		end
+		value:Destroy()
+	end)
+	tw:Play()
+	return tw
+end
+
+local function findLight(model: Instance, name: string): Light?
+	for _, d in model:GetDescendants() do
+		if d:IsA("Light") and d.Name == name then
+			return d
+		end
+	end
+	return nil
+end
+
+------------------------------------------------------------------------
+-- Генератор
+------------------------------------------------------------------------
+
+local LIGHT_OFF = Color3.fromRGB(45, 40, 30)
+local LIGHT_ON = Color3.fromRGB(255, 220, 120)
+
+function PropFX.genProgress(gen: Model, progress: number)
+	for _, d in gen:GetDescendants() do
+		local i = d:GetAttribute("ProgressLight")
+		if i and d:IsA("BasePart") then
+			local on = progress >= (i :: number) / 4 - 0.001
+			d.Color = on and LIGHT_ON or LIGHT_OFF
+			d.Material = on and Enum.Material.Neon or Enum.Material.Glass
+		end
+	end
+end
+
+function PropFX.genDone(gen: Model)
+	PropFX.genProgress(gen, 1)
+	for _, d in gen:GetDescendants() do
+		if d:GetAttribute("Bulb") and d:IsA("BasePart") then
+			d.Color = Color3.fromRGB(255, 230, 140)
+			d.Material = Enum.Material.Neon
+			for _, l in d:GetChildren() do
+				if l:IsA("Light") then
+					l.Enabled = true
+				end
+			end
+		end
+	end
+end
+
+local function fxAttachment(model: Model): Attachment?
+	for _, d in model:GetDescendants() do
+		if d:IsA("Attachment") and d.Name == "FX" then
+			return d
+		end
+	end
+	return nil
+end
+
+-- Взрыв при проваленной проверке навыка: искры и дым
+function PropFX.genExplode(gen: Model)
+	local att = fxAttachment(gen)
+	if not att then
+		return
+	end
+	local sparks = att:FindFirstChild("Sparks") :: ParticleEmitter?
+	if not sparks then
+		sparks = Kit.emitter(att, "Sparks")
+		sparks.Enabled = false
+	end
+	local smoke = att:FindFirstChild("Smoke") :: ParticleEmitter?
+	if not smoke then
+		smoke = Kit.emitter(att, "Smoke", 1.4)
+		smoke.Enabled = false
+	end
+	;(sparks :: ParticleEmitter):Emit(45)
+	local s = smoke :: ParticleEmitter
+	s.Enabled = true
+	task.delay(2.5, function()
+		if s.Parent then
+			s.Enabled = false
+		end
+	end)
+end
+
+------------------------------------------------------------------------
+-- Ворота
+------------------------------------------------------------------------
+
+function PropFX.gateProgress(gate: Model, progress: number)
+	for _, d in gate:GetDescendants() do
+		local i = d:GetAttribute("GateLamp")
+		if i and d:IsA("BasePart") then
+			local on = progress >= (i :: number) / 3
+			d.Color = on and Color3.fromRGB(255, 40, 40) or Color3.fromRGB(40, 0, 0)
+			d.Material = Enum.Material.Neon
+		end
+	end
+	PropFX.setGroup(gate, "GateLever", progress)
+end
+
+function PropFX.gatePowered(gate: Model)
+	local sw = gate:FindFirstChild("Switch", true) :: BasePart?
+	if sw then
+		sw.Color = Color3.fromRGB(150, 130, 40)
+	end
+	for _, d in gate:GetDescendants() do
+		if d:GetAttribute("PowerLight") and d:IsA("BasePart") then
+			d.Material = Enum.Material.Neon
+			d.Color = Color3.fromRGB(255, 200, 90)
+		end
+	end
+end
+
+function PropFX.gateSiren(gate: Model, on: boolean)
+	local siren = gate:FindFirstChild("Siren", true)
+	local light = siren and siren:FindFirstChild("SirenLight") :: Light?
+	if light then
+		light.Enabled = on
+	end
+	if siren and siren:IsA("BasePart") then
+		siren.Material = on and Enum.Material.Neon or Enum.Material.Glass
+		siren.Color = on and Color3.fromRGB(255, 40, 30) or Color3.fromRGB(80, 10, 10)
+	end
+end
+
+function PropFX.gateOpen(gate: Model)
+	PropFX.gateProgress(gate, 1)
+	for _, p in PropFX.parts(gate, "GateDoor") do
+		p.CanCollide = false
+	end
+	PropFX.tweenGroup(gate, "GateDoor", 1, 2.5)
+end
+
+------------------------------------------------------------------------
+-- Шкафчик, люк, капкан, сундук
+------------------------------------------------------------------------
+
+function PropFX.lockerDoor(locker: Model, alpha: number)
+	PropFX.setGroup(locker, "LockerDoor", alpha)
+end
+
+-- Открыть дверь и закрыть через holdTime
+function PropFX.swingLockerDoor(locker: Model, holdTime: number, onSound: (() -> ())?)
+	PropFX.tweenGroup(locker, "LockerDoor", 1, 0.2)
+	if onSound then
+		onSound()
+	end
+	task.delay(0.2 + holdTime, function()
+		if locker.Parent then
+			PropFX.tweenGroup(locker, "LockerDoor", 0, 0.25)
+			if onSound then
+				task.delay(0.25, onSound)
+			end
+		end
+	end)
+end
+
+function PropFX.hatch(hatch: Model, open: boolean)
+	PropFX.tweenGroup(hatch, "HatchDoor", open and 1 or 0, 0.6, Enum.EasingStyle.Back)
+	local glow = findLight(hatch, "Glow")
+	if glow then
+		glow.Enabled = open
+	end
+end
+
+-- armed = true: челюсти раскрыты (CF0), false: захлопнуты (CF1)
+function PropFX.trap(trap: Model, armed: boolean)
+	PropFX.setGroup(trap, "TrapJaw", armed and 0 or 1)
+end
+
+function PropFX.chestOpen(chest: Model)
+	PropFX.tweenGroup(chest, "ChestLid", 1, 0.5, Enum.EasingStyle.Back)
+	local glow = findLight(chest, "Glow")
+	if glow then
+		glow.Enabled = true
+	end
+end
+
+------------------------------------------------------------------------
+-- Тотем
+------------------------------------------------------------------------
+
+function PropFX.totemCleansed(totem: Model)
+	for _, d in totem:GetDescendants() do
+		if d:GetAttribute("HexFlame") then
+			d:Destroy()
+		elseif d:GetAttribute("SkullEye") and d:IsA("BasePart") then
+			d.Color = Color3.fromRGB(20, 20, 22)
+			d.Material = Enum.Material.SmoothPlastic
+		end
+	end
+	PropFX.tweenGroup(totem, "Skull", 1, 0.6, Enum.EasingStyle.Bounce)
+end
+
+------------------------------------------------------------------------
+-- Паллета
+------------------------------------------------------------------------
+
+local function tweenModel(model: Model, target: CFrame, duration: number)
+	local value = Instance.new("CFrameValue")
+	value.Value = model:GetPivot()
+	value.Changed:Connect(function(cf)
+		if model.Parent then
+			model:PivotTo(cf)
+		end
+	end)
+	local tw = TweenService:Create(value, TweenInfo.new(duration, Enum.EasingStyle.Quad, Enum.EasingDirection.In), { Value = target })
+	tw.Completed:Connect(function()
+		if model.Parent then
+			model:PivotTo(target)
+		end
+		value:Destroy()
+	end)
+	tw:Play()
+end
+
+function PropFX.palletDrop(pallet: Model)
+	local dropCF = pallet:GetAttribute("DropCFrame") :: CFrame
+	local hitbox = pallet.PrimaryPart
+	if hitbox then
+		hitbox.CanCollide = true
+	end
+	tweenModel(pallet, dropCF, 0.25)
+end
+
+-- Обломки разлетаются и исчезают
+function PropFX.palletBreak(pallet: Model, debrisParent: Instance?)
+	for _, d in pallet:GetDescendants() do
+		if d:IsA("BasePart") then
+			d.Anchored = false
+			d.CanCollide = false
+			d.AssemblyLinearVelocity = Vector3.new(math.random(-15, 15), math.random(8, 18), math.random(-15, 15))
+		end
+	end
+	if debrisParent then
+		pallet.Parent = debrisParent
+	end
+	task.delay(2, function()
+		pallet:Destroy()
+	end)
+end
+
+------------------------------------------------------------------------
+-- Сущность на крюке
+------------------------------------------------------------------------
+
+PropFX.EntityBuilder = MapProps.entityLegs :: ((hangPoint: CFrame) -> Model)?
+
+function PropFX.entity(hook: Model, on: boolean)
+	local existing = hook:FindFirstChild("EntityLegs")
+	if not on then
+		if existing then
+			existing:Destroy()
+		end
+		return
+	end
+	if existing then
+		return
+	end
+	local hp = hook:FindFirstChild("HangPoint", true) :: BasePart?
+	if not hp or not PropFX.EntityBuilder then
+		return
+	end
+	local legs = PropFX.EntityBuilder(hp.CFrame)
+	legs.Name = "EntityLegs"
+	legs.Parent = hook
+end
+
+return PropFX
+]]></string>
+          </Properties>
+        </Item>
+        <Item class="ModuleScript" referent="41">
+          <Properties>
+            <string name="Name">Terrain</string>
+            <string name="Source"><![CDATA[-- Ландшафт (Roblox Terrain): трава, тропинки, грязь, камни, холмы за стенами.
+-- Поверхность земли на карте — y = 0 (как и раньше), поэтому геймплей не меняется.
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local Config = require(ReplicatedStorage.Shared.Config)
+
+local Terrain = {}
+
+local M = Enum.Material
+
+local function terrain(): Terrain?
+	return workspace:FindFirstChildOfClass("Terrain")
+end
+
+-- Вызов метода Terrain с защитой (в тестах/эмуляторе части методов может не быть)
+local function call(method: string, ...)
+	local t = terrain()
+	if not t then
+		return
+	end
+	local args = table.pack(...)
+	pcall(function()
+		(t :: any)[method](t, table.unpack(args, 1, args.n))
+	end)
+end
+Terrain.call = call
+
+function Terrain.setupColors()
+	call("SetMaterialColor", M.Grass, Color3.fromRGB(62, 74, 44))
+	call("SetMaterialColor", M.LeafyGrass, Color3.fromRGB(52, 66, 38))
+	call("SetMaterialColor", M.Ground, Color3.fromRGB(78, 64, 48))
+	call("SetMaterialColor", M.Mud, Color3.fromRGB(58, 46, 36))
+	call("SetMaterialColor", M.Rock, Color3.fromRGB(92, 90, 88))
+	call("SetMaterialColor", M.Slate, Color3.fromRGB(72, 72, 76))
+end
+
+-- Очистить область карты (лобби высоко над картой не трогаем)
+function Terrain.clearMap()
+	local size = Config.MapSize + 200
+	call("FillBlock", CFrame.new(0, 20, 0), Vector3.new(size, 80, size), M.Air)
+end
+
+-- Земля карты. paths — список {From = Vector3, To = Vector3, Width = number} (тропинки между ячейками)
+function Terrain.buildMap(rng: Random, paths: { any }?)
+	local size = Config.MapSize
+	local half = size / 2
+	Terrain.clearMap()
+	-- Основание: трава толщиной 8 стад, верх на y = 0
+	call("FillBlock", CFrame.new(0, -4, 0), Vector3.new(size + 160, 8, size + 160), M.Grass)
+	-- Пятна густой травы и грязи
+	for _ = 1, 40 do
+		local p = Vector3.new(rng:NextNumber(-half, half), -1.5, rng:NextNumber(-half, half))
+		local mat = rng:NextNumber() < 0.6 and M.LeafyGrass or M.Ground
+		call("FillCylinder", CFrame.new(p), 3, rng:NextNumber(4, 10), mat)
+	end
+	-- Тропинки
+	if paths then
+		for _, path in paths do
+			local a: Vector3, b: Vector3 = path.From, path.To
+			local mid = (a + b) / 2
+			local len = (b - a).Magnitude
+			if len > 1 then
+				local cf = CFrame.lookAt(Vector3.new(mid.X, -1, mid.Z), Vector3.new(b.X, -1, b.Z))
+				call("FillBlock", cf, Vector3.new(path.Width or 5, 2, len), M.Ground)
+			end
+		end
+	end
+	-- Холмы за внешними стенами (скрывают край мира)
+	for i = 0, 40 do
+		local t = i / 40
+		for _, side in { -1, 1 } do
+			local along = -half - 40 + (size + 80) * t
+			local height = rng:NextNumber(10, 22)
+			local dist = half + rng:NextNumber(14, 30)
+			local r = rng:NextNumber(14, 24)
+			local mat = rng:NextNumber() < 0.5 and M.Rock or M.Grass
+			-- восток/запад
+			call("FillBall", Vector3.new(side * dist, height - r, along), r, mat)
+			-- север/юг (оставляем коридоры ворот свободными)
+			if math.abs(along) > 26 then
+				call("FillBall", Vector3.new(along, height - r, side * dist), r, mat)
+			end
+		end
+	end
+end
+
+-- Поляна в лобби
+function Terrain.buildLobby()
+	local pos = Config.LobbyPosition
+	call("FillBlock", CFrame.new(pos + Vector3.new(0, -4, 0)), Vector3.new(160, 8, 160), M.Grass)
+	call("FillCylinder", CFrame.new(pos + Vector3.new(0, -1.5, 0)), 3, 12, M.Ground)
+	local rng = Random.new(7)
+	for _ = 1, 24 do
+		local a = rng:NextNumber(0, math.pi * 2)
+		local r = rng:NextNumber(62, 80)
+		call("FillBall", pos + Vector3.new(math.cos(a) * r, rng:NextNumber(-6, 4), math.sin(a) * r), rng:NextNumber(10, 18), M.Rock)
+	end
+end
+
+return Terrain
+]]></string>
           </Properties>
         </Item>
       </Item>
-      <Item class="ModuleScript" referent="28">
+      <Item class="ModuleScript" referent="42">
         <Properties>
           <string name="Name">Powers</string>
           <string name="Source"><![CDATA[-- Диспетчер способностей маньяков.
@@ -4606,7 +5730,7 @@ end)
 return Powers
 ]]></string>
         </Properties>
-        <Item class="ModuleScript" referent="29">
+        <Item class="ModuleScript" referent="43">
           <Properties>
             <string name="Name">Huntress</string>
             <string name="Source"><![CDATA[-- Охотница: метательные топоры (сервер считает полёт, клиенты рисуют).
@@ -4808,7 +5932,7 @@ return Huntress
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="30">
+        <Item class="ModuleScript" referent="44">
           <Properties>
             <string name="Name">Trapper</string>
             <string name="Source"><![CDATA[-- Траппер: медвежьи капканы.
@@ -4820,7 +5944,8 @@ local State = require(Server.Core.State)
 local Actions = require(Server.Core.Actions)
 local Lifecycle = require(Server.Core.Lifecycle)
 local Scoring = require(Server.Core.Scoring)
-local Props = require(Server.Map.Props)
+local PropFX = require(Server.Map.PropFX)
+local Templates = require(Server.Map.Art.Templates)
 local Health = require(Server.Systems.Health)
 
 local DEF = KillerDefs.Trapper
@@ -4853,7 +5978,7 @@ function Trapper.Setup(kdata)
 		spots[i], spots[j] = spots[j], spots[i]
 	end
 	for i = 1, math.min(DEF.TrapsOnMap, #spots) do
-		local trap = Props.trap(map.Traps, spots[i] * CFrame.Angles(0, rng:NextNumber(0, math.pi * 2), 0))
+		local trap = Templates.spawn("Trap", spots[i] * CFrame.Angles(0, rng:NextNumber(0, math.pi * 2), 0), map.Traps)
 		trap:SetAttribute("Owner", kdata.Player.UserId)
 	end
 end
@@ -4879,7 +6004,7 @@ local function catch(sdata, trap: Model)
 	Actions.cancel(sdata)
 	trap:SetAttribute("Armed", false)
 	trap:SetAttribute("Caught", sdata.Player.UserId)
-	Props.setTrapArmed(trap, false)
+	PropFX.trap(trap, false)
 	sdata.Trapped = trap
 	sdata.TrapAttempts = 0
 	sdata.Player:SetAttribute("Trapped", true)
@@ -4966,7 +6091,7 @@ Actions.register("SetTrap", {
 		groundParams.FilterDescendantsInstances = exclude
 		local hit = workspace:Raycast(origin, Vector3.new(0, -12, 0), groundParams)
 		local ground = hit and hit.Position or Vector3.new(origin.X, 0, origin.Z)
-		local trap = Props.trap(State.Map.Traps, CFrame.lookAt(ground, ground + look))
+		local trap = Templates.spawn("Trap", CFrame.lookAt(ground, ground + look), State.Map.Traps)
 		trap:SetAttribute("Owner", data.Player.UserId)
 		data.Power.InHand -= 1
 		setCount(data)
@@ -4995,7 +6120,7 @@ Actions.register("ResetTrap", {
 	end,
 	Complete = function(_data, target)
 		target:SetAttribute("Armed", true)
-		Props.setTrapArmed(target :: Model, true)
+		PropFX.trap(target :: Model, true)
 		State.sfx("Clank", trapPosition(target :: Model))
 	end,
 })
@@ -5006,7 +6131,7 @@ Actions.register("DisarmTrap", {
 	end,
 	Complete = function(data, target)
 		target:SetAttribute("Armed", false)
-		Props.setTrapArmed(target :: Model, false)
+		PropFX.trap(target :: Model, false)
 		State.sfx("TrapSnap", trapPosition(target :: Model))
 		Scoring.add(data.Player, "Boldness", 300, "Капкан обезврежен")
 	end,
@@ -5062,7 +6187,7 @@ return Trapper
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="31">
+        <Item class="ModuleScript" referent="45">
           <Properties>
             <string name="Name">Wraith</string>
             <string name="Source"><![CDATA[-- Призрак: колокол, невидимость и рывок после проявления.
@@ -5200,11 +6325,11 @@ return Wraith
           </Properties>
         </Item>
       </Item>
-      <Item class="Folder" referent="32">
+      <Item class="Folder" referent="46">
         <Properties>
           <string name="Name">Systems</string>
         </Properties>
-        <Item class="ModuleScript" referent="33">
+        <Item class="ModuleScript" referent="47">
           <Properties>
             <string name="Name">Carry</string>
             <string name="Source"><![CDATA[-- Подъём, перенос на плече, вырывание, крюки, Сущность и жертвоприношение.
@@ -5220,7 +6345,7 @@ local Actions = require(Core.Actions)
 local Lifecycle = require(Core.Lifecycle)
 local Scoring = require(Core.Scoring)
 local Characters = require(Core.Characters)
-local Props = require(script.Parent.Parent.Map.Props)
+local PropFX = require(script.Parent.Parent.Map.PropFX)
 
 local Carry = {}
 
@@ -5331,17 +6456,15 @@ end
 ------------------------------------------------------------------------
 
 local function clearEntity(hook: Instance?)
-	local legs = hook and hook:FindFirstChild("EntityLegs")
-	if legs then
-		legs:Destroy()
+	if hook and hook:IsA("Model") then
+		PropFX.entity(hook, false)
 	end
 end
 
 local function summonEntity(hook: Model)
 	if not hook:FindFirstChild("EntityLegs") then
-		Props.entityLegs(hook, 6)
-		local hp = hook:FindFirstChild("HangPoint")
-		State.sfx("EntityDrone", hp)
+		PropFX.entity(hook, true)
+		State.sfx("EntityDrone", hook:FindFirstChild("HangPoint", true))
 	end
 end
 
@@ -5562,7 +6685,7 @@ return Carry
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="34">
+        <Item class="ModuleScript" referent="48">
           <Properties>
             <string name="Name">Chase</string>
             <string name="Source"><![CDATA[-- Погоня: маньяк видит бегущего рядом выжившего -> музыка погони и очки.
@@ -5627,7 +6750,7 @@ return Chase
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="35">
+        <Item class="ModuleScript" referent="49">
           <Properties>
             <string name="Name">Combat</string>
             <string name="Source"><![CDATA[-- Атака маньяка (выпад), оглушение паллетой и ослепление фонариком.
@@ -5783,7 +6906,7 @@ return Combat
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="36">
+        <Item class="ModuleScript" referent="50">
           <Properties>
             <string name="Name">Crows</string>
             <string name="Source"><![CDATA[-- Вороны: взлетают, когда рядом пробегает выживший, и выдают его маньяку.
@@ -5791,7 +6914,7 @@ local TweenService = game:GetService("TweenService")
 
 local Core = script.Parent.Parent.Core
 local State = require(Core.State)
-local Props = require(script.Parent.Parent.Map.Props)
+local Templates = require(script.Parent.Parent.Map.Art.Templates)
 
 local Crows = {}
 
@@ -5808,7 +6931,7 @@ local function spawnCrow()
 	end
 	local spot = spots[rng:NextInteger(1, #spots)]
 	local cf = spot * CFrame.Angles(0, rng:NextNumber(0, math.pi * 2), 0)
-	local model = Props.crow(State.Map.Crows, cf)
+	local model = Templates.spawn("Crow", cf, State.Map.Crows)
 	table.insert(crows, { Model = model, Pos = cf.Position })
 end
 
@@ -5889,12 +7012,11 @@ return Crows
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="37">
+        <Item class="ModuleScript" referent="51">
           <Properties>
             <string name="Name">Exits</string>
             <string name="Source"><![CDATA[-- Ворота, обрушение Сущности (эндгейм) и люк.
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local TweenService = game:GetService("TweenService")
 
 local Config = require(ReplicatedStorage.Shared.Config)
 local Core = script.Parent.Parent.Core
@@ -5902,7 +7024,7 @@ local State = require(Core.State)
 local Actions = require(Core.Actions)
 local Lifecycle = require(Core.Lifecycle)
 local Scoring = require(Core.Scoring)
-local Props = require(script.Parent.Parent.Map.Props)
+local PropFX = require(script.Parent.Parent.Map.PropFX)
 
 local Exits = {}
 
@@ -5926,10 +7048,7 @@ function Exits.powerGates()
 	State.setGame("GensLeft", 0)
 	for _, gate in State.Map.ExitGates:GetChildren() do
 		gate:SetAttribute("Powered", true)
-		local sw = gate:FindFirstChild("Switch") :: BasePart?
-		if sw then
-			sw.Color = Color3.fromRGB(150, 130, 40)
-		end
+		PropFX.gatePowered(gate)
 	end
 	State.sfx("GatePowered", nil)
 	State.notifyAll("Все генераторы починены! Ворота запитаны — открывайте их!", State.YELLOW)
@@ -5938,19 +7057,9 @@ end
 local function openGate(gate: Model, opener: Player?)
 	gate:SetAttribute("Progress", 1)
 	gate:SetAttribute("Open", true)
-	Props.setGateLever(gate, 1)
-	local door = gate:FindFirstChild("Door") :: BasePart?
-	if door then
-		door.CanCollide = false
-		local info = TweenInfo.new(2.5, Enum.EasingStyle.Quad)
-		TweenService:Create(door, info, { CFrame = door.CFrame + Vector3.new(0, 11.8, 0) }):Play()
-		for _, rib in gate:GetChildren() do
-			if rib.Name == "DoorRib" and rib:IsA("BasePart") then
-				TweenService:Create(rib, info, { CFrame = rib.CFrame + Vector3.new(0, 11.8, 0) }):Play()
-			end
-		end
-		State.sfx("GateOpen", door)
-	end
+	PropFX.gateOpen(gate)
+	local sw = gate:FindFirstChild("Switch", true)
+	State.sfx("GateOpen", sw)
 	if opener then
 		Scoring.add(opener, "Objectives", 1250, "Ворота открыты")
 	end
@@ -5962,15 +7071,7 @@ local function openGate(gate: Model, opener: Player?)
 end
 
 local function setSiren(gate: Model, on: boolean)
-	local siren = gate:FindFirstChild("Siren")
-	local light = siren and siren:FindFirstChild("SirenLight") :: SpotLight?
-	if light then
-		light.Enabled = on
-	end
-	if siren and siren:IsA("BasePart") then
-		siren.Material = on and Enum.Material.Neon or Enum.Material.Glass
-		siren.Color = on and Color3.fromRGB(255, 40, 30) or Color3.fromRGB(80, 10, 10)
-	end
+	PropFX.gateSiren(gate, on)
 end
 
 Actions.register("OpenGate", {
@@ -5987,7 +7088,7 @@ Actions.register("OpenGate", {
 			openGate(target :: Model, data.Player)
 		else
 			target:SetAttribute("Progress", p)
-			Props.setGateLever(target :: Model, p)
+			PropFX.gateProgress(target :: Model, p)
 		end
 	end,
 	Progress = function(_data, target)
@@ -6021,7 +7122,7 @@ Actions.register("CloseHatch", {
 	Complete = function(data, target)
 		target:SetAttribute("Open", false)
 		target:SetAttribute("Closed", true)
-		Props.setHatchOpen(target :: Model, false)
+		PropFX.hatch(target :: Model, false)
 		State.sfx("Clank", (target :: Model).PrimaryPart)
 		Scoring.add(data.Player, "Hunter", 1000, "Люк закрыт")
 		Exits.powerGates()
@@ -6069,7 +7170,7 @@ function Exits.update(_dt: number)
 		local earned = State.InitialSurvivors >= 2 or State.GensDone >= 2
 		if earned and State.remainingSurvivors() == 1 and not State.EndgameDeadline then
 			hatch:SetAttribute("Open", true)
-			Props.setHatchOpen(hatch, true)
+			PropFX.hatch(hatch, true)
 			State.sfx("Clank", hatch.PrimaryPart)
 			for _, data in State.survivors() do
 				if State.isInGame(data) then
@@ -6097,7 +7198,7 @@ return Exits
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="38">
+        <Item class="ModuleScript" referent="52">
           <Properties>
             <string name="Name">Generators</string>
             <string name="Source"><![CDATA[-- Генераторы: ремонт, проверки навыка, повреждение маньяком, Проклятие «Руина».
@@ -6109,6 +7210,7 @@ local State = require(Core.State)
 local Actions = require(Core.Actions)
 local Scoring = require(Core.Scoring)
 local Exits = require(script.Parent.Exits)
+local PropFX = require(script.Parent.Parent.Map.PropFX)
 
 local Generators = {}
 
@@ -6128,35 +7230,17 @@ local function toolboxBonus(data, dt: number): number
 end
 Generators.onItemEmpty = function(_data) end -- подменяется Items
 
-local function setLights(gen: Model, progress: number)
-	for i = 1, 4 do
-		local light = gen:FindFirstChild("Light" .. i) :: BasePart?
-		if light then
-			local on = progress >= i / 4 - 0.001
-			light.Color = on and Color3.fromRGB(255, 220, 120) or Color3.fromRGB(45, 40, 30)
-			light.Material = on and Enum.Material.Neon or Enum.Material.Glass
-		end
-	end
-end
 
 function Generators.setProgress(gen: Model, p: number)
 	gen:SetAttribute("Progress", p)
-	setLights(gen, p)
+	PropFX.genProgress(gen, p)
 end
 
 local function completeGenerator(gen: Model)
 	Generators.setProgress(gen, 1)
 	gen:SetAttribute("Done", true)
 	gen:SetAttribute("Regressing", false)
-	local bulb = gen:FindFirstChild("Bulb") :: BasePart?
-	if bulb then
-		bulb.Color = Color3.fromRGB(255, 230, 140)
-		bulb.Material = Enum.Material.Neon
-		local light = bulb:FindFirstChildOfClass("PointLight")
-		if light then
-			light.Enabled = true
-		end
-	end
+	PropFX.genDone(gen)
 	State.GensDone += 1
 	State.sfx("GenDone", nil)
 	State.sfx("Clank", gen.PrimaryPart)
@@ -6176,28 +7260,12 @@ local function completeGenerator(gen: Model)
 end
 
 local function explode(gen: Model)
+	PropFX.genExplode(gen)
 	local body = gen.PrimaryPart
-	if not body then
-		return
+	if body then
+		State.sfx("GenExplode", body)
+		State.noise(body.Position)
 	end
-	local fx = body:FindFirstChild("FX")
-	if fx then
-		local sparks = fx:FindFirstChild("Sparks") :: ParticleEmitter?
-		local smoke = fx:FindFirstChild("Smoke") :: ParticleEmitter?
-		if sparks then
-			sparks:Emit(45)
-		end
-		if smoke then
-			smoke.Enabled = true
-			task.delay(2.5, function()
-				if smoke.Parent then
-					smoke.Enabled = false
-				end
-			end)
-		end
-	end
-	State.sfx("GenExplode", body)
-	State.noise(body.Position)
 end
 
 local function isGen(target: Instance): boolean
@@ -6299,7 +7367,7 @@ return Generators
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="39">
+        <Item class="ModuleScript" referent="53">
           <Properties>
             <string name="Name">Health</string>
             <string name="Source"><![CDATA[-- Здоровье выживших: удары, повержение, лечение, истекание кровью.
@@ -6442,7 +7510,7 @@ return Health
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="40">
+        <Item class="ModuleScript" referent="54">
           <Properties>
             <string name="Name">Items</string>
             <string name="Source"><![CDATA[-- Сундуки и предметы: аптечка, ящик с инструментами, фонарик.
@@ -6457,7 +7525,8 @@ local State = require(Core.State)
 local Actions = require(Core.Actions)
 local Lifecycle = require(Core.Lifecycle)
 local Scoring = require(Core.Scoring)
-local Props = require(script.Parent.Parent.Map.Props)
+local PropFX = require(script.Parent.Parent.Map.PropFX)
+local ItemArt = require(script.Parent.Parent.Map.Art.Items)
 local Combat = require(script.Parent.Combat)
 local Generators = require(script.Parent.Generators)
 
@@ -6487,7 +7556,7 @@ local function removeModel(data)
 	end
 end
 
--- Предмет в руке (виден всем)
+-- Предмет в руке (виден всем); модель — в Art/Items
 local function buildModel(data, item: string)
 	removeModel(data)
 	local char = data.Player.Character
@@ -6495,40 +7564,9 @@ local function buildModel(data, item: string)
 	if not arm then
 		return
 	end
-	local def = ItemDefs[item]
-	local p = Instance.new("Part")
-	p.Name = "HeldItem"
-	p.CanCollide = false
-	p.CanQuery = false
-	p.CanTouch = false
-	p.Massless = true
-	p.Color = def.Color
-	p.Material = Enum.Material.SmoothPlastic
-	if item == "Flashlight" then
-		p.Shape = Enum.PartType.Cylinder
-		p.Size = Vector3.new(1.3, 0.4, 0.4)
-		-- Ось цилиндра вдоль руки: луч светит туда, куда указывает кисть
-		p.CFrame = arm.CFrame * CFrame.new(0, -1.3, -0.25) * CFrame.Angles(0, 0, math.rad(90))
-		local beam = Instance.new("SpotLight")
-		beam.Name = "Beam"
-		beam.Color = Color3.fromRGB(255, 250, 220)
-		beam.Range = Config.FlashlightRange + 4
-		beam.Angle = Config.FlashlightAngle * 2.5
-		beam.Brightness = 6
-		beam.Shadows = true
-		beam.Face = Enum.NormalId.Left
-		beam.Enabled = false
-		beam.Parent = p
-	elseif item == "Medkit" then
-		p.Size = Vector3.new(1, 0.7, 0.4)
-		p.CFrame = arm.CFrame * CFrame.new(0, -1.2, -0.3)
-	else
-		p.Size = Vector3.new(1.2, 0.6, 0.5)
-		p.CFrame = arm.CFrame * CFrame.new(0, -1.25, -0.2)
-	end
-	Util.weld(arm, p)
-	p.Parent = char
-	data.ItemModel = p
+	local m = ItemArt.held(item, arm)
+	m.Parent = char
+	data.ItemModel = m
 end
 
 function Items.give(data, item: string)
@@ -6559,7 +7597,7 @@ Generators.onItemEmpty = Items.remove
 local function setFlashlight(data, on: boolean)
 	data.ItemActive = on
 	data.Player:SetAttribute("ItemActive", on)
-	local beam = data.ItemModel and data.ItemModel:FindFirstChild("Beam") :: SpotLight?
+	local beam = data.ItemModel and data.ItemModel:FindFirstChild("Beam", true) :: SpotLight?
 	if beam then
 		beam.Enabled = on
 	end
@@ -6580,7 +7618,7 @@ Actions.register("OpenChest", {
 			return
 		end
 		target:SetAttribute("Opened", true)
-		Props.openChest(target :: Model)
+		PropFX.chestOpen(target :: Model)
 		local item = rollItem()
 		Items.give(data, item)
 		State.notify(data.Player, "Ты нашёл: " .. ItemDefs[item].Name .. ". " .. ItemDefs[item].Hint, State.YELLOW)
@@ -6709,7 +7747,7 @@ return Items
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="41">
+        <Item class="ModuleScript" referent="55">
           <Properties>
             <string name="Name">Lockers</string>
             <string name="Source"><![CDATA[-- Шкафчики: спрятаться, выйти, обыскать (маньяк хватает выжившего).
@@ -6720,7 +7758,7 @@ local State = require(Core.State)
 local Actions = require(Core.Actions)
 local Lifecycle = require(Core.Lifecycle)
 local Scoring = require(Core.Scoring)
-local Props = require(script.Parent.Parent.Map.Props)
+local PropFX = require(script.Parent.Parent.Map.PropFX)
 local Carry = require(script.Parent.Carry)
 local Powers = require(script.Parent.Parent.Powers)
 
@@ -6728,20 +7766,7 @@ local Lockers = {}
 
 -- Открыть и закрыть дверь (анимация на сервере, видят все)
 local function swingDoor(locker: Model, holdTime: number)
-	local value = Instance.new("NumberValue")
-	value.Value = 0
-	value.Changed:Connect(function(v)
-		Props.setLockerDoor(locker, v)
-	end)
-	local open = TweenService:Create(value, TweenInfo.new(0.2), { Value = 100 })
-	open:Play()
-	State.sfx("LockerDoor", locker.PrimaryPart)
-	task.delay(0.2 + holdTime, function()
-		local close = TweenService:Create(value, TweenInfo.new(0.25), { Value = 0 })
-		close:Play()
-		close.Completed:Wait()
-		Props.setLockerDoor(locker, 0)
-		value:Destroy()
+	PropFX.swingLockerDoor(locker, holdTime, function()
 		if locker.Parent then
 			State.sfx("LockerDoor", locker.PrimaryPart)
 		end
@@ -6865,7 +7890,7 @@ return Lockers
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="42">
+        <Item class="ModuleScript" referent="56">
           <Properties>
             <string name="Name">Obstacles</string>
             <string name="Source"><![CDATA[-- Паллеты и перелезание через окна/паллеты.
@@ -6878,23 +7903,11 @@ local State = require(Core.State)
 local Actions = require(Core.Actions)
 local Scoring = require(Core.Scoring)
 local Combat = require(script.Parent.Combat)
+local PropFX = require(script.Parent.Parent.Map.PropFX)
 
 local Obstacles = {}
 
 -- Плавно двигает модель паллеты (сервер, короткий твин)
-local function tweenModel(model: Model, target: CFrame, duration: number)
-	local value = Instance.new("CFrameValue")
-	value.Value = model:GetPivot()
-	value.Changed:Connect(function(cf)
-		model:PivotTo(cf)
-	end)
-	local tw = TweenService:Create(value, TweenInfo.new(duration, Enum.EasingStyle.Quad, Enum.EasingDirection.In), { Value = target })
-	tw.Completed:Connect(function()
-		model:PivotTo(target)
-		value:Destroy()
-	end)
-	tw:Play()
-end
 
 local function obstacleCFrame(target: Instance): CFrame?
 	local kind = target:GetAttribute("Kind")
@@ -6914,11 +7927,7 @@ Actions.register("DropPallet", {
 		local pallet = target :: Model
 		local dropCF = pallet:GetAttribute("DropCFrame") :: CFrame
 		pallet:SetAttribute("State", "Dropped")
-		local hitbox = pallet.PrimaryPart
-		if hitbox then
-			hitbox.CanCollide = true
-		end
-		tweenModel(pallet, dropCF, 0.25)
+		PropFX.palletDrop(pallet)
 		State.playAnim(data.Player, "PalletDrop")
 		task.delay(0.22, function()
 			State.sfx("PalletSlam", dropCF.Position)
@@ -6951,18 +7960,7 @@ Actions.register("Break", {
 		target:SetAttribute("State", "Broken")
 		local pos = (target :: Model):GetPivot().Position
 		State.sfx("PalletBreak", pos)
-		-- Обломки разлетаются
-		for _, d in target:GetDescendants() do
-			if d:IsA("BasePart") then
-				d.Anchored = false
-				d.CanCollide = false
-				d.AssemblyLinearVelocity = Vector3.new(math.random(-15, 15), math.random(8, 18), math.random(-15, 15))
-			end
-		end
-		task.delay(2, function()
-			target:Destroy()
-		end)
-		target.Parent = State.Map and State.Map.Effects or target.Parent
+		PropFX.palletBreak(target :: Model, State.Map and State.Map.Effects)
 		Scoring.add(data.Player, "Brutality", 100, "Паллета сломана")
 	end,
 })
@@ -7037,37 +8035,25 @@ return Obstacles
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="43">
+        <Item class="ModuleScript" referent="57">
           <Properties>
             <string name="Name">Totems</string>
             <string name="Source"><![CDATA[-- Тотемы: очистка выжившими, проклятый тотем включает Проклятие «Руина».
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local TweenService = game:GetService("TweenService")
 
 local Config = require(ReplicatedStorage.Shared.Config)
 local Core = script.Parent.Parent.Core
 local State = require(Core.State)
 local Actions = require(Core.Actions)
 local Scoring = require(Core.Scoring)
+local PropFX = require(script.Parent.Parent.Map.PropFX)
 
 local Totems = {}
 
 local function cleanse(totem: Model, by: Player)
 	totem:SetAttribute("Cleansed", true)
 	totem:SetAttribute("Progress", 1)
-	for _, d in totem:GetChildren() do
-		if d.Name == "Flame" then
-			d:Destroy()
-		elseif d:GetAttribute("SkullPart") and d:IsA("BasePart") then
-			d.Color = Color3.fromRGB(20, 20, 22)
-			d.Material = Enum.Material.SmoothPlastic
-		end
-	end
-	local skull = totem:FindFirstChild("Skull") :: BasePart?
-	if skull then
-		local fallen = skull.CFrame * CFrame.new(0.6, -2.6, 0) * CFrame.Angles(0, 0, math.rad(80))
-		TweenService:Create(skull, TweenInfo.new(0.6, Enum.EasingStyle.Bounce), { CFrame = fallen }):Play()
-	end
+	PropFX.totemCleansed(totem)
 	State.sfx("Rustle", totem.PrimaryPart)
 	if totem:GetAttribute("Hex") then
 		State.HexRuin = false
@@ -7121,26 +8107,26 @@ return Totems
       </Item>
     </Item>
   </Item>
-  <Item class="SoundService" referent="44">
+  <Item class="SoundService" referent="58">
     <Properties>
       <string name="Name">SoundService</string>
       <token name="AmbientReverb">16</token>
     </Properties>
   </Item>
-  <Item class="StarterPlayer" referent="45">
+  <Item class="StarterPlayer" referent="59">
     <Properties>
       <string name="Name">StarterPlayer</string>
       <bool name="EnableMouseLockOption">false</bool>
     </Properties>
-    <Item class="StarterPlayerScripts" referent="46">
+    <Item class="StarterPlayerScripts" referent="60">
       <Properties>
         <string name="Name">StarterPlayerScripts</string>
       </Properties>
-      <Item class="Folder" referent="47">
+      <Item class="Folder" referent="61">
         <Properties>
           <string name="Name">Client</string>
         </Properties>
-        <Item class="ModuleScript" referent="48">
+        <Item class="ModuleScript" referent="62">
           <Properties>
             <string name="Name">Animator</string>
             <string name="Source"><![CDATA[-- Процедурные анимации R6 для всех персонажей.
@@ -7381,7 +8367,7 @@ return Animator
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="49">
+        <Item class="ModuleScript" referent="63">
           <Properties>
             <string name="Name">Audio</string>
             <string name="Source"><![CDATA[-- Звук: 3D-эффекты, синтезированное сердцебиение, погоня, генераторы, шаги, атмосфера.
@@ -7666,7 +8652,7 @@ return Audio
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="50">
+        <Item class="ModuleScript" referent="64">
           <Properties>
             <string name="Name">Auras</string>
             <string name="Source"><![CDATA[-- Ауры (подсветка сквозь стены), как в DBD.
@@ -7751,7 +8737,7 @@ return Auras
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="51">
+        <Item class="ModuleScript" referent="65">
           <Properties>
             <string name="Name">CameraController</string>
             <string name="Source"><![CDATA[-- Камера: маньяк от первого лица с покачиванием, выживший от третьего,
@@ -8059,7 +9045,7 @@ return CameraController
 ]]></string>
           </Properties>
         </Item>
-        <Item class="LocalScript" referent="52">
+        <Item class="LocalScript" referent="66">
           <Properties>
             <string name="Name">Client</string>
             <string name="Source"><![CDATA[-- Клиент: связывает интерфейс, управление, анимации, камеру, звук и эффекты.
@@ -8322,7 +9308,7 @@ end)
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="53">
+        <Item class="ModuleScript" referent="67">
           <Properties>
             <string name="Name">Effects</string>
             <string name="Source"><![CDATA[-- Визуальные эффекты на клиенте: следы бега и кровь (видит только маньяк),
@@ -8334,6 +9320,7 @@ local Debris = game:GetService("Debris")
 
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
 local Util = require(ReplicatedStorage.Shared.Util)
+local Hatchet = require(ReplicatedStorage.Shared.Art.Hatchet)
 
 local player = Players.LocalPlayer
 local camera = workspace.CurrentCamera
@@ -8470,24 +9457,7 @@ end
 local projectiles = {} :: { [number]: any }
 
 local function hatchetModel(): Model
-	local m = Instance.new("Model")
-	m.Name = "Hatchet"
-	local handle = fxPart({
-		Name = "Handle",
-		Size = Vector3.new(0.18, 0.18, 1.8),
-		Color = Color3.fromRGB(80, 55, 35),
-		Material = Enum.Material.Wood,
-	})
-	handle.Parent = m
-	local head = fxPart({
-		Name = "Head",
-		Size = Vector3.new(0.1, 0.8, 0.6),
-		Color = Color3.fromRGB(170, 165, 160),
-		Material = Enum.Material.Metal,
-	})
-	head.CFrame = handle.CFrame * CFrame.new(0, 0.3, -0.8)
-	head.Parent = m
-	m.PrimaryPart = handle
+	local m = Hatchet.build()
 	m.Parent = folder
 	return m
 end
@@ -8608,10 +9578,9 @@ local function updateGenerators(dt: number)
 		local st = genState[gen]
 		if not st then
 			st = { Last = gen:GetAttribute("Progress") or 0, Active = 0, Base = {} }
-			for i = 1, 2 do
-				local piston = gen:FindFirstChild("Piston" .. i) :: BasePart?
-				if piston then
-					st.Base[piston] = piston.CFrame
+			for _, d in gen:GetDescendants() do
+				if d:IsA("BasePart") and d:GetAttribute("AnimatedPiston") then
+					st.Base[d] = d.CFrame
 				end
 			end
 			genState[gen] = st
@@ -8671,7 +9640,7 @@ return Effects
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="54">
+        <Item class="ModuleScript" referent="68">
           <Properties>
             <string name="Name">Input</string>
             <string name="Source"><![CDATA[-- Управление (клавиатура, геймпад, сенсорные кнопки на телефоне).
@@ -8869,7 +9838,7 @@ return Input
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="55">
+        <Item class="ModuleScript" referent="69">
           <Properties>
             <string name="Name">Interaction</string>
             <string name="Source"><![CDATA[-- Поиск ближайшего доступного действия для подсказки и нажатия.
@@ -9100,11 +10069,11 @@ return Interaction
 ]]></string>
           </Properties>
         </Item>
-        <Item class="Folder" referent="56">
+        <Item class="Folder" referent="70">
           <Properties>
             <string name="Name">UI</string>
           </Properties>
-          <Item class="ModuleScript" referent="57">
+          <Item class="ModuleScript" referent="71">
             <Properties>
               <string name="Name">Hud</string>
               <string name="Source"><![CDATA[-- Основной интерфейс: генераторы, портреты выживших, подсказки, полоски,
@@ -9632,7 +10601,7 @@ return Hud
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="58">
+          <Item class="ModuleScript" referent="72">
             <Properties>
               <string name="Name">LobbyUI</string>
               <string name="Source"><![CDATA[-- Меню лобби: очки крови, «хочу быть маньяком», выбор маньяка.
@@ -9762,7 +10731,7 @@ return LobbyUI
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="59">
+          <Item class="ModuleScript" referent="73">
             <Properties>
               <string name="Name">Results</string>
               <string name="Source"><![CDATA[-- Экран итогов раунда с очками крови по категориям.
@@ -9897,7 +10866,7 @@ return Results
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="60">
+          <Item class="ModuleScript" referent="74">
             <Properties>
               <string name="Name">SkillCheck</string>
               <string name="Source"><![CDATA[-- Круглая проверка навыка, как в Dead by Daylight.
@@ -10058,7 +11027,7 @@ return SkillCheck
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="61">
+          <Item class="ModuleScript" referent="75">
             <Properties>
               <string name="Name">Widgets</string>
               <string name="Source"><![CDATA[-- Маленькие помощники для создания интерфейса из кода.
@@ -10168,7 +11137,7 @@ return Widgets
           </Item>
         </Item>
       </Item>
-      <Item class="LocalScript" referent="62">
+      <Item class="LocalScript" referent="76">
         <Properties>
           <string name="Name">RbxCharacterSounds</string>
           <string name="Source"><![CDATA[-- Пустой скрипт с именем стандартного RbxCharacterSounds отключает стандартные звуки шагов.

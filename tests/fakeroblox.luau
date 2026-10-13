@@ -341,6 +341,9 @@ function INSTANCE_MT.__newindex(self, key, value)
 	if key == "CFrame" and value == nil then
 		error("CFrame = nil")
 	end
+	if World and World.Strict and type(key) == "string" and key:sub(1, 1) ~= "_" then
+		Fake.validate(self, key, value)
+	end
 	local old = props[key]
 	props[key] = value
 	if key == "Value" and old ~= value and props.Changed then
@@ -359,6 +362,34 @@ end
 
 INSTANCE_MT.__tostring = function(self)
 	return "Fake<" .. self._class .. ":" .. tostring(rawget(self, "_props").Name or self._class) .. ">"
+end
+
+-- Строгий режим: проверяем имя и тип свойства на настоящем экземпляре Lune (база свойств Roblox)
+local shadowCache = setmetatable({}, { __mode = "k" })
+local NO_SHADOW = { DataModel = true }
+function Fake.validate(self, key, value)
+	if isFake[value] or EVENTS[key] then
+		return
+	end
+	local cls = self._class
+	if NO_SHADOW[cls] then
+		return
+	end
+	local shadow = shadowCache[self]
+	if shadow == nil then
+		local ok, inst = pcall(roblox.Instance.new, cls)
+		shadow = ok and inst or false
+		shadowCache[self] = shadow
+	end
+	if not shadow then
+		return
+	end
+	local ok, err = pcall(function()
+		shadow[key] = value
+	end)
+	if not ok then
+		report(("%s.%s = %s: %s"):format(cls, key, tostring(value), tostring(err):match("^[^\n]*") or tostring(err)), "property")
+	end
 end
 
 function Instance.isA(cls, target)
@@ -516,21 +547,41 @@ function methods.ClearAllChildren(self)
 	end
 end
 function methods.Clone(self)
-	local c = Instance.new(self._class)
-	for k, v in rawget(self, "_props") do
-		if k ~= "Parent" and type(v) ~= "table" then
-			rawget(c, "_props")[k] = v
-		elseif k ~= "Parent" and not getmetatable(v) then
-			rawget(c, "_props")[k] = v
+	-- 1) копируем дерево, запоминая соответствие оригинал -> копия
+	local map = {}
+	local function copyTree(node)
+		local c = Instance.new(node._class)
+		map[node] = c
+		for k, v in rawget(node, "_attrs") do
+			rawget(c, "_attrs")[k] = v
+		end
+		for _, child in rawget(node, "_children") do
+			local cc = copyTree(child)
+			rawget(cc, "_props").Parent = c
+			table.insert(rawget(c, "_children"), cc)
+		end
+		return c
+	end
+	local root = copyTree(self)
+	-- 2) свойства: ссылки внутрь дерева -> на копии, сигналы не копируем
+	for orig, copy in map do
+		for k, v in rawget(orig, "_props") do
+			if k == "Parent" then
+				continue
+			end
+			if isFake[v] then
+				rawget(copy, "_props")[k] = map[v] or v
+			elseif type(v) == "table" and getmetatable(v) == Signal then
+				continue
+			else
+				rawget(copy, "_props")[k] = v
+			end
 		end
 	end
-	for k, v in rawget(self, "_attrs") do
-		rawget(c, "_attrs")[k] = v
+	if World then
+		World.PartsDirty = true
 	end
-	for _, child in rawget(self, "_children") do
-		methods.Clone(child).Parent = c
-	end
-	return c
+	return root
 end
 function methods.SetAttribute(self, name, value)
 	local attrs = rawget(self, "_attrs")
@@ -569,7 +620,8 @@ function methods.GetPivot(self)
 	end
 	local pp = self.PrimaryPart
 	if pp then
-		return pp.CFrame
+		local off = rawget(pp, "_props").PivotOffset
+		return off and pp.CFrame * off or pp.CFrame
 	end
 	for _, d in methods.GetDescendants(self) do
 		if Instance.isA(d._class, "BasePart") then
@@ -733,6 +785,24 @@ end
 function methods.UnbindAction(_self, name)
 	World.Actions[name] = nil
 end
+-- Terrain: записываем заливки (для превью и тестов)
+local function terrainFill(kind)
+	return function(_self, ...)
+		World.TerrainFills = World.TerrainFills or {}
+		table.insert(World.TerrainFills, { Kind = kind, Args = table.pack(...) })
+	end
+end
+methods.FillBlock = terrainFill("Block")
+methods.FillBall = terrainFill("Ball")
+methods.FillCylinder = terrainFill("Cylinder")
+methods.FillWedge = terrainFill("Wedge")
+function methods.Clear(self)
+	if self._class == "Terrain" then
+		World.TerrainFills = {}
+	end
+end
+function methods.SetMaterialColor() end
+function methods.ReplaceMaterial() end
 function methods.SetTitle() end
 function methods.SetPosition() end
 
@@ -809,6 +879,42 @@ function methods.Raycast(self, origin, dir, params)
 		end
 		if ok and tmin < bestT then
 			bestT, bestPart = tmin, part
+		end
+	end
+	-- Блоки Terrain (кроме воздуха) тоже твёрдые
+	if not (params and params.IgnoreWater == "terrain-off") then
+		for _, fill in World.TerrainFills or {} do
+			if fill.Kind == "Block" and fill.Args[3] ~= roblox.Enum.Material.Air then
+				local cf, size = fill.Args[1], fill.Args[2]
+				local half = size / 2
+				local o = cf:PointToObjectSpace(origin)
+				local d = cf:VectorToObjectSpace(dir)
+				local tmin, tmax = 0, 1
+				local ok = true
+				for _, axis in { "X", "Y", "Z" } do
+					local oa, da, h = o[axis], d[axis], half[axis]
+					if math.abs(da) < 1e-9 then
+						if oa < -h or oa > h then
+							ok = false
+							break
+						end
+					else
+						local t1, t2 = (-h - oa) / da, (h - oa) / da
+						if t1 > t2 then
+							t1, t2 = t2, t1
+						end
+						tmin = math.max(tmin, t1)
+						tmax = math.min(tmax, t2)
+						if tmin > tmax then
+							ok = false
+							break
+						end
+					end
+				end
+				if ok and tmin < bestT then
+					bestT, bestPart = tmin, World:service("Workspace").Terrain
+				end
+			end
 		end
 	end
 	if bestPart then

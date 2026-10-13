@@ -7,6 +7,7 @@ local State = require(Core.State)
 local Actions = require(Core.Actions)
 local Scoring = require(Core.Scoring)
 local Exits = require(script.Parent.Exits)
+local PropFX = require(script.Parent.Parent.Map.PropFX)
 
 local Generators = {}
 
@@ -26,35 +27,17 @@ local function toolboxBonus(data, dt: number): number
 end
 Generators.onItemEmpty = function(_data) end -- подменяется Items
 
-local function setLights(gen: Model, progress: number)
-	for i = 1, 4 do
-		local light = gen:FindFirstChild("Light" .. i) :: BasePart?
-		if light then
-			local on = progress >= i / 4 - 0.001
-			light.Color = on and Color3.fromRGB(255, 220, 120) or Color3.fromRGB(45, 40, 30)
-			light.Material = on and Enum.Material.Neon or Enum.Material.Glass
-		end
-	end
-end
 
 function Generators.setProgress(gen: Model, p: number)
 	gen:SetAttribute("Progress", p)
-	setLights(gen, p)
+	PropFX.genProgress(gen, p)
 end
 
 local function completeGenerator(gen: Model)
 	Generators.setProgress(gen, 1)
 	gen:SetAttribute("Done", true)
 	gen:SetAttribute("Regressing", false)
-	local bulb = gen:FindFirstChild("Bulb") :: BasePart?
-	if bulb then
-		bulb.Color = Color3.fromRGB(255, 230, 140)
-		bulb.Material = Enum.Material.Neon
-		local light = bulb:FindFirstChildOfClass("PointLight")
-		if light then
-			light.Enabled = true
-		end
-	end
+	PropFX.genDone(gen)
 	State.GensDone += 1
 	State.sfx("GenDone", nil)
 	State.sfx("Clank", gen.PrimaryPart)
@@ -74,28 +57,12 @@ local function completeGenerator(gen: Model)
 end
 
 local function explode(gen: Model)
+	PropFX.genExplode(gen)
 	local body = gen.PrimaryPart
-	if not body then
-		return
+	if body then
+		State.sfx("GenExplode", body)
+		State.noise(body.Position)
 	end
-	local fx = body:FindFirstChild("FX")
-	if fx then
-		local sparks = fx:FindFirstChild("Sparks") :: ParticleEmitter?
-		local smoke = fx:FindFirstChild("Smoke") :: ParticleEmitter?
-		if sparks then
-			sparks:Emit(45)
-		end
-		if smoke then
-			smoke.Enabled = true
-			task.delay(2.5, function()
-				if smoke.Parent then
-					smoke.Enabled = false
-				end
-			end)
-		end
-	end
-	State.sfx("GenExplode", body)
-	State.noise(body.Position)
 end
 
 local function isGen(target: Instance): boolean

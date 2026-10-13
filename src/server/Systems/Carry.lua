@@ -11,7 +11,7 @@ local Actions = require(Core.Actions)
 local Lifecycle = require(Core.Lifecycle)
 local Scoring = require(Core.Scoring)
 local Characters = require(Core.Characters)
-local Props = require(script.Parent.Parent.Map.Props)
+local PropFX = require(script.Parent.Parent.Map.PropFX)
 
 local Carry = {}
 
@@ -122,17 +122,15 @@ end
 ------------------------------------------------------------------------
 
 local function clearEntity(hook: Instance?)
-	local legs = hook and hook:FindFirstChild("EntityLegs")
-	if legs then
-		legs:Destroy()
+	if hook and hook:IsA("Model") then
+		PropFX.entity(hook, false)
 	end
 end
 
 local function summonEntity(hook: Model)
 	if not hook:FindFirstChild("EntityLegs") then
-		Props.entityLegs(hook, 6)
-		local hp = hook:FindFirstChild("HangPoint")
-		State.sfx("EntityDrone", hp)
+		PropFX.entity(hook, true)
+		State.sfx("EntityDrone", hook:FindFirstChild("HangPoint", true))
 	end
 end
 

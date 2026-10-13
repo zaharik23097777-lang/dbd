@@ -7,6 +7,7 @@ local Debris = game:GetService("Debris")
 
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
 local Util = require(ReplicatedStorage.Shared.Util)
+local Hatchet = require(ReplicatedStorage.Shared.Art.Hatchet)
 
 local player = Players.LocalPlayer
 local camera = workspace.CurrentCamera
@@ -143,24 +144,7 @@ end
 local projectiles = {} :: { [number]: any }
 
 local function hatchetModel(): Model
-	local m = Instance.new("Model")
-	m.Name = "Hatchet"
-	local handle = fxPart({
-		Name = "Handle",
-		Size = Vector3.new(0.18, 0.18, 1.8),
-		Color = Color3.fromRGB(80, 55, 35),
-		Material = Enum.Material.Wood,
-	})
-	handle.Parent = m
-	local head = fxPart({
-		Name = "Head",
-		Size = Vector3.new(0.1, 0.8, 0.6),
-		Color = Color3.fromRGB(170, 165, 160),
-		Material = Enum.Material.Metal,
-	})
-	head.CFrame = handle.CFrame * CFrame.new(0, 0.3, -0.8)
-	head.Parent = m
-	m.PrimaryPart = handle
+	local m = Hatchet.build()
 	m.Parent = folder
 	return m
 end
@@ -281,10 +265,9 @@ local function updateGenerators(dt: number)
 		local st = genState[gen]
 		if not st then
 			st = { Last = gen:GetAttribute("Progress") or 0, Active = 0, Base = {} }
-			for i = 1, 2 do
-				local piston = gen:FindFirstChild("Piston" .. i) :: BasePart?
-				if piston then
-					st.Base[piston] = piston.CFrame
+			for _, d in gen:GetDescendants() do
+				if d:IsA("BasePart") and d:GetAttribute("AnimatedPiston") then
+					st.Base[d] = d.CFrame
 				end
 			end
 			genState[gen] = st

@@ -8,23 +8,11 @@ local State = require(Core.State)
 local Actions = require(Core.Actions)
 local Scoring = require(Core.Scoring)
 local Combat = require(script.Parent.Combat)
+local PropFX = require(script.Parent.Parent.Map.PropFX)
 
 local Obstacles = {}
 
 -- Плавно двигает модель паллеты (сервер, короткий твин)
-local function tweenModel(model: Model, target: CFrame, duration: number)
-	local value = Instance.new("CFrameValue")
-	value.Value = model:GetPivot()
-	value.Changed:Connect(function(cf)
-		model:PivotTo(cf)
-	end)
-	local tw = TweenService:Create(value, TweenInfo.new(duration, Enum.EasingStyle.Quad, Enum.EasingDirection.In), { Value = target })
-	tw.Completed:Connect(function()
-		model:PivotTo(target)
-		value:Destroy()
-	end)
-	tw:Play()
-end
 
 local function obstacleCFrame(target: Instance): CFrame?
 	local kind = target:GetAttribute("Kind")
@@ -44,11 +32,7 @@ Actions.register("DropPallet", {
 		local pallet = target :: Model
 		local dropCF = pallet:GetAttribute("DropCFrame") :: CFrame
 		pallet:SetAttribute("State", "Dropped")
-		local hitbox = pallet.PrimaryPart
-		if hitbox then
-			hitbox.CanCollide = true
-		end
-		tweenModel(pallet, dropCF, 0.25)
+		PropFX.palletDrop(pallet)
 		State.playAnim(data.Player, "PalletDrop")
 		task.delay(0.22, function()
 			State.sfx("PalletSlam", dropCF.Position)
@@ -81,18 +65,7 @@ Actions.register("Break", {
 		target:SetAttribute("State", "Broken")
 		local pos = (target :: Model):GetPivot().Position
 		State.sfx("PalletBreak", pos)
-		-- Обломки разлетаются
-		for _, d in target:GetDescendants() do
-			if d:IsA("BasePart") then
-				d.Anchored = false
-				d.CanCollide = false
-				d.AssemblyLinearVelocity = Vector3.new(math.random(-15, 15), math.random(8, 18), math.random(-15, 15))
-			end
-		end
-		task.delay(2, function()
-			target:Destroy()
-		end)
-		target.Parent = State.Map and State.Map.Effects or target.Parent
+		PropFX.palletBreak(target :: Model, State.Map and State.Map.Effects)
 		Scoring.add(data.Player, "Brutality", 100, "Паллета сломана")
 	end,
 })

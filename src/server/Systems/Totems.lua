@@ -1,31 +1,19 @@
 -- Тотемы: очистка выжившими, проклятый тотем включает Проклятие «Руина».
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local TweenService = game:GetService("TweenService")
 
 local Config = require(ReplicatedStorage.Shared.Config)
 local Core = script.Parent.Parent.Core
 local State = require(Core.State)
 local Actions = require(Core.Actions)
 local Scoring = require(Core.Scoring)
+local PropFX = require(script.Parent.Parent.Map.PropFX)
 
 local Totems = {}
 
 local function cleanse(totem: Model, by: Player)
 	totem:SetAttribute("Cleansed", true)
 	totem:SetAttribute("Progress", 1)
-	for _, d in totem:GetChildren() do
-		if d.Name == "Flame" then
-			d:Destroy()
-		elseif d:GetAttribute("SkullPart") and d:IsA("BasePart") then
-			d.Color = Color3.fromRGB(20, 20, 22)
-			d.Material = Enum.Material.SmoothPlastic
-		end
-	end
-	local skull = totem:FindFirstChild("Skull") :: BasePart?
-	if skull then
-		local fallen = skull.CFrame * CFrame.new(0.6, -2.6, 0) * CFrame.Angles(0, 0, math.rad(80))
-		TweenService:Create(skull, TweenInfo.new(0.6, Enum.EasingStyle.Bounce), { CFrame = fallen }):Play()
-	end
+	PropFX.totemCleansed(totem)
 	State.sfx("Rustle", totem.PrimaryPart)
 	if totem:GetAttribute("Hex") then
 		State.HexRuin = false

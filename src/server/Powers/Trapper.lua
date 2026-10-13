@@ -7,7 +7,8 @@ local State = require(Server.Core.State)
 local Actions = require(Server.Core.Actions)
 local Lifecycle = require(Server.Core.Lifecycle)
 local Scoring = require(Server.Core.Scoring)
-local Props = require(Server.Map.Props)
+local PropFX = require(Server.Map.PropFX)
+local Templates = require(Server.Map.Art.Templates)
 local Health = require(Server.Systems.Health)
 
 local DEF = KillerDefs.Trapper
@@ -40,7 +41,7 @@ function Trapper.Setup(kdata)
 		spots[i], spots[j] = spots[j], spots[i]
 	end
 	for i = 1, math.min(DEF.TrapsOnMap, #spots) do
-		local trap = Props.trap(map.Traps, spots[i] * CFrame.Angles(0, rng:NextNumber(0, math.pi * 2), 0))
+		local trap = Templates.spawn("Trap", spots[i] * CFrame.Angles(0, rng:NextNumber(0, math.pi * 2), 0), map.Traps)
 		trap:SetAttribute("Owner", kdata.Player.UserId)
 	end
 end
@@ -66,7 +67,7 @@ local function catch(sdata, trap: Model)
 	Actions.cancel(sdata)
 	trap:SetAttribute("Armed", false)
 	trap:SetAttribute("Caught", sdata.Player.UserId)
-	Props.setTrapArmed(trap, false)
+	PropFX.trap(trap, false)
 	sdata.Trapped = trap
 	sdata.TrapAttempts = 0
 	sdata.Player:SetAttribute("Trapped", true)
@@ -153,7 +154,7 @@ Actions.register("SetTrap", {
 		groundParams.FilterDescendantsInstances = exclude
 		local hit = workspace:Raycast(origin, Vector3.new(0, -12, 0), groundParams)
 		local ground = hit and hit.Position or Vector3.new(origin.X, 0, origin.Z)
-		local trap = Props.trap(State.Map.Traps, CFrame.lookAt(ground, ground + look))
+		local trap = Templates.spawn("Trap", CFrame.lookAt(ground, ground + look), State.Map.Traps)
 		trap:SetAttribute("Owner", data.Player.UserId)
 		data.Power.InHand -= 1
 		setCount(data)
@@ -182,7 +183,7 @@ Actions.register("ResetTrap", {
 	end,
 	Complete = function(_data, target)
 		target:SetAttribute("Armed", true)
-		Props.setTrapArmed(target :: Model, true)
+		PropFX.trap(target :: Model, true)
 		State.sfx("Clank", trapPosition(target :: Model))
 	end,
 })
@@ -193,7 +194,7 @@ Actions.register("DisarmTrap", {
 	end,
 	Complete = function(data, target)
 		target:SetAttribute("Armed", false)
-		Props.setTrapArmed(target :: Model, false)
+		PropFX.trap(target :: Model, false)
 		State.sfx("TrapSnap", trapPosition(target :: Model))
 		Scoring.add(data.Player, "Boldness", 300, "Капкан обезврежен")
 	end,
