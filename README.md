@@ -91,7 +91,7 @@ src/server/Core/   State, Actions (реестр действий), Match, Charac
 src/server/Systems Health, Carry (крюки), Combat, Generators, Exits (ворота/люк), Obstacles (паллеты/окна),
                    Lockers, Totems, Items, Crows, Chase
 src/server/Powers/ Trapper, Huntress, Wraith
-src/server/Map/    MapBuilder (карта, лобби, свет), Props (все объекты)
+src/server/Map/    MapBuilder (раскладка карты), PropFX (состояния объектов), Terrain, Art/* (модели)
 src/client/        Animator, CameraController, Audio, Effects, Auras, Interaction, Input, UI/*
 tests/             проверки для Lune (карта, анимации, интерфейс)
 ```

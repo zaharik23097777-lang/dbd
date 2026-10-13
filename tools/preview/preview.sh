@@ -5,8 +5,9 @@
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 OUT="$1"; shift
-ROJO="${ROJO:-rojo}"
-LUNE="${LUNE:-lune}"
+TOOLS="${TOOLS:-/tmp/claude-0/tools}"
+ROJO="${ROJO:-$(command -v rojo || echo "$TOOLS/rojo")}"
+LUNE="${LUNE:-$(command -v lune || echo "$TOOLS/lune")}"
 WORK="${TMPDIR:-/tmp}/dbd-preview"
 mkdir -p "$WORK"
 PLACE="$WORK/place.rbxlx"
