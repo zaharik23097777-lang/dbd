@@ -94,48 +94,16 @@ local spectateButton = Widgets.button({
 	Text = "Наблюдать",
 	Visible = false,
 })
-local spectating = false
 local spectateIndex = 0
 
-local function aliveParticipants(): { Player }
-	local list = {}
-	for _, p in Players:GetPlayers() do
-		if p ~= player and p:GetAttribute("Role") and Util.isInGameStatus(p:GetAttribute("Status")) then
-			table.insert(list, p)
-		end
-	end
-	return list
-end
-
-local function stopSpectating()
-	spectating = false
-	local hum = Util.getHumanoid(player)
-	if hum then
-		camera.CameraSubject = hum
-	end
-	spectateButton.Text = "Наблюдать"
-end
-
 spectateButton.Activated:Connect(function()
-	local list = aliveParticipants()
+	local list = CameraController.spectateCandidates()
 	if #list == 0 then
-		stopSpectating()
+		CameraController.spectate(nil)
 		return
 	end
-	spectating = true
 	spectateIndex = spectateIndex % #list + 1
-	local target = list[spectateIndex]
-	local hum = Util.getHumanoid(target)
-	if hum then
-		camera.CameraSubject = hum
-	end
-	spectateButton.Text = "Следующий (" .. target.DisplayName .. ")"
-end)
-
-player.CharacterAdded:Connect(function()
-	if spectating then
-		task.defer(stopSpectating)
-	end
+	CameraController.spectate(list[spectateIndex])
 end)
 
 ------------------------------------------------------------------------
@@ -274,9 +242,12 @@ RunService.RenderStepped:Connect(function(dt)
 	-- Наблюдение
 	local canSpectate = phase == "InGame" and not inMatch
 	spectateButton.Visible = canSpectate
-	if spectating and not canSpectate then
-		stopSpectating()
+	local target = CameraController.getSpectateTarget()
+	if target and not canSpectate then
+		CameraController.spectate(nil)
+		target = nil
 	end
+	spectateButton.Text = target and ("Следующий (" .. target.DisplayName .. ")") or "Наблюдать"
 
 	Auras.update()
 	Effects.update(dt)

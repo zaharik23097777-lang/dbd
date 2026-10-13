@@ -13,7 +13,6 @@ local KillerDefs = require(ReplicatedStorage.Shared.KillerDefs)
 local player = Players.LocalPlayer
 local Audio = {}
 
-SoundService.AmbientReverb = Enum.ReverbType.Forest
 
 local function addEffects(sound: Sound, effects)
 	if not effects then
@@ -67,8 +66,8 @@ function Audio.create(name: string, where: any?): Sound?
 		end
 	elseif typeof(where) == "Vector3" then
 		local att = Instance.new("Attachment")
-		att.WorldPosition = where
 		att.Parent = workspace.Terrain
+		att.WorldPosition = where
 		parent = att
 		Debris:AddItem(att, 12)
 	end

@@ -227,9 +227,16 @@ local function setModifier(char: Model, value: number)
 end
 
 local function updateCloak()
+	local iAmKiller = player:GetAttribute("Role") == "Killer"
 	for _, p in Players:GetPlayers() do
 		local char = p.Character
-		if not char or p:GetAttribute("Role") ~= "Killer" then
+		if not char then
+			continue
+		end
+		if p:GetAttribute("Role") ~= "Killer" then
+			-- Выжившего на плече маньяк видит полупрозрачным, иначе тот закрывает обзор
+			local carried = iAmKiller and p:GetAttribute("Status") == "Carried"
+			setModifier(char, carried and 0.75 or 0)
 			continue
 		end
 		local state = p:GetAttribute("PowerState")

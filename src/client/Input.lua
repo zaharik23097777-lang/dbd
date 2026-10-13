@@ -68,7 +68,8 @@ local function onSprint(_, state, input)
 		sprinting = false
 		Remotes.Sprint:FireServer(false)
 	end
-	return Pass
+	-- Sink: иначе Shift заодно включает Shift Lock и камера «залипает»
+	return Sink
 end
 
 local function onCrouch(_, state, input)
@@ -141,7 +142,15 @@ function Input.bind(role: string?)
 	ContextActionService:SetTitle("DBDSecondary", "Прыг")
 	ContextActionService:SetPosition("DBDSecondary", UDim2.new(1, -95, 1, -95))
 	if role == "Survivor" then
-		ContextActionService:BindAction("DBDSprint", onSprint, true, Enum.KeyCode.LeftShift, Enum.KeyCode.ButtonL3)
+		ContextActionService:BindActionAtPriority(
+			"DBDSprint",
+			onSprint,
+			true,
+			3000,
+			Enum.KeyCode.LeftShift,
+			Enum.KeyCode.RightShift,
+			Enum.KeyCode.ButtonL3
+		)
 		ContextActionService:SetTitle("DBDSprint", "Бег")
 		ContextActionService:SetPosition("DBDSprint", UDim2.new(1, -170, 1, -80))
 		ContextActionService:BindActionAtPriority("DBDCrouch", onCrouch, true, 3000, Enum.KeyCode.LeftControl, Enum.KeyCode.C, Enum.KeyCode.ButtonB)

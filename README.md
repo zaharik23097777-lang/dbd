@@ -99,7 +99,11 @@ tests/             проверки для Lune (карта, анимации, �
 ## Проверки
 ```
 rojo build -o build.rbxlx
-lune run tests/map.test.luau build.rbxlx    # карта на 20 разных сидах
-lune run tests/anim.test.luau build.rbxlx   # суставы R6 и все позы
-lune run tests/ui.test.luau build.rbxlx     # интерфейс на реальной базе свойств Roblox
+lune run tests/map.test.luau build.rbxlx       # карта на 20 разных сидах
+lune run tests/anim.test.luau build.rbxlx      # суставы R6 и все позы
+lune run tests/ui.test.luau build.rbxlx        # интерфейс на реальной базе свойств Roblox
+lune run tests/sim.test.luau build.rbxlx       # 3 полных матча (сервер + клиент) в эмуляторе
+lune run tests/sim_edge.test.luau build.rbxlx  # пограничные случаи: выходы, смерти, люк, предметы...
 ```
+`tests/fakeroblox.luau` — небольшой эмулятор движка Roblox (экземпляры, события, лучи, время),
+в котором запускаются настоящие скрипты игры из собранного файла.

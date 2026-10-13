@@ -17,6 +17,10 @@ MapBuilder.BuildLobby()
 MapBuilder.SetupLighting()
 
 local function onPlayerAdded(player: Player)
+	-- Shift — это бег, поэтому Shift Lock отключаем
+	pcall(function()
+		player.DevEnableMouseLock = false
+	end)
 	task.spawn(Characters.spawnLobby, player)
 end
 Players.PlayerAdded:Connect(onPlayerAdded)

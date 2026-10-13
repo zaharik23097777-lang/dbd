@@ -54,7 +54,7 @@ function Carry.startCarry(kdata, sdata)
 	local s = killerScale(kdata)
 	-- Тело лежит на правом плече животом вниз, голова за спиной маньяка
 	sroot.CFrame = kroot.CFrame
-		* CFrame.new(1.05 * s, 1.75 * s, 0)
+		* CFrame.new(1.4 * s, 1.7 * s, 0.6 * s)
 		* CFrame.Angles(math.rad(90), 0, 0)
 		* CFrame.Angles(0, math.pi, 0)
 	sdata.CarryWeld = Util.weld(kroot, sroot)

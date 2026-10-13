@@ -5,15 +5,21 @@
       <token name="Technology">4</token>
     </Properties>
   </Item>
-  <Item class="ReplicatedStorage" referent="1">
+  <Item class="Players" referent="1">
+    <Properties>
+      <string name="Name">Players</string>
+      <bool name="CharacterAutoLoads">false</bool>
+    </Properties>
+  </Item>
+  <Item class="ReplicatedStorage" referent="2">
     <Properties>
       <string name="Name">ReplicatedStorage</string>
     </Properties>
-    <Item class="Folder" referent="2">
+    <Item class="Folder" referent="3">
       <Properties>
         <string name="Name">Shared</string>
       </Properties>
-      <Item class="ModuleScript" referent="3">
+      <Item class="ModuleScript" referent="4">
         <Properties>
           <string name="Name">ActionInfo</string>
           <string name="Source"><![CDATA[-- Описание всех действий: кто может, какая кнопка, подпись, дальность.
@@ -56,11 +62,11 @@ return {
 ]]></string>
         </Properties>
       </Item>
-      <Item class="Folder" referent="4">
+      <Item class="Folder" referent="5">
         <Properties>
           <string name="Name">Anim</string>
         </Properties>
-        <Item class="ModuleScript" referent="5">
+        <Item class="ModuleScript" referent="6">
           <Properties>
             <string name="Name">Poses</string>
             <string name="Source"><![CDATA[-- Процедурные позы R6. Каждая поза — функция, возвращающая таблицу поворотов суставов:
@@ -635,7 +641,7 @@ return Poses
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="6">
+        <Item class="ModuleScript" referent="7">
           <Properties>
             <string name="Name">Rig</string>
             <string name="Source"><![CDATA[-- Математика суставов R6.
@@ -712,7 +718,7 @@ return Rig
           </Properties>
         </Item>
       </Item>
-      <Item class="ModuleScript" referent="7">
+      <Item class="ModuleScript" referent="8">
         <Properties>
           <string name="Name">Config</string>
           <string name="Source"><![CDATA[-- Все настройки игры в одном месте. Меняй числа, чтобы настроить баланс.
@@ -823,7 +829,7 @@ return Config
 ]]></string>
         </Properties>
       </Item>
-      <Item class="ModuleScript" referent="8">
+      <Item class="ModuleScript" referent="9">
         <Properties>
           <string name="Name">ItemDefs</string>
           <string name="Source"><![CDATA[-- Предметы выживших из сундуков.
@@ -852,7 +858,7 @@ return {
 ]]></string>
         </Properties>
       </Item>
-      <Item class="ModuleScript" referent="9">
+      <Item class="ModuleScript" referent="10">
         <Properties>
           <string name="Name">KillerDefs</string>
           <string name="Source"><![CDATA[-- Маньяки: характеристики и способности.
@@ -924,7 +930,7 @@ return KillerDefs
 ]]></string>
         </Properties>
       </Item>
-      <Item class="ModuleScript" referent="10">
+      <Item class="ModuleScript" referent="11">
         <Properties>
           <string name="Name">Remotes</string>
           <string name="Source"><![CDATA[-- Создаёт (на сервере) или находит (на клиенте) все RemoteEvent'ы игры.
@@ -981,7 +987,7 @@ return Remotes
 ]]></string>
         </Properties>
       </Item>
-      <Item class="ModuleScript" referent="11">
+      <Item class="ModuleScript" referent="12">
         <Properties>
           <string name="Name">Sounds</string>
           <string name="Source"><![CDATA[-- Библиотека звуков.
@@ -1074,7 +1080,7 @@ return Sounds
 ]]></string>
         </Properties>
       </Item>
-      <Item class="ModuleScript" referent="12">
+      <Item class="ModuleScript" referent="13">
         <Properties>
           <string name="Name">Util</string>
           <string name="Source"><![CDATA[-- Общие функции для сервера и клиента.
@@ -1144,19 +1150,19 @@ return Util
       </Item>
     </Item>
   </Item>
-  <Item class="ServerScriptService" referent="13">
+  <Item class="ServerScriptService" referent="14">
     <Properties>
       <string name="Name">ServerScriptService</string>
     </Properties>
-    <Item class="Folder" referent="14">
+    <Item class="Folder" referent="15">
       <Properties>
         <string name="Name">Server</string>
       </Properties>
-      <Item class="Folder" referent="15">
+      <Item class="Folder" referent="16">
         <Properties>
           <string name="Name">Core</string>
         </Properties>
-        <Item class="ModuleScript" referent="16">
+        <Item class="ModuleScript" referent="17">
           <Properties>
             <string name="Name">Actions</string>
             <string name="Source"><![CDATA[-- Реестр действий (ремонт, лечение, крюк, шкафчики и т.д.).
@@ -1397,7 +1403,7 @@ return Actions
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="17">
+        <Item class="ModuleScript" referent="18">
           <Properties>
             <string name="Name">Characters</string>
             <string name="Source"><![CDATA[-- Персонажи R6: появление, внешний вид маньяков, группы столкновений.
@@ -1735,7 +1741,7 @@ return Characters
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="18">
+        <Item class="ModuleScript" referent="19">
           <Properties>
             <string name="Name">Lifecycle</string>
             <string name="Source"><![CDATA[-- Выбывание из раунда (смерть, побег, выход) и «отцепление» от объектов
@@ -1786,7 +1792,7 @@ return Lifecycle
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="19">
+        <Item class="ModuleScript" referent="20">
           <Properties>
             <string name="Name">Lobby</string>
             <string name="Source"><![CDATA[-- Выбор в лобби: «хочу быть маньяком» и выбор маньяка.
@@ -1836,7 +1842,7 @@ return Lobby
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="20">
+        <Item class="ModuleScript" referent="21">
           <Properties>
             <string name="Name">Match</string>
             <string name="Source"><![CDATA[-- Один раунд: старт, главный цикл, конец.
@@ -2227,7 +2233,7 @@ return Match
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="21">
+        <Item class="ModuleScript" referent="22">
           <Properties>
             <string name="Name">Scoring</string>
             <string name="Source"><![CDATA[-- Очки крови: 4 категории у выживших и 4 у маньяка, сохраняются в DataStore.
@@ -2342,7 +2348,7 @@ return Scoring
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="22">
+        <Item class="ModuleScript" referent="23">
           <Properties>
             <string name="Name">State</string>
             <string name="Source"><![CDATA[-- Общее состояние раунда и вспомогательные функции для всех систем.
@@ -2472,7 +2478,7 @@ return State
           </Properties>
         </Item>
       </Item>
-      <Item class="Script" referent="23">
+      <Item class="Script" referent="24">
         <Properties>
           <string name="Name">Main</string>
           <token name="RunContext">0</token>
@@ -2495,6 +2501,10 @@ MapBuilder.BuildLobby()
 MapBuilder.SetupLighting()
 
 local function onPlayerAdded(player: Player)
+	-- Shift — это бег, поэтому Shift Lock отключаем
+	pcall(function()
+		player.DevEnableMouseLock = false
+	end)
 	task.spawn(Characters.spawnLobby, player)
 end
 Players.PlayerAdded:Connect(onPlayerAdded)
@@ -2569,11 +2579,11 @@ end
 ]]></string>
         </Properties>
       </Item>
-      <Item class="Folder" referent="24">
+      <Item class="Folder" referent="25">
         <Properties>
           <string name="Name">Map</string>
         </Properties>
-        <Item class="ModuleScript" referent="25">
+        <Item class="ModuleScript" referent="26">
           <Properties>
             <string name="Name">MapBuilder</string>
             <string name="Source"><![CDATA[-- Процедурно строит карту (каждый раунд новая раскладка), лобби и освещение.
@@ -3164,7 +3174,7 @@ return MapBuilder
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="26">
+        <Item class="ModuleScript" referent="27">
           <Properties>
             <string name="Name">Props</string>
             <string name="Source"><![CDATA[-- Детализированные объекты карты. Всё строится из обычных деталей (Part),
@@ -4530,7 +4540,7 @@ return Props
           </Properties>
         </Item>
       </Item>
-      <Item class="ModuleScript" referent="27">
+      <Item class="ModuleScript" referent="28">
         <Properties>
           <string name="Name">Powers</string>
           <string name="Source"><![CDATA[-- Диспетчер способностей маньяков.
@@ -4596,7 +4606,7 @@ end)
 return Powers
 ]]></string>
         </Properties>
-        <Item class="ModuleScript" referent="28">
+        <Item class="ModuleScript" referent="29">
           <Properties>
             <string name="Name">Huntress</string>
             <string name="Source"><![CDATA[-- Охотница: метательные топоры (сервер считает полёт, клиенты рисуют).
@@ -4798,7 +4808,7 @@ return Huntress
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="29">
+        <Item class="ModuleScript" referent="30">
           <Properties>
             <string name="Name">Trapper</string>
             <string name="Source"><![CDATA[-- Траппер: медвежьи капканы.
@@ -5052,7 +5062,7 @@ return Trapper
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="30">
+        <Item class="ModuleScript" referent="31">
           <Properties>
             <string name="Name">Wraith</string>
             <string name="Source"><![CDATA[-- Призрак: колокол, невидимость и рывок после проявления.
@@ -5190,11 +5200,11 @@ return Wraith
           </Properties>
         </Item>
       </Item>
-      <Item class="Folder" referent="31">
+      <Item class="Folder" referent="32">
         <Properties>
           <string name="Name">Systems</string>
         </Properties>
-        <Item class="ModuleScript" referent="32">
+        <Item class="ModuleScript" referent="33">
           <Properties>
             <string name="Name">Carry</string>
             <string name="Source"><![CDATA[-- Подъём, перенос на плече, вырывание, крюки, Сущность и жертвоприношение.
@@ -5253,7 +5263,7 @@ function Carry.startCarry(kdata, sdata)
 	local s = killerScale(kdata)
 	-- Тело лежит на правом плече животом вниз, голова за спиной маньяка
 	sroot.CFrame = kroot.CFrame
-		* CFrame.new(1.05 * s, 1.75 * s, 0)
+		* CFrame.new(1.4 * s, 1.7 * s, 0.6 * s)
 		* CFrame.Angles(math.rad(90), 0, 0)
 		* CFrame.Angles(0, math.pi, 0)
 	sdata.CarryWeld = Util.weld(kroot, sroot)
@@ -5552,7 +5562,7 @@ return Carry
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="33">
+        <Item class="ModuleScript" referent="34">
           <Properties>
             <string name="Name">Chase</string>
             <string name="Source"><![CDATA[-- Погоня: маньяк видит бегущего рядом выжившего -> музыка погони и очки.
@@ -5617,7 +5627,7 @@ return Chase
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="34">
+        <Item class="ModuleScript" referent="35">
           <Properties>
             <string name="Name">Combat</string>
             <string name="Source"><![CDATA[-- Атака маньяка (выпад), оглушение паллетой и ослепление фонариком.
@@ -5665,20 +5675,25 @@ local function tryHit(kdata): boolean
 		return false
 	end
 	forward = forward.Unit
+	-- Бьём ближайшего выжившего перед собой (а не первого попавшегося)
+	local best, bestDist = nil, math.huge
 	for _, sdata in State.survivors() do
 		local sroot = State.getRoot(sdata.Player)
 		if sdata.Status == "Playing" and not sdata.Hidden and sdata.Health > 0 and sroot then
 			local offset = sroot.Position - kroot.Position
 			local flat = offset * Vector3.new(1, 0, 1)
 			local d = flat.Magnitude
-			if d <= Config.AttackRange * (kdata.Scale or 1) and (d < 1 or forward:Dot(flat.Unit) >= 0.3) then
+			if d < bestDist and d <= Config.AttackRange * (kdata.Scale or 1) and (d < 1 or forward:Dot(flat.Unit) >= 0.3) then
 				if Combat.lineOfSight(kroot.Position, sroot.Position) then
-					Health.damage(sdata, "M1")
-					Powers.call(kdata, "OnHit", sdata)
-					return true
+					best, bestDist = sdata, d
 				end
 			end
 		end
+	end
+	if best then
+		Health.damage(best, "M1")
+		Powers.call(kdata, "OnHit", best)
+		return true
 	end
 	return false
 end
@@ -5768,7 +5783,7 @@ return Combat
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="35">
+        <Item class="ModuleScript" referent="36">
           <Properties>
             <string name="Name">Crows</string>
             <string name="Source"><![CDATA[-- Вороны: взлетают, когда рядом пробегает выживший, и выдают его маньяку.
@@ -5874,7 +5889,7 @@ return Crows
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="36">
+        <Item class="ModuleScript" referent="37">
           <Properties>
             <string name="Name">Exits</string>
             <string name="Source"><![CDATA[-- Ворота, обрушение Сущности (эндгейм) и люк.
@@ -6082,7 +6097,7 @@ return Exits
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="37">
+        <Item class="ModuleScript" referent="38">
           <Properties>
             <string name="Name">Generators</string>
             <string name="Source"><![CDATA[-- Генераторы: ремонт, проверки навыка, повреждение маньяком, Проклятие «Руина».
@@ -6284,7 +6299,7 @@ return Generators
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="38">
+        <Item class="ModuleScript" referent="39">
           <Properties>
             <string name="Name">Health</string>
             <string name="Source"><![CDATA[-- Здоровье выживших: удары, повержение, лечение, истекание кровью.
@@ -6427,7 +6442,7 @@ return Health
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="39">
+        <Item class="ModuleScript" referent="40">
           <Properties>
             <string name="Name">Items</string>
             <string name="Source"><![CDATA[-- Сундуки и предметы: аптечка, ящик с инструментами, фонарик.
@@ -6694,7 +6709,7 @@ return Items
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="40">
+        <Item class="ModuleScript" referent="41">
           <Properties>
             <string name="Name">Lockers</string>
             <string name="Source"><![CDATA[-- Шкафчики: спрятаться, выйти, обыскать (маньяк хватает выжившего).
@@ -6850,7 +6865,7 @@ return Lockers
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="41">
+        <Item class="ModuleScript" referent="42">
           <Properties>
             <string name="Name">Obstacles</string>
             <string name="Source"><![CDATA[-- Паллеты и перелезание через окна/паллеты.
@@ -7022,7 +7037,7 @@ return Obstacles
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="42">
+        <Item class="ModuleScript" referent="43">
           <Properties>
             <string name="Name">Totems</string>
             <string name="Source"><![CDATA[-- Тотемы: очистка выжившими, проклятый тотем включает Проклятие «Руина».
@@ -7106,25 +7121,26 @@ return Totems
       </Item>
     </Item>
   </Item>
-  <Item class="SoundService" referent="43">
+  <Item class="SoundService" referent="44">
     <Properties>
       <string name="Name">SoundService</string>
       <token name="AmbientReverb">16</token>
     </Properties>
   </Item>
-  <Item class="StarterPlayer" referent="44">
+  <Item class="StarterPlayer" referent="45">
     <Properties>
       <string name="Name">StarterPlayer</string>
+      <bool name="EnableMouseLockOption">false</bool>
     </Properties>
-    <Item class="StarterPlayerScripts" referent="45">
+    <Item class="StarterPlayerScripts" referent="46">
       <Properties>
         <string name="Name">StarterPlayerScripts</string>
       </Properties>
-      <Item class="Folder" referent="46">
+      <Item class="Folder" referent="47">
         <Properties>
           <string name="Name">Client</string>
         </Properties>
-        <Item class="ModuleScript" referent="47">
+        <Item class="ModuleScript" referent="48">
           <Properties>
             <string name="Name">Animator</string>
             <string name="Source"><![CDATA[-- Процедурные анимации R6 для всех персонажей.
@@ -7365,7 +7381,7 @@ return Animator
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="48">
+        <Item class="ModuleScript" referent="49">
           <Properties>
             <string name="Name">Audio</string>
             <string name="Source"><![CDATA[-- Звук: 3D-эффекты, синтезированное сердцебиение, погоня, генераторы, шаги, атмосфера.
@@ -7383,7 +7399,6 @@ local KillerDefs = require(ReplicatedStorage.Shared.KillerDefs)
 local player = Players.LocalPlayer
 local Audio = {}
 
-SoundService.AmbientReverb = Enum.ReverbType.Forest
 
 local function addEffects(sound: Sound, effects)
 	if not effects then
@@ -7437,8 +7452,8 @@ function Audio.create(name: string, where: any?): Sound?
 		end
 	elseif typeof(where) == "Vector3" then
 		local att = Instance.new("Attachment")
-		att.WorldPosition = where
 		att.Parent = workspace.Terrain
+		att.WorldPosition = where
 		parent = att
 		Debris:AddItem(att, 12)
 	end
@@ -7651,7 +7666,7 @@ return Audio
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="49">
+        <Item class="ModuleScript" referent="50">
           <Properties>
             <string name="Name">Auras</string>
             <string name="Source"><![CDATA[-- Ауры (подсветка сквозь стены), как в DBD.
@@ -7736,14 +7751,15 @@ return Auras
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="50">
+        <Item class="ModuleScript" referent="51">
           <Properties>
             <string name="Name">CameraController</string>
             <string name="Source"><![CDATA[-- Камера: маньяк от первого лица с покачиванием, выживший от третьего,
--- ползание ниже, вид из шкафчика, тряска и наклон при оглушении.
+-- ползание ниже, вид из шкафчика, наблюдение, тряска и наклон при оглушении.
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
 
 local Config = require(ReplicatedStorage.Shared.Config)
 local Util = require(ReplicatedStorage.Shared.Util)
@@ -7760,6 +7776,20 @@ local fovPunch = 0
 local mode = ""
 local bob = 0
 local lockerMode = false
+local lockerDoor: BasePart? = nil
+local spectateTarget: Player? = nil
+local appliedFX = CFrame.identity
+
+-- Детали снаряжения маньяков, которые видны от первого лица
+local VIEWMODEL = {
+	Handle = true,
+	Blade = true,
+	BladeBlood = true,
+	AxeHead = true,
+	Club = true,
+	Skull = true,
+	Bell = true,
+}
 
 function CameraController.shake(amount: number)
 	shake = math.max(shake, amount)
@@ -7775,25 +7805,73 @@ function CameraController.punch(amount: number)
 	fovPunch = amount
 end
 
+------------------------------------------------------------------------
+-- Режимы
+------------------------------------------------------------------------
+
 local function setMode(newMode: string)
 	if mode == newMode then
 		return
 	end
+	local wasKiller = mode == "Killer"
 	mode = newMode
 	if newMode == "Killer" then
 		player.CameraMode = Enum.CameraMode.LockFirstPerson
 		player.CameraMaxZoomDistance = 0.5
 		player.CameraMinZoomDistance = 0.5
-	elseif newMode == "Survivor" then
-		player.CameraMode = Enum.CameraMode.Classic
+		return
+	end
+	player.CameraMode = Enum.CameraMode.Classic
+	-- Сначала максимум, потом минимум: минимум больше 0.5 «выталкивает» камеру
+	-- из вида от первого лица, иначе после раунда за маньяка мышь остаётся
+	-- заблокированной по центру и по меню нельзя кликнуть.
+	if newMode == "Survivor" then
 		player.CameraMaxZoomDistance = 16
 		player.CameraMinZoomDistance = 7
 	else
-		player.CameraMode = Enum.CameraMode.Classic
 		player.CameraMaxZoomDistance = 30
-		player.CameraMinZoomDistance = 0.5
+		player.CameraMinZoomDistance = 6
+	end
+	if wasKiller then
+		UserInputService.MouseBehavior = Enum.MouseBehavior.Default
+		UserInputService.MouseIconEnabled = true
 	end
 end
+
+------------------------------------------------------------------------
+-- Наблюдение
+------------------------------------------------------------------------
+
+local function isSpectatable(p: Player): boolean
+	return p ~= player
+		and p.Parent ~= nil
+		and p:GetAttribute("Role") ~= nil
+		and Util.isInGameStatus(p:GetAttribute("Status") :: string?)
+		and Util.getHumanoid(p) ~= nil
+end
+
+function CameraController.spectateCandidates(): { Player }
+	local list = {}
+	for _, p in Players:GetPlayers() do
+		if isSpectatable(p) then
+			table.insert(list, p)
+		end
+	end
+	return list
+end
+
+-- nil — вернуться к своему персонажу
+function CameraController.spectate(target: Player?)
+	spectateTarget = target
+end
+
+function CameraController.getSpectateTarget(): Player?
+	return spectateTarget
+end
+
+------------------------------------------------------------------------
+-- Шкафчик
+------------------------------------------------------------------------
 
 local function findLocker(): Model?
 	local map = workspace:FindFirstChild("Map")
@@ -7808,6 +7886,24 @@ local function findLocker(): Model?
 	end
 	return nil
 end
+
+local function setLockerDoor(door: BasePart?)
+	if lockerDoor == door then
+		return
+	end
+	if lockerDoor and lockerDoor.Parent then
+		lockerDoor.LocalTransparencyModifier = 0
+	end
+	lockerDoor = door
+	if door then
+		-- Изнутри видно сквозь щели
+		door.LocalTransparencyModifier = 0.7
+	end
+end
+
+------------------------------------------------------------------------
+-- Каждый кадр
+------------------------------------------------------------------------
 
 function CameraController.update(dt: number)
 	local role = player:GetAttribute("Role")
@@ -7848,49 +7944,122 @@ function CameraController.update(dt: number)
 
 	-- Шкафчик: камера внутри, смотрит наружу через щели
 	local locker = player:GetAttribute("Hidden") and findLocker()
-	if locker then
-		local inside = locker:FindFirstChild("Inside") :: BasePart?
-		if inside then
-			if not lockerMode then
-				lockerMode = true
-				camera.CameraType = Enum.CameraType.Scriptable
-			end
-			local look = inside.CFrame * CFrame.new(0, 1.8, -0.4)
-			local sway = CFrame.Angles(math.sin(os.clock() * 0.7) * 0.02, math.sin(os.clock() * 0.5) * 0.08, 0)
-			camera.CFrame = camera.CFrame:Lerp(look * sway, math.min(dt * 6, 1))
+	local inside = locker and locker:FindFirstChild("Inside") :: BasePart?
+	if locker and inside then
+		if not lockerMode then
+			lockerMode = true
+			camera.CameraType = Enum.CameraType.Scriptable
 		end
-	elseif lockerMode then
+		setLockerDoor(locker:FindFirstChild("Door") :: BasePart?)
+		local look = inside.CFrame * CFrame.new(0, 1.8, -0.4)
+		local sway = CFrame.Angles(math.sin(os.clock() * 0.7) * 0.02, math.sin(os.clock() * 0.5) * 0.08, 0)
+		camera.CFrame = camera.CFrame:Lerp(look * sway, math.min(dt * 6, 1))
+		return
+	end
+	if lockerMode then
 		lockerMode = false
+		setLockerDoor(nil)
+	end
+
+	-- Камера всегда должна быть обычной и смотреть на живого персонажа.
+	-- Персонажи создаются вручную, поэтому привязываем её сами.
+	if camera.CameraType ~= Enum.CameraType.Custom then
 		camera.CameraType = Enum.CameraType.Custom
+	end
+	local subject: Humanoid? = hum
+	if spectateTarget then
+		if isSpectatable(spectateTarget) then
+			subject = Util.getHumanoid(spectateTarget)
+		else
+			-- Тот, за кем смотрели, сбежал или погиб — переключаемся на следующего
+			local list = CameraController.spectateCandidates()
+			spectateTarget = list[1]
+			subject = spectateTarget and Util.getHumanoid(spectateTarget) or hum
+		end
+	end
+	if subject and camera.CameraSubject ~= subject then
+		camera.CameraSubject = subject
 	end
 end
 
--- После стандартной камеры: тряска и наклон
-RunService:BindToRenderStep("DBDCameraFX", Enum.RenderPriority.Camera.Value + 1, function(dt)
+------------------------------------------------------------------------
+-- Тряска и наклон
+-- Стандартная камера Roblox берёт направление взгляда из прошлого кадра, поэтому
+-- эффект нужно убирать перед её обновлением и добавлять заново после — иначе
+-- наклон накапливается и камера «уезжает» в землю.
+------------------------------------------------------------------------
+
+RunService:BindToRenderStep("DBDCameraFXRemove", Enum.RenderPriority.Camera.Value - 1, function()
+	if appliedFX ~= CFrame.identity then
+		if camera.CameraType ~= Enum.CameraType.Scriptable then
+			camera.CFrame *= appliedFX:Inverse()
+		end
+		appliedFX = CFrame.identity
+	end
+end)
+
+RunService:BindToRenderStep("DBDCameraFXApply", Enum.RenderPriority.Camera.Value + 1, function(dt)
 	local t = os.clock()
 	local extra = CFrame.identity
 	if shake > 0.01 then
-		extra *= CFrame.Angles(
-			(math.noise(t * 25, 0) * shake) * 0.08,
-			(math.noise(0, t * 25) * shake) * 0.08,
-			0
-		)
+		extra *= CFrame.Angles(math.noise(t * 25, 0) * shake * 0.08, math.noise(0, t * 25) * shake * 0.08, 0)
 		shake *= math.exp(-dt * 5)
+	else
+		shake = 0
 	end
 	if t < stunUntil then
 		local a = (t - stunStart) / (stunUntil - stunStart)
 		extra *= CFrame.Angles(math.rad(-12) * (1 - a), 0, math.rad(18) * math.sin(a * math.pi))
 	end
-	if extra ~= CFrame.identity then
+	if extra ~= CFrame.identity and camera.CameraType ~= Enum.CameraType.Scriptable then
 		camera.CFrame *= extra
+		appliedFX = extra
+	end
+
+	-- От первого лица Roblox прячет всё тело. Маньяку оставляем руки и оружие,
+	-- чтобы был виден замах, как в DBD.
+	if mode == "Killer" then
+		local char = player.Character
+		if char then
+			for _, d in char:GetChildren() do
+				if d:IsA("BasePart") and (VIEWMODEL[d.Name] or d.Name == "Left Arm" or d.Name == "Right Arm") then
+					d.LocalTransparencyModifier = 0
+				end
+			end
+		end
 	end
 end)
+
+------------------------------------------------------------------------
+-- Персонаж: никаких падений и лазания по стенам (сталкивается только HumanoidRootPart)
+------------------------------------------------------------------------
+
+local function onCharacter(char: Model)
+	local hum = char:WaitForChild("Humanoid", 10) :: Humanoid?
+	if not hum then
+		return
+	end
+	for _, state in
+		{ Enum.HumanoidStateType.FallingDown, Enum.HumanoidStateType.Ragdoll, Enum.HumanoidStateType.Climbing }
+	do
+		hum:SetStateEnabled(state, false)
+	end
+	camera.CameraType = Enum.CameraType.Custom
+	if not spectateTarget then
+		camera.CameraSubject = hum
+	end
+end
+
+player.CharacterAdded:Connect(onCharacter)
+if player.Character then
+	task.spawn(onCharacter, player.Character)
+end
 
 return CameraController
 ]]></string>
           </Properties>
         </Item>
-        <Item class="LocalScript" referent="51">
+        <Item class="LocalScript" referent="52">
           <Properties>
             <string name="Name">Client</string>
             <string name="Source"><![CDATA[-- Клиент: связывает интерфейс, управление, анимации, камеру, звук и эффекты.
@@ -7989,48 +8158,16 @@ local spectateButton = Widgets.button({
 	Text = "Наблюдать",
 	Visible = false,
 })
-local spectating = false
 local spectateIndex = 0
 
-local function aliveParticipants(): { Player }
-	local list = {}
-	for _, p in Players:GetPlayers() do
-		if p ~= player and p:GetAttribute("Role") and Util.isInGameStatus(p:GetAttribute("Status")) then
-			table.insert(list, p)
-		end
-	end
-	return list
-end
-
-local function stopSpectating()
-	spectating = false
-	local hum = Util.getHumanoid(player)
-	if hum then
-		camera.CameraSubject = hum
-	end
-	spectateButton.Text = "Наблюдать"
-end
-
 spectateButton.Activated:Connect(function()
-	local list = aliveParticipants()
+	local list = CameraController.spectateCandidates()
 	if #list == 0 then
-		stopSpectating()
+		CameraController.spectate(nil)
 		return
 	end
-	spectating = true
 	spectateIndex = spectateIndex % #list + 1
-	local target = list[spectateIndex]
-	local hum = Util.getHumanoid(target)
-	if hum then
-		camera.CameraSubject = hum
-	end
-	spectateButton.Text = "Следующий (" .. target.DisplayName .. ")"
-end)
-
-player.CharacterAdded:Connect(function()
-	if spectating then
-		task.defer(stopSpectating)
-	end
+	CameraController.spectate(list[spectateIndex])
 end)
 
 ------------------------------------------------------------------------
@@ -8169,9 +8306,12 @@ RunService.RenderStepped:Connect(function(dt)
 	-- Наблюдение
 	local canSpectate = phase == "InGame" and not inMatch
 	spectateButton.Visible = canSpectate
-	if spectating and not canSpectate then
-		stopSpectating()
+	local target = CameraController.getSpectateTarget()
+	if target and not canSpectate then
+		CameraController.spectate(nil)
+		target = nil
 	end
+	spectateButton.Text = target and ("Следующий (" .. target.DisplayName .. ")") or "Наблюдать"
 
 	Auras.update()
 	Effects.update(dt)
@@ -8182,7 +8322,7 @@ end)
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="52">
+        <Item class="ModuleScript" referent="53">
           <Properties>
             <string name="Name">Effects</string>
             <string name="Source"><![CDATA[-- Визуальные эффекты на клиенте: следы бега и кровь (видит только маньяк),
@@ -8414,9 +8554,16 @@ local function setModifier(char: Model, value: number)
 end
 
 local function updateCloak()
+	local iAmKiller = player:GetAttribute("Role") == "Killer"
 	for _, p in Players:GetPlayers() do
 		local char = p.Character
-		if not char or p:GetAttribute("Role") ~= "Killer" then
+		if not char then
+			continue
+		end
+		if p:GetAttribute("Role") ~= "Killer" then
+			-- Выжившего на плече маньяк видит полупрозрачным, иначе тот закрывает обзор
+			local carried = iAmKiller and p:GetAttribute("Status") == "Carried"
+			setModifier(char, carried and 0.75 or 0)
 			continue
 		end
 		local state = p:GetAttribute("PowerState")
@@ -8524,7 +8671,7 @@ return Effects
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="53">
+        <Item class="ModuleScript" referent="54">
           <Properties>
             <string name="Name">Input</string>
             <string name="Source"><![CDATA[-- Управление (клавиатура, геймпад, сенсорные кнопки на телефоне).
@@ -8597,7 +8744,8 @@ local function onSprint(_, state, input)
 		sprinting = false
 		Remotes.Sprint:FireServer(false)
 	end
-	return Pass
+	-- Sink: иначе Shift заодно включает Shift Lock и камера «залипает»
+	return Sink
 end
 
 local function onCrouch(_, state, input)
@@ -8670,7 +8818,15 @@ function Input.bind(role: string?)
 	ContextActionService:SetTitle("DBDSecondary", "Прыг")
 	ContextActionService:SetPosition("DBDSecondary", UDim2.new(1, -95, 1, -95))
 	if role == "Survivor" then
-		ContextActionService:BindAction("DBDSprint", onSprint, true, Enum.KeyCode.LeftShift, Enum.KeyCode.ButtonL3)
+		ContextActionService:BindActionAtPriority(
+			"DBDSprint",
+			onSprint,
+			true,
+			3000,
+			Enum.KeyCode.LeftShift,
+			Enum.KeyCode.RightShift,
+			Enum.KeyCode.ButtonL3
+		)
 		ContextActionService:SetTitle("DBDSprint", "Бег")
 		ContextActionService:SetPosition("DBDSprint", UDim2.new(1, -170, 1, -80))
 		ContextActionService:BindActionAtPriority("DBDCrouch", onCrouch, true, 3000, Enum.KeyCode.LeftControl, Enum.KeyCode.C, Enum.KeyCode.ButtonB)
@@ -8713,7 +8869,7 @@ return Input
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="54">
+        <Item class="ModuleScript" referent="55">
           <Properties>
             <string name="Name">Interaction</string>
             <string name="Source"><![CDATA[-- Поиск ближайшего доступного действия для подсказки и нажатия.
@@ -8944,11 +9100,11 @@ return Interaction
 ]]></string>
           </Properties>
         </Item>
-        <Item class="Folder" referent="55">
+        <Item class="Folder" referent="56">
           <Properties>
             <string name="Name">UI</string>
           </Properties>
-          <Item class="ModuleScript" referent="56">
+          <Item class="ModuleScript" referent="57">
             <Properties>
               <string name="Name">Hud</string>
               <string name="Source"><![CDATA[-- Основной интерфейс: генераторы, портреты выживших, подсказки, полоски,
@@ -9476,7 +9632,7 @@ return Hud
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="57">
+          <Item class="ModuleScript" referent="58">
             <Properties>
               <string name="Name">LobbyUI</string>
               <string name="Source"><![CDATA[-- Меню лобби: очки крови, «хочу быть маньяком», выбор маньяка.
@@ -9606,7 +9762,7 @@ return LobbyUI
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="58">
+          <Item class="ModuleScript" referent="59">
             <Properties>
               <string name="Name">Results</string>
               <string name="Source"><![CDATA[-- Экран итогов раунда с очками крови по категориям.
@@ -9741,7 +9897,7 @@ return Results
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="59">
+          <Item class="ModuleScript" referent="60">
             <Properties>
               <string name="Name">SkillCheck</string>
               <string name="Source"><![CDATA[-- Круглая проверка навыка, как в Dead by Daylight.
@@ -9902,7 +10058,7 @@ return SkillCheck
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="60">
+          <Item class="ModuleScript" referent="61">
             <Properties>
               <string name="Name">Widgets</string>
               <string name="Source"><![CDATA[-- Маленькие помощники для создания интерфейса из кода.
@@ -10012,7 +10168,7 @@ return Widgets
           </Item>
         </Item>
       </Item>
-      <Item class="LocalScript" referent="61">
+      <Item class="LocalScript" referent="62">
         <Properties>
           <string name="Name">RbxCharacterSounds</string>
           <string name="Source"><![CDATA[-- Пустой скрипт с именем стандартного RbxCharacterSounds отключает стандартные звуки шагов.

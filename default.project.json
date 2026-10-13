@@ -20,6 +20,9 @@
         "RbxCharacterSounds": {
           "$path": "src/stubs/RbxCharacterSounds.client.lua"
         }
+      },
+      "$properties": {
+        "EnableMouseLockOption": false
       }
     },
     "Lighting": {
@@ -30,6 +33,11 @@
     "SoundService": {
       "$properties": {
         "AmbientReverb": "Forest"
+      }
+    },
+    "Players": {
+      "$properties": {
+        "CharacterAutoLoads": false
       }
     }
   }

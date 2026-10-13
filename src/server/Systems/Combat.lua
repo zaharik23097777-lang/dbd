@@ -43,20 +43,25 @@ local function tryHit(kdata): boolean
 		return false
 	end
 	forward = forward.Unit
+	-- Бьём ближайшего выжившего перед собой (а не первого попавшегося)
+	local best, bestDist = nil, math.huge
 	for _, sdata in State.survivors() do
 		local sroot = State.getRoot(sdata.Player)
 		if sdata.Status == "Playing" and not sdata.Hidden and sdata.Health > 0 and sroot then
 			local offset = sroot.Position - kroot.Position
 			local flat = offset * Vector3.new(1, 0, 1)
 			local d = flat.Magnitude
-			if d <= Config.AttackRange * (kdata.Scale or 1) and (d < 1 or forward:Dot(flat.Unit) >= 0.3) then
+			if d < bestDist and d <= Config.AttackRange * (kdata.Scale or 1) and (d < 1 or forward:Dot(flat.Unit) >= 0.3) then
 				if Combat.lineOfSight(kroot.Position, sroot.Position) then
-					Health.damage(sdata, "M1")
-					Powers.call(kdata, "OnHit", sdata)
-					return true
+					best, bestDist = sdata, d
 				end
 			end
 		end
+	end
+	if best then
+		Health.damage(best, "M1")
+		Powers.call(kdata, "OnHit", best)
+		return true
 	end
 	return false
 end
