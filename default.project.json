@@ -16,7 +16,20 @@
       "StarterPlayerScripts": {
         "Client": {
           "$path": "src/client"
+        },
+        "RbxCharacterSounds": {
+          "$path": "src/stubs/RbxCharacterSounds.client.lua"
         }
+      }
+    },
+    "Lighting": {
+      "$properties": {
+        "Technology": "Future"
+      }
+    },
+    "SoundService": {
+      "$properties": {
+        "AmbientReverb": "Forest"
       }
     }
   }
