@@ -13,6 +13,9 @@ local Lobby = require(script.Parent.Core.Lobby)
 local State = require(script.Parent.Core.State)
 local Match = require(script.Parent.Core.Match)
 
+-- Настоящие звуки из библиотеки Creator Store ищутся в фоне, игра их не ждёт
+require(script.Parent.Core.SoundLibrary).start()
+
 MapBuilder.SetupLighting()
 MapBuilder.BuildLobby()
 -- Все объекты карты строятся один раз заранее (с CSG), раунды только копируют их

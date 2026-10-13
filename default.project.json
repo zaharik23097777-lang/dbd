@@ -32,7 +32,7 @@
     },
     "SoundService": {
       "$properties": {
-        "AmbientReverb": "Forest"
+        "AmbientReverb": "NoReverb"
       }
     },
     "Players": {

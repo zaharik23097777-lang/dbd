@@ -197,7 +197,7 @@ function Carry.hang(kdata, hook: Model)
 	hook:SetAttribute("Occupant", sdata.Player.UserId)
 	sroot.Anchored = true
 	sroot.CFrame = hp.CFrame
-	State.sfx("Clank", hp)
+	State.sfx("HookImpale", hp)
 	State.sfx("Scream", hp)
 	State.playAnim(sdata.Player, "HookScream")
 	Scoring.add(kdata.Player, "Sacrifice", 1000, "Повешен на крюк")
