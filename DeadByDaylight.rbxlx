@@ -1,0 +1,3233 @@
+<roblox version="4">
+  <Item class="ReplicatedStorage" referent="0">
+    <Properties>
+      <string name="Name">ReplicatedStorage</string>
+    </Properties>
+    <Item class="Folder" referent="1">
+      <Properties>
+        <string name="Name">Shared</string>
+      </Properties>
+      <Item class="ModuleScript" referent="2">
+        <Properties>
+          <string name="Name">Config</string>
+          <string name="Source"><![CDATA[-- Все настройки игры в одном месте. Меняй числа, чтобы настроить баланс.
+local Config = {}
+
+-- Лобби / раунд
+Config.MinPlayers = 2 -- минимум игроков для старта (1 маньяк + 1 выживший)
+Config.StudioMinPlayers = 1 -- в Studio можно тестировать одному (будешь выжившим)
+Config.LobbyCountdown = 15 -- секунд отсчёта перед раундом
+Config.ResultsTime = 10 -- секунд показа результатов
+Config.MaxRoundTime = 15 * 60 -- жёсткий лимит раунда
+
+-- Генераторы
+Config.GeneratorCount = 7 -- сколько генераторов на карте
+Config.GeneratorsRequired = 5 -- сколько нужно починить
+Config.GeneratorRepairTime = 80 -- секунд на ремонт одним выжившим
+Config.GeneratorKickRegression = 0.08 -- сколько прогресса теряет генератор при пинке маньяка
+Config.GeneratorRegressPerSecond = 0.0025 -- регресс после пинка (доля в секунду)
+
+-- Проверки навыка (skill check)
+Config.SkillCheckChancePerSecond = 0.10
+Config.SkillCheckDuration = 1.1 -- время пробега стрелки
+Config.SkillCheckGreatBonus = 0.02
+Config.SkillCheckFailPenalty = 0.10
+
+-- Скорости (стандартная WalkSpeed в Roblox = 16)
+Config.SurvivorWalkSpeed = 10
+Config.SurvivorSprintSpeed = 16
+Config.SurvivorCrawlSpeed = 2.5
+Config.SurvivorHitBoostSpeed = 22 -- рывок после удара
+Config.SurvivorHitBoostTime = 1.8
+Config.KillerSpeed = 18.4 -- 115% от бега выжившего
+Config.KillerCarrySpeed = 16.4
+Config.KillerLungeSpeed = 26
+Config.KillerLungeTime = 0.35
+
+-- Атака маньяка
+Config.AttackRange = 7
+Config.AttackCooldownHit = 2.7 -- маньяк вытирает оружие после попадания
+Config.AttackCooldownMiss = 1.5
+Config.AttackSlowSpeed = 6
+
+-- Действия (секунды)
+Config.HealTime = 16
+Config.UnhookTime = 1.2
+Config.HookTime = 1.2
+Config.PickupTime = 0
+Config.BreakPalletTime = 2.6
+Config.KickGeneratorTime = 1.8
+Config.OpenGateTime = 18
+Config.InteractRange = 7
+
+-- Крюки
+Config.HookStageTime = 60 -- секунд на каждой стадии крюка
+Config.MaxHooks = 3 -- на 3-м крюке выживший сразу погибает
+Config.WiggleTime = 16 -- сколько нужно вырываться из рук маньяка
+Config.BleedOutTime = 240 -- сколько можно лежать на земле до смерти
+
+-- Паллеты
+Config.PalletStunTime = 2.2
+Config.PalletStunRange = 7
+
+-- Эндгейм
+Config.EndGameCollapseTime = 120 -- после открытия ворот
+
+-- Радиус ужаса (сердцебиение)
+Config.TerrorRadius = 32
+Config.HeartbeatSoundId = "" -- можно вставить "rbxassetid://<id>" звука сердцебиения
+Config.ChaseMusicId = "" -- музыка погони (необязательно)
+
+-- Вид маньяка от первого лица, как в оригинале
+Config.KillerFirstPerson = true
+
+-- Карта
+Config.MapSize = 220
+Config.LobbyPosition = Vector3.new(0, 400, 0)
+
+return Config
+]]></string>
+        </Properties>
+      </Item>
+      <Item class="ModuleScript" referent="3">
+        <Properties>
+          <string name="Name">Remotes</string>
+          <string name="Source"><![CDATA[-- Создаёт (на сервере) или находит (на клиенте) все RemoteEvent'ы игры.
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
+
+local NAMES = {
+	"Attack", -- клиент -> сервер: маньяк бьёт
+	"Sprint", -- клиент -> сервер: бег (true/false)
+	"BeginAction", -- клиент -> сервер: начать действие (kind, target)
+	"EndAction", -- клиент -> сервер: отпустить кнопку
+	"SkillCheck", -- сервер -> клиент: показать проверку; клиент -> сервер: результат
+	"Notify", -- сервер -> клиент: сообщение на экране
+	"Noise", -- сервер -> маньяку: подсветить место шума (взрыв генератора)
+	"Results", -- сервер -> клиенту: итоги раунда
+}
+
+local Remotes = {}
+
+local folder
+if RunService:IsServer() then
+	folder = ReplicatedStorage:FindFirstChild("Remotes")
+	if not folder then
+		folder = Instance.new("Folder")
+		folder.Name = "Remotes"
+		folder.Parent = ReplicatedStorage
+	end
+	for _, name in NAMES do
+		if not folder:FindFirstChild(name) then
+			local remote = Instance.new("RemoteEvent")
+			remote.Name = name
+			remote.Parent = folder
+		end
+	end
+else
+	folder = ReplicatedStorage:WaitForChild("Remotes")
+end
+
+for _, name in NAMES do
+	Remotes[name] = folder:WaitForChild(name)
+end
+
+return Remotes
+]]></string>
+        </Properties>
+      </Item>
+    </Item>
+  </Item>
+  <Item class="ServerScriptService" referent="4">
+    <Properties>
+      <string name="Name">ServerScriptService</string>
+    </Properties>
+    <Item class="Folder" referent="5">
+      <Properties>
+        <string name="Name">Server</string>
+      </Properties>
+      <Item class="Script" referent="6">
+        <Properties>
+          <string name="Name">Main</string>
+          <token name="RunContext">0</token>
+          <string name="Source"><![CDATA[-- Точка входа сервера: лобби -> раунд -> результаты -> снова лобби.
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
+
+local Config = require(ReplicatedStorage.Shared.Config)
+require(ReplicatedStorage.Shared.Remotes) -- создаёт RemoteEvent'ы
+local MapBuilder = require(script.Parent.MapBuilder)
+local Match = require(script.Parent.Match)
+
+Players.RespawnTime = 2
+MapBuilder.BuildLobby()
+MapBuilder.SetupLighting()
+
+Players.PlayerRemoving:Connect(Match.OnPlayerRemoving)
+RunService.Heartbeat:Connect(function(dt)
+	local ok, err = pcall(Match.Update, dt)
+	if not ok then
+		warn("[DBD] Ошибка в Match.Update: " .. tostring(err))
+	end
+end)
+
+-- Новые персонажи в лобби не должны прыгать по карте во время раунда
+Players.PlayerAdded:Connect(function(player)
+	player.CharacterAdded:Connect(function(char)
+		local hum = char:WaitForChild("Humanoid")
+		hum.WalkSpeed = 16
+	end)
+end)
+
+local function minPlayers()
+	if RunService:IsStudio() then
+		return Config.StudioMinPlayers
+	end
+	return Config.MinPlayers
+end
+
+local function readyPlayers()
+	local list = {}
+	for _, player in Players:GetPlayers() do
+		if player.Character then
+			table.insert(list, player)
+		end
+	end
+	return list
+end
+
+while true do
+	-- Лобби: ждём игроков
+	Match.SetState("Phase", "Waiting")
+	Match.SetState("Timer", 0)
+	while #readyPlayers() < minPlayers() do
+		task.wait(1)
+	end
+
+	-- Отсчёт
+	local cancelled = false
+	Match.SetState("Phase", "Starting")
+	for i = Config.LobbyCountdown, 1, -1 do
+		Match.SetState("Timer", i)
+		task.wait(1)
+		if #readyPlayers() < minPlayers() then
+			cancelled = true
+			break
+		end
+	end
+
+	if not cancelled then
+		local list = readyPlayers()
+		local ok, err = pcall(Match.Start, list)
+		if not ok then
+			warn("[DBD] Не удалось начать раунд: " .. tostring(err))
+			Match.End("Ошибка запуска")
+		end
+		while Match.Active do
+			task.wait(0.5)
+		end
+		Match.SetState("Phase", "Results")
+		for i = Config.ResultsTime, 1, -1 do
+			Match.SetState("Timer", i)
+			task.wait(1)
+		end
+	end
+end
+]]></string>
+        </Properties>
+      </Item>
+      <Item class="ModuleScript" referent="7">
+        <Properties>
+          <string name="Name">MapBuilder</string>
+          <string name="Source"><![CDATA[-- Процедурно строит карту (каждый раунд новая раскладка) и лобби.
+-- Ничего не нужно строить вручную в Studio.
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Lighting = game:GetService("Lighting")
+
+local Config = require(ReplicatedStorage.Shared.Config)
+
+local MapBuilder = {}
+
+local CELL = 22
+
+local function part(props)
+	local p = Instance.new("Part")
+	p.Anchored = true
+	p.TopSurface = Enum.SurfaceType.Smooth
+	p.BottomSurface = Enum.SurfaceType.Smooth
+	p.Material = Enum.Material.SmoothPlastic
+	for k, v in props do
+		if k ~= "Parent" then
+			p[k] = v
+		end
+	end
+	p.Parent = props.Parent
+	return p
+end
+
+local function folder(name, parent)
+	local f = Instance.new("Folder")
+	f.Name = name
+	f.Parent = parent
+	return f
+end
+
+local function shuffle(list, rng)
+	for i = #list, 2, -1 do
+		local j = rng:NextInteger(1, i)
+		list[i], list[j] = list[j], list[i]
+	end
+end
+
+local function wall(parent, cf, size)
+	return part({
+		Name = "Wall",
+		Size = size,
+		CFrame = cf,
+		Color = Color3.fromRGB(92, 88, 84),
+		Material = Enum.Material.Concrete,
+		Parent = parent,
+	})
+end
+
+------------------------------------------------------------------------
+-- Объекты карты
+------------------------------------------------------------------------
+
+local function buildGenerator(parent, cf, index)
+	local model = Instance.new("Model")
+	model.Name = "Generator" .. index
+
+	local body = part({
+		Name = "Body",
+		Size = Vector3.new(4, 3.5, 3),
+		CFrame = cf * CFrame.new(0, 1.75, 0),
+		Color = Color3.fromRGB(70, 75, 70),
+		Material = Enum.Material.DiamondPlate,
+		Parent = model,
+	})
+	part({
+		Name = "Engine",
+		Size = Vector3.new(2.6, 1.4, 2),
+		CFrame = cf * CFrame.new(0, 4.2, 0),
+		Color = Color3.fromRGB(40, 40, 40),
+		Material = Enum.Material.Metal,
+		Parent = model,
+	})
+	local bulb = part({
+		Name = "Bulb",
+		Shape = Enum.PartType.Ball,
+		Size = Vector3.new(1.2, 1.2, 1.2),
+		CFrame = cf * CFrame.new(0, 5.6, 0),
+		Color = Color3.fromRGB(60, 60, 50),
+		Material = Enum.Material.Glass,
+		Parent = model,
+	})
+	local light = Instance.new("PointLight")
+	light.Color = Color3.fromRGB(255, 230, 150)
+	light.Range = 26
+	light.Brightness = 3
+	light.Enabled = false
+	light.Parent = bulb
+
+	model.PrimaryPart = body
+	model:SetAttribute("Kind", "Generator")
+	model:SetAttribute("Progress", 0)
+	model:SetAttribute("Done", false)
+	model:SetAttribute("Regressing", false)
+	model.Parent = parent
+	return model
+end
+
+local function buildHook(parent, cf, index)
+	local model = Instance.new("Model")
+	model.Name = "Hook" .. index
+	local red = Color3.fromRGB(110, 20, 20)
+	local pole = part({
+		Name = "Pole",
+		Size = Vector3.new(1, 12, 1),
+		CFrame = cf * CFrame.new(0, 6, 0),
+		Color = red,
+		Material = Enum.Material.CorrodedMetal,
+		Parent = model,
+	})
+	part({
+		Name = "Arm",
+		Size = Vector3.new(1, 1, 4),
+		CFrame = cf * CFrame.new(0, 11.5, -2),
+		Color = red,
+		Material = Enum.Material.CorrodedMetal,
+		Parent = model,
+	})
+	part({
+		Name = "Hook",
+		Size = Vector3.new(0.4, 2, 0.4),
+		CFrame = cf * CFrame.new(0, 10.3, -3.6),
+		Color = Color3.fromRGB(150, 150, 150),
+		Material = Enum.Material.Metal,
+		Parent = model,
+	})
+	-- Точка, где висит выживший (HumanoidRootPart)
+	part({
+		Name = "HangPoint",
+		Size = Vector3.new(1, 1, 1),
+		CFrame = cf * CFrame.new(0, 7.2, -3.9),
+		Transparency = 1,
+		CanCollide = false,
+		CanQuery = false,
+		Parent = model,
+	})
+	model.PrimaryPart = pole
+	model:SetAttribute("Kind", "Hook")
+	model:SetAttribute("Occupant", 0)
+	model.Parent = parent
+	return model
+end
+
+local function buildPalletLoop(map, cf)
+	local walls = map.Walls
+	wall(walls, cf * CFrame.new(-5.5, 4, 0), Vector3.new(6, 8, 1.5))
+	wall(walls, cf * CFrame.new(5.5, 4, 0), Vector3.new(6, 8, 1.5))
+	wall(walls, cf * CFrame.new(-8.5, 4, 4), Vector3.new(1.5, 8, 8))
+	wall(walls, cf * CFrame.new(8.5, 4, -4), Vector3.new(1.5, 8, 8))
+
+	local size = Vector3.new(5.6, 3, 1.2)
+	local upCF = cf * CFrame.new(-1.8, 3, 1) * CFrame.Angles(0, 0, math.rad(78))
+	local dropCF = cf * CFrame.new(0, 1.5, 0)
+	local pallet = part({
+		Name = "Pallet",
+		Size = size,
+		CFrame = upCF,
+		Color = Color3.fromRGB(140, 105, 60),
+		Material = Enum.Material.WoodPlanks,
+		CanCollide = false,
+		Parent = map.Pallets,
+	})
+	pallet:SetAttribute("Kind", "Pallet")
+	pallet:SetAttribute("State", "Up") -- Up / Dropped / Broken
+	pallet:SetAttribute("DropCFrame", dropCF)
+end
+
+local function buildWindowLoop(map, cf)
+	local walls = map.Walls
+	wall(walls, cf * CFrame.new(-5.5, 5, 0), Vector3.new(7, 10, 1.5))
+	wall(walls, cf * CFrame.new(5.5, 5, 0), Vector3.new(7, 10, 1.5))
+	wall(walls, cf * CFrame.new(0, 8.5, 0), Vector3.new(4, 3, 1.5))
+	wall(walls, cf * CFrame.new(-9.75, 5, -5), Vector3.new(1.5, 10, 10))
+	wall(walls, cf * CFrame.new(9.75, 5, 5), Vector3.new(1.5, 10, 10))
+	local sill = part({
+		Name = "Window",
+		Size = Vector3.new(4, 3, 1.5),
+		CFrame = cf * CFrame.new(0, 1.5, 0),
+		Color = Color3.fromRGB(75, 60, 45),
+		Material = Enum.Material.Wood,
+		Parent = map.Windows,
+	})
+	sill:SetAttribute("Kind", "Window")
+end
+
+local function buildRock(map, cf, rng)
+	local s = Vector3.new(rng:NextNumber(5, 10), rng:NextNumber(5, 9), rng:NextNumber(5, 10))
+	part({
+		Name = "Rock",
+		Size = s,
+		CFrame = cf * CFrame.new(0, s.Y / 2, 0) * CFrame.Angles(0, rng:NextNumber(0, math.pi), 0),
+		Color = Color3.fromRGB(85, 85, 90),
+		Material = Enum.Material.Slate,
+		Parent = map.Walls,
+	})
+end
+
+local function buildTrees(map, cf, rng)
+	for _ = 1, rng:NextInteger(2, 4) do
+		local offset = Vector3.new(rng:NextNumber(-8, 8), 0, rng:NextNumber(-8, 8))
+		local h = rng:NextNumber(14, 22)
+		local base = cf * CFrame.new(offset)
+		part({
+			Name = "Trunk",
+			Shape = Enum.PartType.Cylinder,
+			Size = Vector3.new(h, 2, 2),
+			CFrame = base * CFrame.new(0, h / 2, 0) * CFrame.Angles(0, 0, math.rad(90)),
+			Color = Color3.fromRGB(60, 45, 35),
+			Material = Enum.Material.Wood,
+			Parent = map.Decor,
+		})
+		part({
+			Name = "Leaves",
+			Shape = Enum.PartType.Ball,
+			Size = Vector3.new(9, 9, 9),
+			CFrame = base * CFrame.new(0, h, 0),
+			Color = Color3.fromRGB(30, 50, 30),
+			Material = Enum.Material.Grass,
+			CanCollide = false,
+			Parent = map.Decor,
+		})
+	end
+end
+
+local function buildLamp(map, cf)
+	part({
+		Name = "LampPost",
+		Size = Vector3.new(0.6, 12, 0.6),
+		CFrame = cf * CFrame.new(0, 6, 0),
+		Color = Color3.fromRGB(30, 30, 30),
+		Material = Enum.Material.Metal,
+		Parent = map.Decor,
+	})
+	local head = part({
+		Name = "LampHead",
+		Size = Vector3.new(1.4, 1, 1.4),
+		CFrame = cf * CFrame.new(0, 12.3, 0),
+		Color = Color3.fromRGB(255, 200, 120),
+		Material = Enum.Material.Neon,
+		Parent = map.Decor,
+	})
+	local light = Instance.new("PointLight")
+	light.Color = Color3.fromRGB(255, 170, 90)
+	light.Range = 30
+	light.Brightness = 1.5
+	light.Parent = head
+end
+
+local function buildExitGate(map, side, index)
+	local half = Config.MapSize / 2
+	-- side = 1 (север, +Z) или -1 (юг, -Z)
+	local gateX = 0
+	local cf = CFrame.new(gateX, 0, side * half) * CFrame.Angles(0, side == 1 and 0 or math.pi, 0)
+	-- В локальных координатах ворот: -Z смотрит внутрь карты, +Z наружу.
+	local model = Instance.new("Model")
+	model.Name = "ExitGate" .. index
+
+	local door = part({
+		Name = "Door",
+		Size = Vector3.new(12, 12, 1.5),
+		CFrame = cf * CFrame.new(0, 6, 0),
+		Color = Color3.fromRGB(60, 60, 65),
+		Material = Enum.Material.DiamondPlate,
+		Parent = model,
+	})
+	part({
+		Name = "Frame",
+		Size = Vector3.new(14, 2, 2),
+		CFrame = cf * CFrame.new(0, 13, 0),
+		Color = Color3.fromRGB(40, 40, 40),
+		Material = Enum.Material.Metal,
+		Parent = model,
+	})
+	local switch = part({
+		Name = "Switch",
+		Size = Vector3.new(2, 4, 1.5),
+		CFrame = cf * CFrame.new(9, 2, -2),
+		Color = Color3.fromRGB(50, 50, 50),
+		Material = Enum.Material.Metal,
+		Parent = model,
+	})
+	local lamps = {}
+	for i = 1, 3 do
+		local lamp = part({
+			Name = "Lamp" .. i,
+			Size = Vector3.new(0.6, 0.6, 0.3),
+			CFrame = cf * CFrame.new(8.3 + (i - 1) * 0.7, 3.6, -2.8),
+			Color = Color3.fromRGB(40, 0, 0),
+			Material = Enum.Material.Neon,
+			Parent = model,
+		})
+		table.insert(lamps, lamp)
+	end
+	-- Коридор за воротами и зона побега
+	part({
+		Name = "Corridor",
+		Size = Vector3.new(12, 1, 30),
+		CFrame = cf * CFrame.new(0, -0.5, 15.75),
+		Color = Color3.fromRGB(50, 45, 40),
+		Material = Enum.Material.Ground,
+		Parent = model,
+	})
+	wall(model, cf * CFrame.new(-6.75, 6, 15.75), Vector3.new(1.5, 12, 30))
+	wall(model, cf * CFrame.new(6.75, 6, 15.75), Vector3.new(1.5, 12, 30))
+	local escape = part({
+		Name = "EscapeZone",
+		Size = Vector3.new(12, 12, 10),
+		CFrame = cf * CFrame.new(0, 6, 24),
+		Transparency = 0.85,
+		Color = Color3.fromRGB(255, 255, 255),
+		Material = Enum.Material.Neon,
+		CanCollide = false,
+		CanQuery = false,
+		Parent = model,
+	})
+	local glow = Instance.new("PointLight")
+	glow.Range = 40
+	glow.Brightness = 2
+	glow.Parent = escape
+
+	model.PrimaryPart = switch
+	model:SetAttribute("Kind", "ExitGate")
+	model:SetAttribute("Powered", false)
+	model:SetAttribute("Progress", 0)
+	model:SetAttribute("Open", false)
+	model.Parent = map.ExitGates
+	return model, door
+end
+
+------------------------------------------------------------------------
+-- Публичные функции
+------------------------------------------------------------------------
+
+function MapBuilder.BuildLobby()
+	local existing = workspace:FindFirstChild("Lobby")
+	if existing then
+		return existing
+	end
+	local lobby = Instance.new("Model")
+	lobby.Name = "Lobby"
+	local pos = Config.LobbyPosition
+	part({
+		Name = "Floor",
+		Size = Vector3.new(80, 2, 80),
+		CFrame = CFrame.new(pos),
+		Color = Color3.fromRGB(45, 40, 40),
+		Material = Enum.Material.Slate,
+		Parent = lobby,
+	})
+	for _, data in
+		{
+			{ Vector3.new(0, 10, 40), Vector3.new(80, 20, 2) },
+			{ Vector3.new(0, 10, -40), Vector3.new(80, 20, 2) },
+			{ Vector3.new(40, 10, 0), Vector3.new(2, 20, 80) },
+			{ Vector3.new(-40, 10, 0), Vector3.new(2, 20, 80) },
+		}
+	do
+		part({
+			Name = "Wall",
+			Size = data[2],
+			CFrame = CFrame.new(pos + data[1]),
+			Color = Color3.fromRGB(30, 25, 25),
+			Material = Enum.Material.Brick,
+			Parent = lobby,
+		})
+	end
+	local spawn = Instance.new("SpawnLocation")
+	spawn.Name = "LobbySpawn"
+	spawn.Anchored = true
+	spawn.Size = Vector3.new(12, 1, 12)
+	spawn.CFrame = CFrame.new(pos + Vector3.new(0, 1.5, 0))
+	spawn.Neutral = true
+	spawn.Duration = 0
+	spawn.Color = Color3.fromRGB(120, 20, 20)
+	spawn.Material = Enum.Material.Neon
+	spawn.Parent = lobby
+
+	local fire = part({
+		Name = "Campfire",
+		Size = Vector3.new(3, 1, 3),
+		CFrame = CFrame.new(pos + Vector3.new(0, 1.5, 18)),
+		Color = Color3.fromRGB(80, 50, 30),
+		Material = Enum.Material.Wood,
+		Parent = lobby,
+	})
+	Instance.new("Fire").Parent = fire
+	local light = Instance.new("PointLight")
+	light.Color = Color3.fromRGB(255, 140, 60)
+	light.Range = 40
+	light.Brightness = 2
+	light.Parent = fire
+
+	lobby.Parent = workspace
+	return lobby
+end
+
+function MapBuilder.SetupLighting()
+	Lighting.ClockTime = 0.5
+	Lighting.Brightness = 1
+	Lighting.Ambient = Color3.fromRGB(45, 45, 60)
+	Lighting.OutdoorAmbient = Color3.fromRGB(60, 60, 75)
+	Lighting.FogColor = Color3.fromRGB(20, 22, 28)
+	Lighting.FogStart = 20
+	Lighting.FogEnd = 140
+	Lighting.GlobalShadows = true
+	for _, child in Lighting:GetChildren() do
+		if child:IsA("Atmosphere") or child:IsA("Sky") then
+			child:Destroy()
+		end
+	end
+	local cc = Lighting:FindFirstChild("DBDColor") or Instance.new("ColorCorrectionEffect")
+	cc.Name = "DBDColor"
+	cc.Saturation = -0.35
+	cc.Contrast = 0.1
+	cc.TintColor = Color3.fromRGB(220, 225, 255)
+	cc.Parent = Lighting
+end
+
+-- Возвращает таблицу с папками и точками спавна
+function MapBuilder.BuildMap()
+	local old = workspace:FindFirstChild("Map")
+	if old then
+		old:Destroy()
+	end
+
+	local rng = Random.new()
+	local size = Config.MapSize
+	local half = size / 2
+
+	local model = Instance.new("Model")
+	model.Name = "Map"
+	local map = {
+		Model = model,
+		Walls = folder("Walls", model),
+		Decor = folder("Decor", model),
+		Generators = folder("Generators", model),
+		Hooks = folder("Hooks", model),
+		Pallets = folder("Pallets", model),
+		Windows = folder("Windows", model),
+		ExitGates = folder("ExitGates", model),
+		GateDoors = {},
+	}
+
+	part({
+		Name = "Ground",
+		Size = Vector3.new(size + 4, 2, size + 4),
+		CFrame = CFrame.new(0, -1, 0),
+		Color = Color3.fromRGB(45, 55, 35),
+		Material = Enum.Material.Grass,
+		Parent = model,
+	})
+
+	-- Внешние стены с проёмами под ворота на севере и юге
+	local wallH = 16
+	local gateGap = 12
+	local sideLen = (size - gateGap) / 2
+	for _, side in { 1, -1 } do
+		for _, dir in { 1, -1 } do
+			wall(
+				map.Walls,
+				CFrame.new(dir * (gateGap / 2 + sideLen / 2), wallH / 2, side * half),
+				Vector3.new(sideLen, wallH, 2)
+			)
+		end
+		wall(map.Walls, CFrame.new(side * half, wallH / 2, 0), Vector3.new(2, wallH, size))
+	end
+
+	for i, side in { 1, -1 } do
+		local _, door = buildExitGate(map, side, i)
+		table.insert(map.GateDoors, door)
+	end
+
+	-- Сетка ячеек
+	local n = math.floor(size / CELL)
+	local cells = {}
+	for ix = 1, n do
+		for iz = 1, n do
+			local cx = -half + CELL * (ix - 0.5)
+			local cz = -half + CELL * (iz - 0.5)
+			-- не ставим ничего прямо перед воротами
+			local nearGate = math.abs(cx) < CELL and (iz == 1 or iz == n)
+			if not nearGate then
+				table.insert(cells, Vector3.new(cx, 0, cz))
+			end
+		end
+	end
+	shuffle(cells, rng)
+
+	local idx = 0
+	local function nextCell()
+		idx += 1
+		local c = cells[idx]
+		local rot = rng:NextInteger(0, 3) * math.pi / 2
+		return CFrame.new(c) * CFrame.Angles(0, rot, 0), c
+	end
+
+	for i = 1, Config.GeneratorCount do
+		local cf = nextCell()
+		buildGenerator(map.Generators, cf, i)
+		-- немного укрытия рядом с генератором
+		wall(map.Walls, cf * CFrame.new(0, 3, 6), Vector3.new(10, 6, 1.5))
+	end
+	for i = 1, 7 do
+		local cf = nextCell()
+		buildHook(map.Hooks, cf, i)
+	end
+	for _ = 1, 10 do
+		buildPalletLoop(map, (nextCell()))
+	end
+	for _ = 1, 4 do
+		buildWindowLoop(map, (nextCell()))
+	end
+	for _ = 1, 8 do
+		buildRock(map, (nextCell()), rng)
+	end
+	for _ = 1, 8 do
+		local cf = nextCell()
+		buildTrees(map, cf, rng)
+	end
+	for _ = 1, 6 do
+		local cf = nextCell()
+		buildLamp(map, cf)
+	end
+
+	-- Оставшиеся пустые ячейки — для спавна
+	local free = {}
+	for i = idx + 1, #cells do
+		table.insert(free, cells[i])
+	end
+	local survivorSpawn = free[1] or Vector3.new(0, 0, 0)
+	local killerSpawn = survivorSpawn
+	local best = -1
+	for _, c in free do
+		local d = (c - survivorSpawn).Magnitude
+		if d > best then
+			best = d
+			killerSpawn = c
+		end
+	end
+	map.SurvivorSpawn = survivorSpawn + Vector3.new(0, 3, 0)
+	map.KillerSpawn = killerSpawn + Vector3.new(0, 3, 0)
+
+	model.Parent = workspace
+	return map
+end
+
+return MapBuilder
+]]></string>
+        </Properties>
+      </Item>
+      <Item class="ModuleScript" referent="8">
+        <Properties>
+          <string name="Name">Match</string>
+          <string name="Source"><![CDATA[-- Вся логика одного раунда: роли, удары, генераторы, крюки, паллеты, ворота.
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local TweenService = game:GetService("TweenService")
+local PhysicsService = game:GetService("PhysicsService")
+local Debris = game:GetService("Debris")
+
+local Config = require(ReplicatedStorage.Shared.Config)
+local Remotes = require(ReplicatedStorage.Shared.Remotes)
+local MapBuilder = require(script.Parent.MapBuilder)
+
+local Match = {}
+Match.Active = false
+
+local CARRIED_GROUP = "DBDCarried"
+PhysicsService:RegisterCollisionGroup(CARRIED_GROUP)
+PhysicsService:CollisionGroupSetCollidable(CARRIED_GROUP, "Default", false)
+PhysicsService:CollisionGroupSetCollidable(CARRIED_GROUP, CARRIED_GROUP, false)
+
+local CARRY_OFFSET = CFrame.new(0.9, 1.4, 0.3) * CFrame.Angles(0, 0, math.rad(90))
+
+local TIMED_ACTIONS = {
+	Unhook = Config.UnhookTime,
+	Hook = Config.HookTime,
+	Break = Config.BreakPalletTime,
+	Kick = Config.KickGeneratorTime,
+}
+
+local SURVIVOR_ACTIONS = { Repair = true, Heal = true, Unhook = true, OpenGate = true, DropPallet = true, Vault = true }
+local KILLER_ACTIONS = { Pickup = true, Hook = true, Break = true, Kick = true, Vault = true }
+
+local gameState = ReplicatedStorage:FindFirstChild("GameState")
+if not gameState then
+	gameState = Instance.new("Folder")
+	gameState.Name = "GameState"
+	gameState.Parent = ReplicatedStorage
+end
+
+local map
+local participants = {} -- [Player] = data
+local killerData
+local soloTest = false
+local gensDone = 0
+local gatesPowered = false
+local endgameDeadline
+local startTime = 0
+local skillCheckCounter = 0
+local rng = Random.new()
+
+------------------------------------------------------------------------
+-- Вспомогательные функции
+------------------------------------------------------------------------
+
+local function now()
+	return os.clock()
+end
+
+local function getRoot(player)
+	local char = player and player.Character
+	return char and char:FindFirstChild("HumanoidRootPart")
+end
+
+local function getHumanoid(player)
+	local char = player and player.Character
+	return char and char:FindFirstChildOfClass("Humanoid")
+end
+
+local function flatDist(a, b)
+	local d = a - b
+	return Vector3.new(d.X, 0, d.Z).Magnitude
+end
+
+local function notifyAll(text, color)
+	Remotes.Notify:FireAllClients(text, color)
+end
+
+local function notify(player, text, color)
+	if player and player.Parent then
+		Remotes.Notify:FireClient(player, text, color)
+	end
+end
+
+local RED = Color3.fromRGB(255, 70, 70)
+local YELLOW = Color3.fromRGB(255, 220, 90)
+local GREEN = Color3.fromRGB(110, 255, 140)
+
+local function setState(key, value)
+	gameState:SetAttribute(key, value)
+end
+Match.SetState = setState
+
+local function survivors()
+	local list = {}
+	for _, data in participants do
+		if data.Role == "Survivor" then
+			table.insert(list, data)
+		end
+	end
+	return list
+end
+
+local function isInGame(data)
+	return data.Status == "Playing" or data.Status == "Carried" or data.Status == "Hooked"
+end
+
+local function setDowned(data, downed)
+	local hum = getHumanoid(data.Player)
+	if hum and data.BaseHipHeight then
+		hum.HipHeight = downed and data.BaseHipHeight * 0.3 or data.BaseHipHeight
+	end
+end
+
+local function noise(position)
+	if killerData and killerData.Player.Parent then
+		Remotes.Noise:FireClient(killerData.Player, position)
+	end
+end
+
+local function bloodBurst(part)
+	local emitter = Instance.new("ParticleEmitter")
+	emitter.Color = ColorSequence.new(Color3.fromRGB(150, 0, 0))
+	emitter.Size = NumberSequence.new(0.4, 0)
+	emitter.Speed = NumberRange.new(6, 12)
+	emitter.SpreadAngle = Vector2.new(60, 60)
+	emitter.Lifetime = NumberRange.new(0.4, 0.8)
+	emitter.Acceleration = Vector3.new(0, -30, 0)
+	emitter.Enabled = false
+	emitter.Parent = part
+	emitter:Emit(30)
+	Debris:AddItem(emitter, 2)
+end
+
+-- Позиция цели действия (для проверки расстояния)
+local function targetPosition(target)
+	if typeof(target) ~= "Instance" or not target.Parent then
+		return nil
+	end
+	if target:IsA("Player") then
+		local root = getRoot(target)
+		return root and root.Position
+	end
+	local kind = target:GetAttribute("Kind")
+	if kind == "Generator" then
+		return target.PrimaryPart and target.PrimaryPart.Position
+	elseif kind == "Hook" then
+		local hp = target:FindFirstChild("HangPoint")
+		return hp and hp.Position
+	elseif kind == "Pallet" then
+		local cf = target:GetAttribute("DropCFrame")
+		return cf and cf.Position
+	elseif kind == "Window" then
+		return target.Position
+	elseif kind == "ExitGate" then
+		local sw = target:FindFirstChild("Switch")
+		return sw and sw.Position
+	end
+	return nil
+end
+
+------------------------------------------------------------------------
+-- Действия
+------------------------------------------------------------------------
+
+local function cancelAction(data)
+	data.Action = nil
+	data.PendingCheck = nil
+	data.Player:SetAttribute("ActionName", nil)
+	data.Player:SetAttribute("ActionProgress", nil)
+end
+
+local function canAct(data)
+	if data.Status ~= "Playing" then
+		return false
+	end
+	local t = now()
+	if t < data.VaultUntil then
+		return false
+	end
+	if data.Role == "Survivor" then
+		return data.Health > 0
+	end
+	return t >= data.StunnedUntil and not data.Lunging
+end
+
+local function validateAction(data)
+	local a = data.Action
+	if not a or not canAct(data) then
+		return false
+	end
+	local root = getRoot(data.Player)
+	local pos = targetPosition(a.Target)
+	if not root or not pos or flatDist(root.Position, pos) > Config.InteractRange + 2 then
+		return false
+	end
+	local target = a.Target
+	local kind = a.Kind
+	if kind == "Repair" then
+		return target:GetAttribute("Kind") == "Generator" and not target:GetAttribute("Done") and not gatesPowered
+	elseif kind == "Kick" then
+		return target:GetAttribute("Kind") == "Generator"
+			and not target:GetAttribute("Done")
+			and not gatesPowered
+			and target:GetAttribute("Progress") > 0
+			and not target:GetAttribute("Regressing")
+			and not data.Carrying
+	elseif kind == "Heal" then
+		local td = participants[target]
+		return td ~= nil and td ~= data and td.Status == "Playing" and td.Health < 2 and now() >= td.VaultUntil
+	elseif kind == "Unhook" then
+		local td = participants[target]
+		return td ~= nil and td.Status == "Hooked"
+	elseif kind == "OpenGate" then
+		return target:GetAttribute("Kind") == "ExitGate"
+			and target:GetAttribute("Powered")
+			and not target:GetAttribute("Open")
+	elseif kind == "Hook" then
+		return data.Carrying ~= nil and target:GetAttribute("Kind") == "Hook" and target:GetAttribute("Occupant") == 0
+	elseif kind == "Break" then
+		return target:GetAttribute("Kind") == "Pallet" and target:GetAttribute("State") == "Dropped" and not data.Carrying
+	end
+	return false
+end
+
+------------------------------------------------------------------------
+-- Персонажи: нести / вешать / убивать
+------------------------------------------------------------------------
+
+local function releaseCarry(sdata)
+	local kdata = sdata.CarriedBy
+	if kdata then
+		kdata.Carrying = nil
+	end
+	sdata.CarriedBy = nil
+	if sdata.CarryWeld then
+		sdata.CarryWeld:Destroy()
+		sdata.CarryWeld = nil
+	end
+	local char = sdata.Player.Character
+	if char then
+		for part, massless in sdata.SavedMassless or {} do
+			if part.Parent then
+				part.Massless = massless
+				part.CollisionGroup = "Default"
+			end
+		end
+		sdata.SavedMassless = nil
+		local hum = char:FindFirstChildOfClass("Humanoid")
+		if hum then
+			hum.PlatformStand = false
+		end
+		local sroot = char:FindFirstChild("HumanoidRootPart")
+		local kroot = kdata and getRoot(kdata.Player)
+		if sroot and kroot then
+			sroot.CFrame = kroot.CFrame * CFrame.new(0, 0, -3)
+		end
+		if sroot then
+			pcall(function()
+				sroot:SetNetworkOwner(sdata.Player)
+			end)
+		end
+	end
+end
+
+local function startCarry(kdata, sdata)
+	local kroot = getRoot(kdata.Player)
+	local sroot = getRoot(sdata.Player)
+	local shum = getHumanoid(sdata.Player)
+	if not kroot or not sroot or not shum then
+		return
+	end
+	cancelAction(sdata)
+	sdata.Status = "Carried"
+	sdata.CarriedBy = kdata
+	sdata.Wiggle = 0
+	kdata.Carrying = sdata
+	sdata.SavedMassless = {}
+	for _, d in sdata.Player.Character:GetDescendants() do
+		if d:IsA("BasePart") then
+			sdata.SavedMassless[d] = d.Massless
+			d.Massless = true
+			d.CollisionGroup = CARRIED_GROUP
+		end
+	end
+	shum.PlatformStand = true
+	sroot.CFrame = kroot.CFrame * CARRY_OFFSET
+	local weld = Instance.new("WeldConstraint")
+	weld.Part0 = kroot
+	weld.Part1 = sroot
+	weld.Parent = sroot
+	sdata.CarryWeld = weld
+	pcall(function()
+		sroot:SetNetworkOwner(kdata.Player)
+	end)
+	notifyAll(sdata.Player.DisplayName .. " схвачен маньяком!", RED)
+end
+
+local function disconnectCharacter(data)
+	for _, c in data.Connections do
+		c:Disconnect()
+	end
+	data.Connections = {}
+end
+
+local function removeFromGame(data, status, text, color)
+	if not isInGame(data) then
+		return
+	end
+	if data.CarriedBy then
+		releaseCarry(data)
+	end
+	if data.Hook then
+		data.Hook:SetAttribute("Occupant", 0)
+		data.Hook = nil
+	end
+	cancelAction(data)
+	data.Status = status
+	disconnectCharacter(data)
+	if text then
+		notifyAll(text, color)
+	end
+	local player = data.Player
+	-- небольшая пауза для эффекта, потом обратно в лобби
+	task.delay(status == "Dead" and 1.5 or 0.2, function()
+		if player.Parent and participants[player] == data then
+			player:LoadCharacter()
+		end
+	end)
+end
+
+local function sacrifice(data, text)
+	local root = getRoot(data.Player)
+	if root and data.Status == "Hooked" then
+		local fx = Instance.new("Part")
+		fx.Anchored = true
+		fx.CanCollide = false
+		fx.Shape = Enum.PartType.Ball
+		fx.Material = Enum.Material.Neon
+		fx.Color = Color3.fromRGB(255, 60, 20)
+		fx.Size = Vector3.new(2, 2, 2)
+		fx.CFrame = root.CFrame
+		fx.Parent = workspace
+		TweenService:Create(fx, TweenInfo.new(1.4), { Size = Vector3.new(12, 12, 12), Transparency = 1 }):Play()
+		Debris:AddItem(fx, 1.5)
+	end
+	removeFromGame(data, "Dead", text or (data.Player.DisplayName .. " принесён в жертву Сущности"), RED)
+end
+
+local function hang(kdata, hook)
+	local sdata = kdata.Carrying
+	if not sdata then
+		return
+	end
+	releaseCarry(sdata)
+	local sroot = getRoot(sdata.Player)
+	local hp = hook:FindFirstChild("HangPoint")
+	if not sroot or not hp then
+		return
+	end
+	sdata.Status = "Hooked"
+	sdata.Hook = hook
+	sdata.HookTimer = 0
+	sdata.HookCount += 1
+	sdata.BleedOut = 0
+	setDowned(sdata, false)
+	hook:SetAttribute("Occupant", sdata.Player.UserId)
+	sroot.Anchored = true
+	sroot.CFrame = hp.CFrame
+	if sdata.HookCount >= Config.MaxHooks then
+		sacrifice(sdata)
+	else
+		notifyAll(
+			string.format("%s на крюке! (стадия %d)", sdata.Player.DisplayName, sdata.HookCount),
+			RED
+		)
+	end
+end
+
+local function unhook(sdata, rescuer)
+	local hook = sdata.Hook
+	local sroot = getRoot(sdata.Player)
+	if hook then
+		hook:SetAttribute("Occupant", 0)
+	end
+	sdata.Hook = nil
+	sdata.Status = "Playing"
+	sdata.Health = 1
+	sdata.HealProgress = 0
+	sdata.HookTimer = 0
+	sdata.BoostUntil = now() + 1.5
+	if sroot then
+		sroot.Anchored = false
+		local hp = hook and hook:FindFirstChild("HangPoint")
+		if hp then
+			sroot.CFrame = hp.CFrame * CFrame.new(0, -4, -3)
+		end
+	end
+	notifyAll(rescuer.DisplayName .. " снял(а) " .. sdata.Player.DisplayName .. " с крюка", GREEN)
+end
+
+local function stunKiller(duration)
+	local kdata = killerData
+	if not kdata or kdata.Status ~= "Playing" then
+		return
+	end
+	kdata.StunnedUntil = now() + duration
+	kdata.Lunging = false
+	kdata.AttackReadyAt = now() + duration
+	cancelAction(kdata)
+	local carried = kdata.Carrying
+	if carried then
+		releaseCarry(carried)
+		carried.Status = "Playing"
+		carried.Health = 1
+		carried.BoostUntil = now() + Config.SurvivorHitBoostTime
+		setDowned(carried, false)
+		notifyAll(carried.Player.DisplayName .. " вырвался из рук маньяка!", GREEN)
+	end
+	notify(kdata.Player, "Оглушён!", YELLOW)
+end
+
+local function hitSurvivor(sdata)
+	cancelAction(sdata)
+	sdata.Health -= 1
+	sdata.HealProgress = 0
+	local root = getRoot(sdata.Player)
+	if root then
+		bloodBurst(root)
+	end
+	if sdata.Health >= 1 then
+		sdata.BoostUntil = now() + Config.SurvivorHitBoostTime
+		notify(sdata.Player, "Тебя ранили! Беги!", RED)
+	else
+		sdata.Health = 0
+		sdata.BleedOut = 0
+		setDowned(sdata, true)
+		notifyAll(sdata.Player.DisplayName .. " повержен!", RED)
+	end
+end
+
+------------------------------------------------------------------------
+-- Генераторы и ворота
+------------------------------------------------------------------------
+
+local function powerGates()
+	gatesPowered = true
+	for _, gate in map.ExitGates:GetChildren() do
+		gate:SetAttribute("Powered", true)
+		local sw = gate:FindFirstChild("Switch")
+		if sw then
+			sw.Color = Color3.fromRGB(150, 130, 40)
+		end
+	end
+	setState("GensLeft", 0)
+	notifyAll("Все генераторы починены! Ворота запитаны — открывайте их!", YELLOW)
+end
+
+local function completeGenerator(gen)
+	gen:SetAttribute("Progress", 1)
+	gen:SetAttribute("Done", true)
+	gen:SetAttribute("Regressing", false)
+	local bulb = gen:FindFirstChild("Bulb")
+	if bulb then
+		bulb.Color = Color3.fromRGB(255, 230, 140)
+		bulb.Material = Enum.Material.Neon
+		local light = bulb:FindFirstChildOfClass("PointLight")
+		if light then
+			light.Enabled = true
+		end
+	end
+	gensDone += 1
+	local left = math.max(Config.GeneratorsRequired - gensDone, 0)
+	setState("GensLeft", left)
+	if left > 0 then
+		notifyAll("Генератор починен! Осталось: " .. left, YELLOW)
+	else
+		powerGates()
+	end
+end
+
+local function openGate(gate)
+	gate:SetAttribute("Progress", 1)
+	gate:SetAttribute("Open", true)
+	local door = gate:FindFirstChild("Door")
+	if door then
+		door.CanCollide = false
+		TweenService:Create(door, TweenInfo.new(2), { CFrame = door.CFrame + Vector3.new(0, 11.5, 0) }):Play()
+	end
+	if not endgameDeadline then
+		endgameDeadline = now() + Config.EndGameCollapseTime
+		setState("EndGame", true)
+		notifyAll("Ворота открыты! Обрушение Сущности началось — бегите!", YELLOW)
+	else
+		notifyAll("Вторые ворота открыты!", YELLOW)
+	end
+end
+
+local function updateGateLamps(gate)
+	local progress = gate:GetAttribute("Progress")
+	for i = 1, 3 do
+		local lamp = gate:FindFirstChild("Lamp" .. i)
+		if lamp then
+			lamp.Color = progress >= i / 3 and Color3.fromRGB(255, 40, 40) or Color3.fromRGB(40, 0, 0)
+		end
+	end
+end
+
+------------------------------------------------------------------------
+-- Проверки навыка
+------------------------------------------------------------------------
+
+local function applySkillCheck(data, result)
+	data.PendingCheck = nil
+	local a = data.Action
+	if not a then
+		return
+	end
+	if a.Kind == "Repair" then
+		local gen = a.Target
+		local p = gen:GetAttribute("Progress")
+		if result == "great" then
+			gen:SetAttribute("Progress", math.min(p + Config.SkillCheckGreatBonus, 0.999))
+		elseif result == "fail" then
+			gen:SetAttribute("Progress", math.max(p - Config.SkillCheckFailPenalty, 0))
+			noise(gen.PrimaryPart.Position)
+			notify(data.Player, "Генератор взорвался! Маньяк услышал шум.", RED)
+			local body = gen.PrimaryPart
+			if body then
+				local sparks = Instance.new("Sparkles")
+				sparks.SparkleColor = Color3.fromRGB(255, 120, 40)
+				sparks.Parent = body
+				Debris:AddItem(sparks, 1.5)
+			end
+		end
+	elseif a.Kind == "Heal" then
+		local td = participants[a.Target]
+		if not td then
+			return
+		end
+		if result == "great" then
+			td.HealProgress = math.min(td.HealProgress + Config.SkillCheckGreatBonus, 0.999)
+		elseif result == "fail" then
+			td.HealProgress = math.max(td.HealProgress - Config.SkillCheckFailPenalty, 0)
+			local root = getRoot(data.Player)
+			if root then
+				noise(root.Position)
+			end
+			notify(data.Player, "Провал! Маньяк услышал крик.", RED)
+		end
+	end
+end
+
+local function tickSkillChecks(data, t)
+	local a = data.Action
+	if data.PendingCheck then
+		if t > data.PendingCheck.Deadline then
+			applySkillCheck(data, "fail")
+		end
+		return
+	end
+	if not a or (a.Kind ~= "Repair" and a.Kind ~= "Heal") then
+		return
+	end
+	if t < data.NextCheckRoll then
+		return
+	end
+	data.NextCheckRoll = t + 1
+	if rng:NextNumber() < Config.SkillCheckChancePerSecond then
+		skillCheckCounter += 1
+		local zone = rng:NextNumber(0.45, 0.8)
+		data.PendingCheck = { Id = skillCheckCounter, Deadline = t + Config.SkillCheckDuration + 1.5 }
+		Remotes.SkillCheck:FireClient(data.Player, skillCheckCounter, zone)
+	end
+end
+
+------------------------------------------------------------------------
+-- Мгновенные действия
+------------------------------------------------------------------------
+
+local function doVault(data, obstacle)
+	local root = getRoot(data.Player)
+	if not root then
+		return
+	end
+	local ocf = obstacle.CFrame
+	if flatDist(root.Position, ocf.Position) > 5 then
+		return
+	end
+	local rel = ocf:PointToObjectSpace(root.Position)
+	local side = rel.Z >= 0 and 1 or -1
+	local x = math.clamp(rel.X, -1.2, 1.2)
+	local y = root.Position.Y
+	local function at(z)
+		local w = ocf:PointToWorldSpace(Vector3.new(x, 0, z))
+		return Vector3.new(w.X, y, w.Z)
+	end
+	local mid = at(0) + Vector3.new(0, 2.5, 0)
+	local finish = at(-side * 3.4)
+	local dir = (finish - root.Position) * Vector3.new(1, 0, 1)
+	if dir.Magnitude < 0.1 then
+		return
+	end
+	dir = dir.Unit
+	local duration
+	if data.Role == "Killer" then
+		duration = 1.6
+	else
+		duration = data.Sprinting and 0.55 or 0.95
+		if data.Sprinting and killerData then
+			local kroot = getRoot(killerData.Player)
+			if kroot and flatDist(kroot.Position, root.Position) < Config.TerrorRadius then
+				noise(root.Position)
+			end
+		end
+	end
+	data.VaultUntil = now() + duration
+	cancelAction(data)
+	root.Anchored = true
+	task.spawn(function()
+		local info = TweenInfo.new(duration / 2, Enum.EasingStyle.Linear)
+		local t1 = TweenService:Create(root, info, { CFrame = CFrame.lookAt(mid, mid + dir) })
+		t1:Play()
+		t1.Completed:Wait()
+		local t2 = TweenService:Create(root, info, { CFrame = CFrame.lookAt(finish, finish + dir) })
+		t2:Play()
+		t2.Completed:Wait()
+		if root.Parent and data.Status == "Playing" then
+			root.Anchored = false
+		end
+	end)
+end
+
+local function dropPallet(data, pallet)
+	local root = getRoot(data.Player)
+	local dropCF = pallet:GetAttribute("DropCFrame")
+	if not root or not dropCF or pallet:GetAttribute("State") ~= "Up" then
+		return
+	end
+	if flatDist(root.Position, dropCF.Position) > Config.InteractRange then
+		return
+	end
+	pallet:SetAttribute("State", "Dropped")
+	pallet.CFrame = dropCF
+	pallet.CanCollide = true
+	if killerData and killerData.Status == "Playing" then
+		local kroot = getRoot(killerData.Player)
+		if kroot then
+			local rel = dropCF:PointToObjectSpace(kroot.Position)
+			if math.abs(rel.X) < 3.5 and math.abs(rel.Z) < 2.2 then
+				-- маньяк стоял прямо под паллетой — отталкиваем на его сторону
+				local side = rel.Z >= 0 and 1 or -1
+				local w = dropCF:PointToWorldSpace(Vector3.new(rel.X, 0, side * 2.6))
+				kroot.CFrame = CFrame.new(w.X, kroot.Position.Y, w.Z) * kroot.CFrame.Rotation
+			end
+			if flatDist(kroot.Position, dropCF.Position) <= Config.PalletStunRange then
+				stunKiller(Config.PalletStunTime)
+			end
+		end
+	end
+end
+
+------------------------------------------------------------------------
+-- Обработчики клиентских событий
+------------------------------------------------------------------------
+
+local function onBeginAction(player, kind, target)
+	local data = participants[player]
+	if not Match.Active or not data or typeof(kind) ~= "string" or typeof(target) ~= "Instance" then
+		return
+	end
+	local allowed = (data.Role == "Survivor" and SURVIVOR_ACTIONS or KILLER_ACTIONS)[kind]
+	if not allowed or data.Action or not canAct(data) then
+		return
+	end
+
+	if kind == "Vault" then
+		local okind = target:GetAttribute("Kind")
+		if okind == "Window" or (okind == "Pallet" and data.Role == "Survivor" and target:GetAttribute("State") == "Dropped") then
+			if not data.Carrying then
+				doVault(data, target)
+			end
+		end
+		return
+	elseif kind == "DropPallet" then
+		if target:GetAttribute("Kind") == "Pallet" then
+			dropPallet(data, target)
+		end
+		return
+	elseif kind == "Pickup" then
+		local td = target:IsA("Player") and participants[target]
+		local root = getRoot(player)
+		local tpos = targetPosition(target)
+		if
+			td
+			and not data.Carrying
+			and td.Status == "Playing"
+			and td.Health == 0
+			and now() >= td.VaultUntil
+			and root
+			and tpos
+			and flatDist(root.Position, tpos) <= Config.InteractRange
+		then
+			startCarry(data, td)
+		end
+		return
+	end
+
+	data.Action = { Kind = kind, Target = target, Time = 0 }
+	if not validateAction(data) then
+		data.Action = nil
+		return
+	end
+	data.NextCheckRoll = now() + 1
+	if kind == "Repair" then
+		target:SetAttribute("Regressing", false)
+	end
+end
+
+local function onEndAction(player)
+	local data = participants[player]
+	if data and data.Action then
+		cancelAction(data)
+	end
+end
+
+local function onAttack(player)
+	local data = participants[player]
+	if not Match.Active or not data or data.Role ~= "Killer" then
+		return
+	end
+	local t = now()
+	if not canAct(data) or data.Carrying or data.Action or t < data.AttackReadyAt then
+		return
+	end
+	data.Lunging = true
+	data.LungeUntil = t + Config.KillerLungeTime
+	data.AttackReadyAt = math.huge
+end
+
+local function onSprint(player, value)
+	local data = participants[player]
+	if data then
+		data.Sprinting = value == true
+	end
+end
+
+local function onSkillCheck(player, id, result)
+	local data = participants[player]
+	if not data or not data.PendingCheck or data.PendingCheck.Id ~= id then
+		return
+	end
+	if result ~= "great" and result ~= "good" then
+		result = "fail"
+	end
+	applySkillCheck(data, result)
+end
+
+Remotes.BeginAction.OnServerEvent:Connect(onBeginAction)
+Remotes.EndAction.OnServerEvent:Connect(onEndAction)
+Remotes.Attack.OnServerEvent:Connect(onAttack)
+Remotes.Sprint.OnServerEvent:Connect(onSprint)
+Remotes.SkillCheck.OnServerEvent:Connect(onSkillCheck)
+
+------------------------------------------------------------------------
+-- Подготовка персонажей
+------------------------------------------------------------------------
+
+local function dressKiller(char)
+	for _, d in char:GetDescendants() do
+		if d:IsA("Shirt") or d:IsA("Pants") or d:IsA("ShirtGraphic") then
+			d:Destroy()
+		elseif d:IsA("BasePart") and d.Name ~= "HumanoidRootPart" then
+			d.Color = Color3.fromRGB(45, 25, 25)
+		end
+	end
+	local head = char:FindFirstChild("Head")
+	if head then
+		local face = head:FindFirstChildOfClass("Decal")
+		if face then
+			face:Destroy()
+		end
+		local mask = Instance.new("Part")
+		mask.Name = "KillerMask"
+		mask.Size = Vector3.new(1.1, 1.2, 0.25)
+		mask.Color = Color3.fromRGB(230, 225, 210)
+		mask.Material = Enum.Material.SmoothPlastic
+		mask.CanCollide = false
+		mask.Massless = true
+		mask.CFrame = head.CFrame * CFrame.new(0, 0, -0.62)
+		local w = Instance.new("WeldConstraint")
+		w.Part0 = head
+		w.Part1 = mask
+		w.Parent = mask
+		mask.Parent = char
+	end
+	local hand = char:FindFirstChild("RightHand") or char:FindFirstChild("Right Arm")
+	if hand then
+		local blade = Instance.new("Part")
+		blade.Name = "Cleaver"
+		blade.Size = Vector3.new(0.2, 1, 3)
+		blade.Color = Color3.fromRGB(170, 170, 175)
+		blade.Material = Enum.Material.Metal
+		blade.CanCollide = false
+		blade.Massless = true
+		blade.CFrame = hand.CFrame * CFrame.new(0, -hand.Size.Y / 2 - 0.2, -1.2)
+		local w = Instance.new("WeldConstraint")
+		w.Part0 = hand
+		w.Part1 = blade
+		w.Parent = blade
+		blade.Parent = char
+	end
+end
+
+local function setupCharacter(data, spawnCF)
+	local player = data.Player
+	local hum = getHumanoid(player)
+	if not hum or hum.Health <= 0 then
+		player:LoadCharacter()
+		hum = getHumanoid(player)
+	end
+	local char = player.Character
+	if not char or not hum then
+		return false
+	end
+	disconnectCharacter(data)
+	char:PivotTo(spawnCF)
+	hum.UseJumpPower = true
+	hum.JumpPower = 0
+	hum.JumpHeight = 0
+	data.BaseHipHeight = hum.HipHeight
+	if data.Role == "Killer" then
+		dressKiller(char)
+	end
+	table.insert(
+		data.Connections,
+		hum.Died:Connect(function()
+			if data.Role == "Killer" then
+				data.Status = "Dead"
+			else
+				removeFromGame(data, "Dead", player.DisplayName .. " погиб", RED)
+			end
+		end)
+	)
+	return true
+end
+
+------------------------------------------------------------------------
+-- Старт / конец
+------------------------------------------------------------------------
+
+local function newData(player, role)
+	return {
+		Player = player,
+		Role = role,
+		Health = 2,
+		Status = "Playing",
+		HookCount = 0,
+		HookTimer = 0,
+		BleedOut = 0,
+		Wiggle = 0,
+		HealProgress = 0,
+		Sprinting = false,
+		BoostUntil = 0,
+		StunnedUntil = 0,
+		AttackReadyAt = 0,
+		LungeUntil = 0,
+		Lunging = false,
+		SlowUntil = 0,
+		VaultUntil = 0,
+		NextCheckRoll = 0,
+		Connections = {},
+	}
+end
+
+function Match.Start(playerList)
+	map = MapBuilder.BuildMap()
+	participants = {}
+	killerData = nil
+	gensDone = 0
+	gatesPowered = false
+	endgameDeadline = nil
+	startTime = now()
+	soloTest = #playerList == 1
+
+	local killerIndex = soloTest and 0 or rng:NextInteger(1, #playerList)
+	for i, player in playerList do
+		local data = newData(player, i == killerIndex and "Killer" or "Survivor")
+		participants[player] = data
+		if data.Role == "Killer" then
+			killerData = data
+		end
+	end
+
+	setState("GensLeft", Config.GeneratorsRequired)
+	setState("EndGame", false)
+	setState("EndGameTimer", Config.EndGameCollapseTime)
+	setState("KillerName", killerData and killerData.Player.DisplayName or "—")
+	setState("Phase", "InGame")
+	Match.Active = true
+
+	local sIndex = 0
+	for player, data in participants do
+		player:SetAttribute("Role", data.Role)
+		player:SetAttribute("Status", data.Status)
+		player:SetAttribute("Health", data.Health)
+		local cf
+		if data.Role == "Killer" then
+			cf = CFrame.new(map.KillerSpawn)
+		else
+			sIndex += 1
+			local angle = sIndex * math.pi / 2
+			cf = CFrame.new(map.SurvivorSpawn + Vector3.new(math.cos(angle) * 4, 0, math.sin(angle) * 4))
+		end
+		if not setupCharacter(data, cf) then
+			data.Status = "Dead"
+		end
+	end
+	for player, data in participants do
+		Remotes.Notify:FireClient(
+			player,
+			data.Role == "Killer" and "Ты — МАНЬЯК. Принеси всех в жертву!" or "Ты — ВЫЖИВШИЙ. Почини генераторы и сбеги!",
+			data.Role == "Killer" and RED or GREEN
+		)
+	end
+end
+
+function Match.End(reason)
+	if not Match.Active then
+		return
+	end
+	Match.Active = false
+
+	local results = {}
+	local escaped, dead = 0, 0
+	for player, data in participants do
+		if data.Role == "Survivor" then
+			if data.Status == "Escaped" then
+				escaped += 1
+			elseif data.Status == "Dead" or data.Status == "Left" then
+				dead += 1
+			end
+		end
+		table.insert(results, { Name = player.DisplayName, Role = data.Role, Status = data.Status })
+	end
+	local title
+	if soloTest then
+		title = escaped > 0 and "Тестовый раунд: ты сбежал!" or "Тестовый раунд окончен"
+	elseif escaped > dead then
+		title = "Победа выживших!"
+	elseif dead > escaped then
+		title = "Победа маньяка!"
+	else
+		title = "Ничья"
+	end
+	Remotes.Results:FireAllClients(title, reason or "", results)
+
+	for player, data in participants do
+		if data.CarriedBy then
+			releaseCarry(data)
+		end
+		local root = getRoot(player)
+		if root then
+			root.Anchored = false
+		end
+		disconnectCharacter(data)
+		for _, attr in
+			{ "Role", "Status", "Health", "HookCount", "HookProgress", "BleedOut", "Wiggle", "ActionName", "ActionProgress", "Stunned", "Carrying" }
+		do
+			player:SetAttribute(attr, nil)
+		end
+		if player.Parent then
+			task.spawn(function()
+				player:LoadCharacter()
+			end)
+		end
+	end
+	participants = {}
+	killerData = nil
+	setState("EndGame", false)
+	if map then
+		map.Model:Destroy()
+		map = nil
+	end
+end
+
+function Match.OnPlayerRemoving(player)
+	local data = participants[player]
+	if not data then
+		return
+	end
+	if data.Carrying then
+		releaseCarry(data.Carrying)
+		data.Carrying.Status = "Playing"
+	end
+	if data.CarriedBy then
+		releaseCarry(data)
+	end
+	if data.Hook then
+		data.Hook:SetAttribute("Occupant", 0)
+		data.Hook = nil
+	end
+	disconnectCharacter(data)
+	if data.Status ~= "Dead" and data.Status ~= "Escaped" then
+		data.Status = "Left"
+		notifyAll(player.DisplayName .. " покинул игру", YELLOW)
+	end
+end
+
+------------------------------------------------------------------------
+-- Главный цикл раунда (каждый кадр)
+------------------------------------------------------------------------
+
+local function survivorSpeed(data, t)
+	if data.Action or t < data.VaultUntil then
+		return 0
+	end
+	if data.Health == 0 then
+		return Config.SurvivorCrawlSpeed
+	end
+	if t < data.BoostUntil then
+		return Config.SurvivorHitBoostSpeed
+	end
+	return data.Sprinting and Config.SurvivorSprintSpeed or Config.SurvivorWalkSpeed
+end
+
+local function killerSpeed(data, t)
+	if t < data.StunnedUntil or data.Action or t < data.VaultUntil then
+		return 0
+	end
+	if data.Lunging then
+		return Config.KillerLungeSpeed
+	end
+	if t < data.SlowUntil then
+		return Config.AttackSlowSpeed
+	end
+	if data.Carrying then
+		return Config.KillerCarrySpeed
+	end
+	return Config.KillerSpeed
+end
+
+local raycastParams = RaycastParams.new()
+raycastParams.FilterType = Enum.RaycastFilterType.Exclude
+
+local function tryHit(kdata)
+	local kroot = getRoot(kdata.Player)
+	if not kroot then
+		return false
+	end
+	local forward = kroot.CFrame.LookVector * Vector3.new(1, 0, 1)
+	if forward.Magnitude < 0.01 then
+		return false
+	end
+	forward = forward.Unit
+	local exclude = {}
+	for p in participants do
+		if p.Character then
+			table.insert(exclude, p.Character)
+		end
+	end
+	raycastParams.FilterDescendantsInstances = exclude
+	for _, sdata in survivors() do
+		local sroot = getRoot(sdata.Player)
+		if sdata.Status == "Playing" and sdata.Health > 0 and sroot then
+			local offset = sroot.Position - kroot.Position
+			local flat = offset * Vector3.new(1, 0, 1)
+			if flat.Magnitude <= Config.AttackRange and (flat.Magnitude < 1 or forward:Dot(flat.Unit) >= 0.3) then
+				if not workspace:Raycast(kroot.Position, offset, raycastParams) then
+					hitSurvivor(sdata)
+					return true
+				end
+			end
+		end
+	end
+	return false
+end
+
+function Match.Update(dt)
+	if not Match.Active then
+		return
+	end
+	local t = now()
+
+	-- Действия
+	local repairers = {}
+	local healers = {}
+	local gateOpeners = {}
+	for _, data in participants do
+		local a = data.Action
+		if a then
+			if not validateAction(data) then
+				cancelAction(data)
+			else
+				a.Time += dt
+				if a.Kind == "Repair" then
+					repairers[a.Target] = (repairers[a.Target] or 0) + 1
+				elseif a.Kind == "Heal" then
+					healers[a.Target] = (healers[a.Target] or 0) + 1
+				elseif a.Kind == "OpenGate" then
+					gateOpeners[a.Target] = true
+				end
+			end
+		end
+	end
+
+	for gen, count in repairers do
+		local p = gen:GetAttribute("Progress") + dt / Config.GeneratorRepairTime * count
+		if p >= 1 then
+			completeGenerator(gen)
+		else
+			gen:SetAttribute("Progress", p)
+		end
+	end
+	if map then
+		for _, gen in map.Generators:GetChildren() do
+			if gen:GetAttribute("Regressing") and not repairers[gen] then
+				local p = gen:GetAttribute("Progress") - Config.GeneratorRegressPerSecond * dt
+				if p <= 0 then
+					gen:SetAttribute("Progress", 0)
+					gen:SetAttribute("Regressing", false)
+				else
+					gen:SetAttribute("Progress", p)
+				end
+			end
+		end
+	end
+	for target, count in healers do
+		local td = participants[target]
+		td.HealProgress += dt / Config.HealTime * count
+		if td.HealProgress >= 1 then
+			td.HealProgress = 0
+			td.Health += 1
+			if td.Health == 1 then
+				setDowned(td, false)
+			end
+			notify(target, td.Health == 2 and "Ты полностью вылечен" or "Тебя подняли!", GREEN)
+		end
+	end
+	for gate in gateOpeners do
+		local p = gate:GetAttribute("Progress") + dt / Config.OpenGateTime
+		if p >= 1 then
+			openGate(gate)
+		else
+			gate:SetAttribute("Progress", p)
+		end
+		updateGateLamps(gate)
+	end
+
+	-- Завершение действий с фиксированной длительностью + прогресс для UI
+	for _, data in participants do
+		local a = data.Action
+		if a then
+			local duration = TIMED_ACTIONS[a.Kind]
+			local progress
+			if duration then
+				progress = a.Time / duration
+				if progress >= 1 then
+					cancelAction(data)
+					if a.Kind == "Unhook" then
+						local td = participants[a.Target]
+						if td and td.Status == "Hooked" then
+							unhook(td, data.Player)
+						end
+					elseif a.Kind == "Hook" then
+						hang(data, a.Target)
+					elseif a.Kind == "Break" then
+						a.Target:SetAttribute("State", "Broken")
+						a.Target:Destroy()
+					elseif a.Kind == "Kick" then
+						local gen = a.Target
+						gen:SetAttribute("Progress", math.max(gen:GetAttribute("Progress") - Config.GeneratorKickRegression, 0))
+						gen:SetAttribute("Regressing", gen:GetAttribute("Progress") > 0)
+						notifyAll("Маньяк повредил генератор", RED)
+					end
+					progress = nil
+				end
+			elseif a.Kind == "Repair" or a.Kind == "OpenGate" then
+				progress = a.Target:GetAttribute("Progress")
+			elseif a.Kind == "Heal" then
+				local td = participants[a.Target]
+				progress = td and td.HealProgress
+			end
+			if data.Action then
+				data.Player:SetAttribute("ActionName", a.Kind)
+				data.Player:SetAttribute("ActionProgress", progress)
+				tickSkillChecks(data, t)
+			end
+		elseif data.PendingCheck then
+			data.PendingCheck = nil
+		end
+	end
+
+	-- Атака маньяка
+	if killerData and killerData.Lunging then
+		if tryHit(killerData) then
+			killerData.Lunging = false
+			killerData.SlowUntil = t + Config.AttackCooldownHit
+			killerData.AttackReadyAt = t + Config.AttackCooldownHit
+		elseif t >= killerData.LungeUntil then
+			killerData.Lunging = false
+			killerData.SlowUntil = t + Config.AttackCooldownMiss
+			killerData.AttackReadyAt = t + Config.AttackCooldownMiss
+		end
+	end
+
+	-- Состояния выживших
+	for _, data in survivors() do
+		if data.Status == "Hooked" then
+			data.HookTimer += dt
+			if data.HookTimer >= Config.HookStageTime then
+				data.HookTimer = 0
+				data.HookCount += 1
+				if data.HookCount >= Config.MaxHooks then
+					sacrifice(data)
+				else
+					notifyAll(data.Player.DisplayName .. " борется с Сущностью!", RED)
+				end
+			end
+		elseif data.Status == "Carried" then
+			data.Wiggle += dt / Config.WiggleTime
+			if data.Wiggle >= 1 then
+				data.Wiggle = 0
+				local kdata = data.CarriedBy
+				releaseCarry(data)
+				data.Status = "Playing"
+				data.Health = 1
+				data.BoostUntil = t + Config.SurvivorHitBoostTime
+				setDowned(data, false)
+				if kdata then
+					kdata.StunnedUntil = t + 3
+				end
+				notifyAll(data.Player.DisplayName .. " вырвался из рук маньяка!", GREEN)
+			end
+		elseif data.Status == "Playing" and data.Health == 0 and not healers[data.Player] then
+			data.BleedOut += dt
+			if data.BleedOut >= Config.BleedOutTime then
+				removeFromGame(data, "Dead", data.Player.DisplayName .. " истёк кровью", RED)
+			end
+		end
+
+		-- Побег через открытые ворота
+		if data.Status == "Playing" and map then
+			local root = getRoot(data.Player)
+			if root then
+				for _, gate in map.ExitGates:GetChildren() do
+					local zone = gate:FindFirstChild("EscapeZone")
+					if gate:GetAttribute("Open") and zone then
+						local rel = zone.CFrame:PointToObjectSpace(root.Position)
+						local half = zone.Size / 2
+						if math.abs(rel.X) <= half.X and math.abs(rel.Y) <= half.Y and math.abs(rel.Z) <= half.Z then
+							removeFromGame(data, "Escaped", data.Player.DisplayName .. " сбежал!", GREEN)
+							break
+						end
+					end
+				end
+			end
+		end
+	end
+
+	-- Скорость и атрибуты для клиентов
+	for player, data in participants do
+		local hum = getHumanoid(player)
+		if hum and isInGame(data) then
+			hum.WalkSpeed = data.Role == "Killer" and killerSpeed(data, t) or survivorSpeed(data, t)
+		end
+		player:SetAttribute("Status", data.Status)
+		player:SetAttribute("Health", data.Health)
+		player:SetAttribute("HookCount", data.HookCount)
+		player:SetAttribute("HookProgress", data.Status == "Hooked" and data.HookTimer / Config.HookStageTime or nil)
+		player:SetAttribute(
+			"BleedOut",
+			(data.Status == "Playing" and data.Health == 0) and data.BleedOut / Config.BleedOutTime or nil
+		)
+		player:SetAttribute("Wiggle", data.Status == "Carried" and data.Wiggle or nil)
+		player:SetAttribute("Stunned", t < data.StunnedUntil)
+		player:SetAttribute("Carrying", data.Carrying ~= nil)
+	end
+
+	-- Обрушение (эндгейм)
+	if endgameDeadline then
+		local left = endgameDeadline - t
+		setState("EndGameTimer", math.max(math.ceil(left), 0))
+		if left <= 0 then
+			for _, data in survivors() do
+				if isInGame(data) then
+					removeFromGame(data, "Dead", data.Player.DisplayName .. " забран Сущностью", RED)
+				end
+			end
+		end
+	end
+
+	-- Условия окончания раунда
+	local remaining = 0
+	for _, data in survivors() do
+		if isInGame(data) then
+			remaining += 1
+		end
+	end
+	if remaining == 0 then
+		Match.End()
+	elseif not soloTest and (not killerData or killerData.Status ~= "Playing" or not killerData.Player.Parent) then
+		Match.End("Маньяк выбыл из игры")
+	elseif t - startTime > Config.MaxRoundTime then
+		Match.End("Время вышло")
+	end
+end
+
+return Match
+]]></string>
+        </Properties>
+      </Item>
+    </Item>
+  </Item>
+  <Item class="StarterPlayer" referent="9">
+    <Properties>
+      <string name="Name">StarterPlayer</string>
+    </Properties>
+    <Item class="StarterPlayerScripts" referent="10">
+      <Properties>
+        <string name="Name">StarterPlayerScripts</string>
+      </Properties>
+      <Item class="Folder" referent="11">
+        <Properties>
+          <string name="Name">Client</string>
+        </Properties>
+        <Item class="LocalScript" referent="12">
+          <Properties>
+            <string name="Name">Client</string>
+            <string name="Source"><![CDATA[-- Клиент: управление, поиск ближайшего действия, HUD, ауры, звук сердцебиения.
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
+local ContextActionService = game:GetService("ContextActionService")
+local SoundService = game:GetService("SoundService")
+local Debris = game:GetService("Debris")
+
+local Config = require(ReplicatedStorage.Shared.Config)
+local Remotes = require(ReplicatedStorage.Shared.Remotes)
+local UI = require(script.Parent.UI)
+
+local player = Players.LocalPlayer
+local camera = workspace.CurrentCamera
+local gameState = ReplicatedStorage:WaitForChild("GameState")
+local ui = UI.new(player:WaitForChild("PlayerGui"))
+
+local VAULT_RANGE = 4.5
+
+local currentPrimary -- { Kind, Target, Text }
+local currentSecondary
+local holding = false
+local sprinting = false
+local spectating = false
+local spectateIndex = 0
+
+------------------------------------------------------------------------
+-- Вспомогательное
+------------------------------------------------------------------------
+
+local function getRoot(p)
+	local char = p and p.Character
+	return char and char:FindFirstChild("HumanoidRootPart")
+end
+
+local function flatDist(a, b)
+	local d = a - b
+	return Vector3.new(d.X, 0, d.Z).Magnitude
+end
+
+local function myRole()
+	return player:GetAttribute("Role")
+end
+
+local function myStatus()
+	return player:GetAttribute("Status")
+end
+
+local function getMap()
+	return workspace:FindFirstChild("Map")
+end
+
+local function objectPosition(obj)
+	if obj:IsA("Player") then
+		local r = getRoot(obj)
+		return r and r.Position
+	end
+	local kind = obj:GetAttribute("Kind")
+	if kind == "Generator" then
+		return obj.PrimaryPart and obj.PrimaryPart.Position
+	elseif kind == "Hook" then
+		local hp = obj:FindFirstChild("HangPoint")
+		return hp and hp.Position
+	elseif kind == "Pallet" then
+		local cf = obj:GetAttribute("DropCFrame")
+		return cf and cf.Position
+	elseif kind == "Window" then
+		return obj.Position
+	elseif kind == "ExitGate" then
+		local sw = obj:FindFirstChild("Switch")
+		return sw and sw.Position
+	end
+	return nil
+end
+
+-- Выбирает ближайший вариант из списка кандидатов
+local function nearest(rootPos, candidates)
+	local best, bestDist
+	for _, c in candidates do
+		local pos = objectPosition(c.Target)
+		if pos then
+			local d = flatDist(rootPos, pos)
+			if d <= (c.Range or Config.InteractRange) and (not bestDist or d < bestDist) then
+				best, bestDist = c, d
+			end
+		end
+	end
+	return best
+end
+
+local function folderChildren(name)
+	local map = getMap()
+	local f = map and map:FindFirstChild(name)
+	return f and f:GetChildren() or {}
+end
+
+------------------------------------------------------------------------
+-- Поиск доступных действий
+------------------------------------------------------------------------
+
+local function findActions()
+	local root = getRoot(player)
+	local role = myRole()
+	if not root or not role or myStatus() ~= "Playing" then
+		return nil, nil
+	end
+	local pos = root.Position
+	local primary, secondary = {}, {}
+
+	if role == "Survivor" then
+		if (player:GetAttribute("Health") or 0) <= 0 then
+			return nil, nil
+		end
+		for _, p in Players:GetPlayers() do
+			if p ~= player and p:GetAttribute("Role") == "Survivor" then
+				local status = p:GetAttribute("Status")
+				local health = p:GetAttribute("Health") or 2
+				if status == "Hooked" then
+					table.insert(primary, { Kind = "Unhook", Target = p, Text = "Снять " .. p.DisplayName .. " с крюка" })
+				elseif status == "Playing" and health < 2 then
+					local text = health == 0 and ("Поднять " .. p.DisplayName) or ("Лечить " .. p.DisplayName)
+					table.insert(primary, { Kind = "Heal", Target = p, Text = text })
+				end
+			end
+		end
+		if (gameState:GetAttribute("GensLeft") or 0) > 0 then
+			for _, gen in folderChildren("Generators") do
+				if not gen:GetAttribute("Done") then
+					table.insert(primary, { Kind = "Repair", Target = gen, Text = "Чинить генератор" })
+				end
+			end
+		end
+		for _, gate in folderChildren("ExitGates") do
+			if gate:GetAttribute("Powered") and not gate:GetAttribute("Open") then
+				table.insert(primary, { Kind = "OpenGate", Target = gate, Text = "Открыть ворота" })
+			end
+		end
+		for _, pallet in folderChildren("Pallets") do
+			local state = pallet:GetAttribute("State")
+			if state == "Up" then
+				table.insert(secondary, { Kind = "DropPallet", Target = pallet, Text = "Опустить паллету" })
+			elseif state == "Dropped" then
+				table.insert(secondary, { Kind = "Vault", Target = pallet, Text = "Перепрыгнуть", Range = VAULT_RANGE })
+			end
+		end
+		for _, window in folderChildren("Windows") do
+			table.insert(secondary, { Kind = "Vault", Target = window, Text = "Перелезть", Range = VAULT_RANGE })
+		end
+	else
+		if player:GetAttribute("Stunned") then
+			return nil, nil
+		end
+		if player:GetAttribute("Carrying") then
+			for _, hook in folderChildren("Hooks") do
+				if hook:GetAttribute("Occupant") == 0 then
+					table.insert(primary, { Kind = "Hook", Target = hook, Text = "Повесить на крюк" })
+				end
+			end
+		else
+			for _, p in Players:GetPlayers() do
+				if p:GetAttribute("Role") == "Survivor" and p:GetAttribute("Status") == "Playing" and p:GetAttribute("Health") == 0 then
+					table.insert(primary, { Kind = "Pickup", Target = p, Text = "Поднять " .. p.DisplayName })
+				end
+			end
+			for _, pallet in folderChildren("Pallets") do
+				if pallet:GetAttribute("State") == "Dropped" then
+					table.insert(primary, { Kind = "Break", Target = pallet, Text = "Сломать паллету" })
+				end
+			end
+			for _, gen in folderChildren("Generators") do
+				if
+					not gen:GetAttribute("Done")
+					and (gen:GetAttribute("Progress") or 0) > 0
+					and not gen:GetAttribute("Regressing")
+					and (gameState:GetAttribute("GensLeft") or 0) > 0
+				then
+					table.insert(primary, { Kind = "Kick", Target = gen, Text = "Повредить генератор" })
+				end
+			end
+			for _, window in folderChildren("Windows") do
+				table.insert(secondary, { Kind = "Vault", Target = window, Text = "Перелезть", Range = VAULT_RANGE })
+			end
+		end
+	end
+	return nearest(pos, primary), nearest(pos, secondary)
+end
+
+------------------------------------------------------------------------
+-- Ввод
+------------------------------------------------------------------------
+
+local function onInteract(_, state)
+	if state == Enum.UserInputState.Begin then
+		if currentPrimary then
+			holding = true
+			Remotes.BeginAction:FireServer(currentPrimary.Kind, currentPrimary.Target)
+		end
+	elseif state == Enum.UserInputState.End or state == Enum.UserInputState.Cancel then
+		if holding then
+			holding = false
+			Remotes.EndAction:FireServer()
+		end
+	end
+	return Enum.ContextActionResult.Sink
+end
+
+local function onSecondary(_, state)
+	if state ~= Enum.UserInputState.Begin then
+		return Enum.ContextActionResult.Sink
+	end
+	local check = ui.GetSkillCheck()
+	if check then
+		check.Press()
+	elseif currentSecondary then
+		Remotes.BeginAction:FireServer(currentSecondary.Kind, currentSecondary.Target)
+	end
+	return Enum.ContextActionResult.Sink
+end
+
+local function onSprint(_, state, input)
+	if input.UserInputType == Enum.UserInputType.Touch then
+		if state == Enum.UserInputState.Begin then
+			sprinting = not sprinting
+			Remotes.Sprint:FireServer(sprinting)
+		end
+	elseif state == Enum.UserInputState.Begin then
+		sprinting = true
+		Remotes.Sprint:FireServer(true)
+	elseif state == Enum.UserInputState.End or state == Enum.UserInputState.Cancel then
+		sprinting = false
+		Remotes.Sprint:FireServer(false)
+	end
+	return Enum.ContextActionResult.Pass
+end
+
+local function onAttack(_, state)
+	if state == Enum.UserInputState.Begin then
+		Remotes.Attack:FireServer()
+	end
+	return Enum.ContextActionResult.Pass
+end
+
+local boundRole
+local function bindControls(role)
+	if boundRole == role then
+		return
+	end
+	boundRole = role
+	for _, name in { "DBDInteract", "DBDSecondary", "DBDSprint", "DBDAttack" } do
+		ContextActionService:UnbindAction(name)
+	end
+	if not role then
+		return
+	end
+	ContextActionService:BindActionAtPriority("DBDInteract", onInteract, true, 3000, Enum.KeyCode.E, Enum.KeyCode.ButtonX)
+	ContextActionService:SetTitle("DBDInteract", "E")
+	ContextActionService:SetPosition("DBDInteract", UDim2.new(1, -170, 1, -150))
+	ContextActionService:BindActionAtPriority(
+		"DBDSecondary",
+		onSecondary,
+		true,
+		3000,
+		Enum.KeyCode.Space,
+		Enum.KeyCode.ButtonA
+	)
+	ContextActionService:SetTitle("DBDSecondary", "␣")
+	ContextActionService:SetPosition("DBDSecondary", UDim2.new(1, -100, 1, -100))
+	if role == "Survivor" then
+		ContextActionService:BindAction("DBDSprint", onSprint, true, Enum.KeyCode.LeftShift, Enum.KeyCode.ButtonL3)
+		ContextActionService:SetTitle("DBDSprint", "Бег")
+		ContextActionService:SetPosition("DBDSprint", UDim2.new(1, -170, 1, -80))
+	else
+		ContextActionService:BindAction("DBDAttack", onAttack, true, Enum.UserInputType.MouseButton1, Enum.KeyCode.ButtonR2)
+		ContextActionService:SetTitle("DBDAttack", "Удар")
+		ContextActionService:SetPosition("DBDAttack", UDim2.new(1, -240, 1, -110))
+	end
+end
+
+------------------------------------------------------------------------
+-- События сервера
+------------------------------------------------------------------------
+
+Remotes.Notify.OnClientEvent:Connect(function(text, color)
+	ui.Notify(text, color)
+end)
+
+Remotes.SkillCheck.OnClientEvent:Connect(function(id, zone)
+	ui.StartSkillCheck(zone, Config.SkillCheckDuration, function(result)
+		Remotes.SkillCheck:FireServer(id, result)
+		if result == "great" then
+			ui.Notify("Отлично!", Color3.fromRGB(255, 255, 255))
+		elseif result == "fail" then
+			ui.Notify("Провал!", Color3.fromRGB(255, 70, 70))
+		end
+	end)
+end)
+
+Remotes.Noise.OnClientEvent:Connect(function(position)
+	local p = Instance.new("Part")
+	p.Anchored = true
+	p.CanCollide = false
+	p.CanQuery = false
+	p.Transparency = 1
+	p.Size = Vector3.new(1, 1, 1)
+	p.Position = position + Vector3.new(0, 4, 0)
+	p.Parent = camera
+	local bb = Instance.new("BillboardGui")
+	bb.AlwaysOnTop = true
+	bb.Size = UDim2.new(0, 60, 0, 60)
+	bb.Parent = p
+	local l = Instance.new("TextLabel")
+	l.BackgroundTransparency = 1
+	l.Size = UDim2.fromScale(1, 1)
+	l.Text = "!"
+	l.TextScaled = true
+	l.Font = Enum.Font.GothamBlack
+	l.TextColor3 = Color3.fromRGB(255, 200, 40)
+	l.Parent = bb
+	Debris:AddItem(p, 4)
+	ui.Notify("Ты слышишь шум!", Color3.fromRGB(255, 200, 40))
+end)
+
+Remotes.Results.OnClientEvent:Connect(function(title, reason, rows)
+	ui.ShowResults(title, reason, rows, Config.ResultsTime)
+end)
+
+------------------------------------------------------------------------
+-- Ауры (подсветка сквозь стены)
+------------------------------------------------------------------------
+
+local auras = {} -- [Instance] = Highlight
+
+local function updateAuras()
+	local wanted = {}
+	local role = myRole()
+	local status = myStatus()
+	if role == "Survivor" then
+		for _, p in Players:GetPlayers() do
+			if p ~= player and p:GetAttribute("Role") == "Survivor" and p.Character then
+				local s = p:GetAttribute("Status")
+				if s == "Hooked" or (s == "Playing" and p:GetAttribute("Health") == 0) then
+					wanted[p.Character] = Color3.fromRGB(255, 50, 50)
+				end
+			end
+		end
+		for _, gate in folderChildren("ExitGates") do
+			if gate:GetAttribute("Powered") then
+				wanted[gate] = Color3.fromRGB(255, 220, 90)
+			end
+		end
+	elseif role == "Killer" and status == "Playing" then
+		if player:GetAttribute("Carrying") then
+			for _, hook in folderChildren("Hooks") do
+				if hook:GetAttribute("Occupant") == 0 then
+					wanted[hook] = Color3.fromRGB(255, 255, 255)
+				end
+			end
+		end
+		for _, gen in folderChildren("Generators") do
+			if gen:GetAttribute("Done") then
+				continue
+			end
+			if (gameState:GetAttribute("GensLeft") or 0) > 0 then
+				wanted[gen] = Color3.fromRGB(230, 230, 230)
+			end
+		end
+	end
+
+	for inst, h in auras do
+		if not wanted[inst] or not inst.Parent then
+			h:Destroy()
+			auras[inst] = nil
+		end
+	end
+	for inst, color in wanted do
+		local h = auras[inst]
+		if not h then
+			h = Instance.new("Highlight")
+			h.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+			h.FillTransparency = 0.8
+			h.Adornee = inst
+			h.Parent = camera
+			auras[inst] = h
+		end
+		h.OutlineColor = color
+		h.FillColor = color
+	end
+end
+
+------------------------------------------------------------------------
+-- Звук сердцебиения
+------------------------------------------------------------------------
+
+local heartbeat
+if Config.HeartbeatSoundId ~= "" then
+	heartbeat = Instance.new("Sound")
+	heartbeat.SoundId = Config.HeartbeatSoundId
+	heartbeat.Looped = true
+	heartbeat.Volume = 0
+	heartbeat.Parent = SoundService
+	heartbeat:Play()
+end
+
+local function getKiller()
+	for _, p in Players:GetPlayers() do
+		if p:GetAttribute("Role") == "Killer" then
+			return p
+		end
+	end
+	return nil
+end
+
+------------------------------------------------------------------------
+-- Наблюдение
+------------------------------------------------------------------------
+
+local function aliveParticipants()
+	local list = {}
+	for _, p in Players:GetPlayers() do
+		local s = p:GetAttribute("Status")
+		if p ~= player and p:GetAttribute("Role") and (s == "Playing" or s == "Hooked" or s == "Carried") then
+			table.insert(list, p)
+		end
+	end
+	return list
+end
+
+local function stopSpectating()
+	spectating = false
+	local hum = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
+	if hum then
+		camera.CameraSubject = hum
+	end
+	ui.SpectateButton.Text = "Наблюдать"
+end
+
+ui.SpectateButton.Activated:Connect(function()
+	local list = aliveParticipants()
+	if #list == 0 then
+		stopSpectating()
+		return
+	end
+	spectating = true
+	spectateIndex = spectateIndex % #list + 1
+	local target = list[spectateIndex]
+	local hum = target.Character and target.Character:FindFirstChildOfClass("Humanoid")
+	if hum then
+		camera.CameraSubject = hum
+	end
+	ui.SpectateButton.Text = "Следующий (" .. target.DisplayName .. ")"
+end)
+
+------------------------------------------------------------------------
+-- Главный цикл
+------------------------------------------------------------------------
+
+local STATUS_TEXT = {
+	Playing = { "Здоров", Color3.fromRGB(230, 230, 230) },
+	Injured = { "Ранен", Color3.fromRGB(255, 170, 60) },
+	Downed = { "Повержен", Color3.fromRGB(255, 80, 80) },
+	Carried = { "В руках маньяка", Color3.fromRGB(255, 80, 80) },
+	Hooked = { "На крюке", Color3.fromRGB(255, 50, 50) },
+	Dead = { "Погиб", Color3.fromRGB(120, 120, 120) },
+	Left = { "Вышел", Color3.fromRGB(120, 120, 120) },
+	Escaped = { "Сбежал", Color3.fromRGB(110, 255, 140) },
+}
+
+local ACTION_TEXT = {
+	Repair = "Ремонт генератора",
+	Heal = "Лечение",
+	Unhook = "Снятие с крюка",
+	OpenGate = "Открытие ворот",
+	Hook = "Вешаем на крюк",
+	Break = "Ломаем паллету",
+	Kick = "Повреждаем генератор",
+}
+
+local pulseTime = 0
+local lastFirstPerson = false
+
+RunService.RenderStepped:Connect(function(dt)
+	local role = myRole()
+	local status = myStatus()
+	local phase = gameState:GetAttribute("Phase")
+	local timer = gameState:GetAttribute("Timer") or 0
+	local inMatch = role ~= nil and status ~= "Dead" and status ~= "Escaped" and status ~= "Left"
+
+	bindControls(inMatch and role or nil)
+
+	-- Верхняя строка
+	if phase == "InGame" then
+		local gens = gameState:GetAttribute("GensLeft") or 0
+		local main = gens > 0 and ("Генераторов осталось: " .. gens) or "Ворота запитаны!"
+		local subText
+		if gameState:GetAttribute("EndGame") then
+			subText = "Обрушение Сущности: " .. (gameState:GetAttribute("EndGameTimer") or 0) .. " с"
+		elseif not role then
+			subText = "Идёт раунд — подожди следующего"
+		end
+		ui.SetTop(main, subText)
+	elseif phase == "Starting" then
+		ui.SetTop("Раунд начнётся через " .. timer, "Маньяк будет выбран случайно")
+	elseif phase == "Results" then
+		ui.SetTop("Новый раунд через " .. timer)
+	else
+		local need = RunService:IsStudio() and Config.StudioMinPlayers or Config.MinPlayers
+		ui.SetTop("Ожидание игроков (" .. #Players:GetPlayers() .. "/" .. need .. ")")
+	end
+
+	if role == "Killer" then
+		ui.SetControls("ЛКМ — удар\nE — поднять / повесить / сломать\nПробел — перелезть через окно")
+	elseif role == "Survivor" then
+		ui.SetControls("Shift — бег\nE (держать) — чинить / лечить / снять с крюка\nПробел — паллета / прыжок через окно / проверка навыка")
+	else
+		ui.SetControls("Dead by Daylight в Roblox\nВыжившие чинят генераторы и сбегают,\nманьяк вешает их на крюки.")
+	end
+
+	-- Список выживших
+	local rows = {}
+	if phase == "InGame" then
+		for _, p in Players:GetPlayers() do
+			if p:GetAttribute("Role") == "Survivor" then
+				local s = p:GetAttribute("Status") or "Playing"
+				local key = s
+				if s == "Playing" then
+					local h = p:GetAttribute("Health") or 2
+					key = h == 2 and "Playing" or (h == 1 and "Injured" or "Downed")
+				end
+				local info = STATUS_TEXT[key] or { s, Color3.new(1, 1, 1) }
+				local text = p.DisplayName .. " — " .. info[1]
+				if s == "Hooked" then
+					text ..= " (" .. (p:GetAttribute("HookCount") or 1) .. "/2)"
+				end
+				table.insert(rows, { Text = text, Color = info[2] })
+			end
+		end
+		local k = getKiller()
+		if k then
+			table.insert(rows, { Text = "Маньяк: " .. k.DisplayName, Color = Color3.fromRGB(255, 60, 60) })
+		end
+	end
+	ui.SetSurvivors(rows)
+
+	-- Действия
+	if inMatch then
+		currentPrimary, currentSecondary = findActions()
+	else
+		currentPrimary, currentSecondary = nil, nil
+	end
+	local actionName = player:GetAttribute("ActionName")
+	if actionName then
+		ui.SetHints(nil, nil)
+		ui.SetAction(ACTION_TEXT[actionName] or actionName, player:GetAttribute("ActionProgress") or 0)
+	else
+		ui.SetAction(nil, nil)
+		ui.SetHints(
+			currentPrimary and ("[E] " .. currentPrimary.Text) or nil,
+			currentSecondary and ("[Пробел] " .. currentSecondary.Text) or nil
+		)
+		local check = ui.GetSkillCheck()
+		if check then
+			check.Cancel()
+		end
+	end
+	local check = ui.GetSkillCheck()
+	if check then
+		check.Update()
+	end
+
+	-- Личный статус
+	if player:GetAttribute("HookProgress") then
+		local stage = player:GetAttribute("HookCount") or 1
+		ui.SetStatus("На крюке — стадия " .. stage .. ". Жди помощи!", 1 - player:GetAttribute("HookProgress"))
+	elseif player:GetAttribute("Wiggle") then
+		ui.SetStatus("Вырываешься из рук маньяка...", player:GetAttribute("Wiggle"))
+	elseif player:GetAttribute("BleedOut") then
+		ui.SetStatus("Ты повержен — истекаешь кровью", 1 - player:GetAttribute("BleedOut"))
+	elseif player:GetAttribute("Stunned") then
+		ui.SetStatus("Оглушён!", 1)
+	else
+		ui.SetStatus(nil, nil)
+	end
+
+	-- Радиус ужаса
+	local intensity = 0
+	local killer = getKiller()
+	local myRoot = getRoot(player)
+	if role == "Survivor" and inMatch and killer and myRoot then
+		local kroot = getRoot(killer)
+		if kroot then
+			local d = flatDist(kroot.Position, myRoot.Position)
+			intensity = math.clamp(1 - d / Config.TerrorRadius, 0, 1)
+		end
+	end
+	if intensity > 0 then
+		pulseTime += dt * (1 + intensity * 2.5)
+		local beat = math.abs(math.sin(pulseTime * math.pi))
+		ui.SetTerror(intensity * (0.4 + 0.6 * beat))
+	else
+		ui.SetTerror(0)
+	end
+	if heartbeat then
+		heartbeat.Volume = intensity
+		heartbeat.PlaybackSpeed = 0.9 + intensity * 0.6
+	end
+
+	-- Вид от первого лица для маньяка
+	local firstPerson = Config.KillerFirstPerson and role == "Killer" and status == "Playing"
+	if firstPerson ~= lastFirstPerson then
+		lastFirstPerson = firstPerson
+		if firstPerson then
+			player.CameraMode = Enum.CameraMode.LockFirstPerson
+		else
+			player.CameraMode = Enum.CameraMode.Classic
+			player.CameraMinZoomDistance = 0.5
+		end
+	end
+
+	-- Наблюдение
+	local canSpectate = phase == "InGame" and not inMatch
+	ui.SpectateButton.Visible = canSpectate
+	if spectating and not canSpectate then
+		stopSpectating()
+	end
+
+	updateAuras()
+end)
+
+player.CharacterAdded:Connect(function()
+	holding = false
+	sprinting = false
+	if spectating then
+		task.defer(stopSpectating)
+	end
+end)
+]]></string>
+          </Properties>
+        </Item>
+        <Item class="ModuleScript" referent="13">
+          <Properties>
+            <string name="Name">UI</string>
+            <string name="Source"><![CDATA[-- Весь интерфейс игры, создаётся из кода.
+local TweenService = game:GetService("TweenService")
+
+local UI = {}
+
+local FONT = Enum.Font.GothamBold
+local FONT_REG = Enum.Font.Gotham
+
+local function new(className, props, children)
+	local inst = Instance.new(className)
+	for k, v in props or {} do
+		if k ~= "Parent" then
+			inst[k] = v
+		end
+	end
+	for _, child in children or {} do
+		child.Parent = inst
+	end
+	if props and props.Parent then
+		inst.Parent = props.Parent
+	end
+	return inst
+end
+
+local function corner(radius)
+	return new("UICorner", { CornerRadius = UDim.new(0, radius or 6) })
+end
+
+local function label(props)
+	props.BackgroundTransparency = props.BackgroundTransparency or 1
+	props.Font = props.Font or FONT
+	props.TextColor3 = props.TextColor3 or Color3.new(1, 1, 1)
+	props.TextStrokeTransparency = props.TextStrokeTransparency or 0.5
+	return new("TextLabel", props)
+end
+
+local function progressBar(parent, position, size)
+	local bg = new("Frame", {
+		Parent = parent,
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = position,
+		Size = size,
+		BackgroundColor3 = Color3.fromRGB(20, 20, 20),
+		BackgroundTransparency = 0.25,
+		Visible = false,
+	}, { corner(4), new("UIStroke", { Color = Color3.fromRGB(200, 200, 200), Thickness = 1 }) })
+	local fill = new("Frame", {
+		Parent = bg,
+		Size = UDim2.fromScale(0, 1),
+		BackgroundColor3 = Color3.fromRGB(230, 230, 230),
+	}, { corner(4) })
+	local text = label({
+		Parent = bg,
+		Size = UDim2.new(1, 0, 0, 20),
+		Position = UDim2.new(0, 0, 0, -22),
+		TextSize = 16,
+	})
+	return { Frame = bg, Fill = fill, Label = text }
+end
+
+function UI.new(playerGui)
+	local self = {}
+
+	local gui = new("ScreenGui", {
+		Name = "DBDGui",
+		ResetOnSpawn = false,
+		IgnoreGuiInset = true,
+		ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
+		Parent = playerGui,
+	})
+	self.Gui = gui
+
+	-- Красная виньетка радиуса ужаса
+	local vignette = new("Frame", {
+		Parent = gui,
+		Size = UDim2.fromScale(1, 1),
+		BackgroundTransparency = 1,
+		ZIndex = 0,
+	})
+	local edges = {}
+	for _, data in
+		{
+			{ UDim2.fromScale(1, 0.25), UDim2.fromScale(0, 0), 90 },
+			{ UDim2.fromScale(1, 0.25), UDim2.fromScale(0, 0.75), -90 },
+			{ UDim2.fromScale(0.2, 1), UDim2.fromScale(0, 0), 0 },
+			{ UDim2.fromScale(0.2, 1), UDim2.fromScale(0.8, 0), 180 },
+		}
+	do
+		local f = new("Frame", {
+			Parent = vignette,
+			Size = data[1],
+			Position = data[2],
+			BackgroundColor3 = Color3.fromRGB(170, 0, 0),
+			BorderSizePixel = 0,
+			BackgroundTransparency = 1,
+		}, {
+			new("UIGradient", {
+				Rotation = data[3],
+				Transparency = NumberSequence.new(0, 1),
+			}),
+		})
+		table.insert(edges, f)
+	end
+
+	-- Верхняя строка
+	local top = label({
+		Parent = gui,
+		AnchorPoint = Vector2.new(0.5, 0),
+		Position = UDim2.new(0.5, 0, 0, 44),
+		Size = UDim2.new(0.6, 0, 0, 32),
+		TextSize = 24,
+		Text = "",
+	})
+	local sub = label({
+		Parent = gui,
+		AnchorPoint = Vector2.new(0.5, 0),
+		Position = UDim2.new(0.5, 0, 0, 76),
+		Size = UDim2.new(0.6, 0, 0, 22),
+		TextSize = 18,
+		TextColor3 = Color3.fromRGB(255, 120, 100),
+		Text = "",
+	})
+
+	-- Уведомления
+	local notifyHolder = new("Frame", {
+		Parent = gui,
+		AnchorPoint = Vector2.new(0.5, 0),
+		Position = UDim2.new(0.5, 0, 0, 108),
+		Size = UDim2.new(0.7, 0, 0, 140),
+		BackgroundTransparency = 1,
+	}, {
+		new("UIListLayout", {
+			HorizontalAlignment = Enum.HorizontalAlignment.Center,
+			SortOrder = Enum.SortOrder.LayoutOrder,
+			Padding = UDim.new(0, 2),
+		}),
+	})
+	local notifyOrder = 0
+
+	-- Список выживших слева
+	local list = new("Frame", {
+		Parent = gui,
+		Position = UDim2.new(0, 12, 0.3, 0),
+		Size = UDim2.new(0, 230, 0, 200),
+		BackgroundTransparency = 1,
+	}, {
+		new("UIListLayout", { Padding = UDim.new(0, 4), SortOrder = Enum.SortOrder.LayoutOrder }),
+	})
+	local listRows = {}
+
+	-- Подсказки действий
+	local hintPrimary = label({
+		Parent = gui,
+		AnchorPoint = Vector2.new(0.5, 1),
+		Position = UDim2.new(0.5, 0, 1, -150),
+		Size = UDim2.new(0.6, 0, 0, 26),
+		TextSize = 20,
+		Text = "",
+	})
+	local hintSecondary = label({
+		Parent = gui,
+		AnchorPoint = Vector2.new(0.5, 1),
+		Position = UDim2.new(0.5, 0, 1, -124),
+		Size = UDim2.new(0.6, 0, 0, 26),
+		TextSize = 20,
+		Text = "",
+	})
+
+	local actionBar = progressBar(gui, UDim2.new(0.5, 0, 1, -90), UDim2.new(0, 320, 0, 16))
+	local statusBar = progressBar(gui, UDim2.new(0.5, 0, 1, -200), UDim2.new(0, 320, 0, 12))
+	statusBar.Fill.BackgroundColor3 = Color3.fromRGB(200, 40, 40)
+
+	-- Проверка навыка
+	local skill = new("Frame", {
+		Parent = gui,
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.fromScale(0.5, 0.62),
+		Size = UDim2.new(0, 360, 0, 26),
+		BackgroundColor3 = Color3.fromRGB(15, 15, 15),
+		BackgroundTransparency = 0.2,
+		Visible = false,
+	}, { corner(4), new("UIStroke", { Color = Color3.new(1, 1, 1), Thickness = 2 }) })
+	local skillZone = new("Frame", {
+		Parent = skill,
+		BackgroundColor3 = Color3.fromRGB(230, 230, 230),
+		BackgroundTransparency = 0.4,
+		BorderSizePixel = 0,
+	})
+	local skillGreat = new("Frame", {
+		Parent = skill,
+		BackgroundColor3 = Color3.new(1, 1, 1),
+		BorderSizePixel = 0,
+	})
+	local needle = new("Frame", {
+		Parent = skill,
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Size = UDim2.new(0, 4, 1, 10),
+		BackgroundColor3 = Color3.fromRGB(255, 40, 40),
+		BorderSizePixel = 0,
+		ZIndex = 3,
+	})
+	label({
+		Parent = skill,
+		Position = UDim2.new(0, 0, 0, -28),
+		Size = UDim2.new(1, 0, 0, 24),
+		TextSize = 18,
+		Text = "ПРОВЕРКА НАВЫКА — жми ПРОБЕЛ / кнопку",
+	})
+
+	-- Кнопка наблюдения
+	local spectateButton = new("TextButton", {
+		Parent = gui,
+		AnchorPoint = Vector2.new(0.5, 1),
+		Position = UDim2.new(0.5, 0, 1, -24),
+		Size = UDim2.new(0, 220, 0, 40),
+		BackgroundColor3 = Color3.fromRGB(40, 40, 50),
+		TextColor3 = Color3.new(1, 1, 1),
+		Font = FONT,
+		TextSize = 18,
+		Text = "Наблюдать",
+		Visible = false,
+	}, { corner(8) })
+	self.SpectateButton = spectateButton
+
+	-- Итоги раунда
+	local results = new("Frame", {
+		Parent = gui,
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.fromScale(0.5, 0.5),
+		Size = UDim2.new(0, 460, 0, 320),
+		BackgroundColor3 = Color3.fromRGB(15, 10, 10),
+		BackgroundTransparency = 0.1,
+		Visible = false,
+	}, { corner(10), new("UIStroke", { Color = Color3.fromRGB(150, 20, 20), Thickness = 2 }) })
+	local resultsTitle = label({
+		Parent = results,
+		Position = UDim2.new(0, 0, 0, 12),
+		Size = UDim2.new(1, 0, 0, 36),
+		TextSize = 30,
+		TextColor3 = Color3.fromRGB(255, 80, 80),
+	})
+	local resultsReason = label({
+		Parent = results,
+		Position = UDim2.new(0, 0, 0, 50),
+		Size = UDim2.new(1, 0, 0, 20),
+		TextSize = 16,
+		Font = FONT_REG,
+	})
+	local resultsBody = label({
+		Parent = results,
+		Position = UDim2.new(0, 24, 0, 84),
+		Size = UDim2.new(1, -48, 1, -100),
+		TextSize = 18,
+		Font = FONT_REG,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		TextYAlignment = Enum.TextYAlignment.Top,
+		RichText = true,
+	})
+
+	-- Подсказка управления (в лобби)
+	local controls = label({
+		Parent = gui,
+		AnchorPoint = Vector2.new(1, 1),
+		Position = UDim2.new(1, -12, 1, -12),
+		Size = UDim2.new(0, 330, 0, 120),
+		TextSize = 14,
+		Font = FONT_REG,
+		TextXAlignment = Enum.TextXAlignment.Right,
+		TextYAlignment = Enum.TextYAlignment.Bottom,
+		TextTransparency = 0.2,
+		Text = "",
+	})
+
+	--------------------------------------------------------------------
+
+	function self.SetTop(text, subText)
+		top.Text = text or ""
+		sub.Text = subText or ""
+	end
+
+	function self.SetControls(text)
+		controls.Text = text or ""
+	end
+
+	function self.Notify(text, color)
+		notifyOrder += 1
+		local l = label({
+			Parent = notifyHolder,
+			LayoutOrder = notifyOrder,
+			Size = UDim2.new(1, 0, 0, 24),
+			TextSize = 20,
+			Text = text,
+			TextColor3 = color or Color3.new(1, 1, 1),
+		})
+		local children = notifyHolder:GetChildren()
+		local labels = {}
+		for _, c in children do
+			if c:IsA("TextLabel") then
+				table.insert(labels, c)
+			end
+		end
+		if #labels > 5 then
+			table.sort(labels, function(a, b)
+				return a.LayoutOrder < b.LayoutOrder
+			end)
+			labels[1]:Destroy()
+		end
+		task.delay(4, function()
+			if l.Parent then
+				local tw = TweenService:Create(l, TweenInfo.new(1), { TextTransparency = 1, TextStrokeTransparency = 1 })
+				tw:Play()
+				tw.Completed:Wait()
+				l:Destroy()
+			end
+		end)
+	end
+
+	function self.SetHints(primary, secondary)
+		hintPrimary.Text = primary or ""
+		hintSecondary.Text = secondary or ""
+	end
+
+	function self.SetAction(text, fraction)
+		if fraction then
+			actionBar.Frame.Visible = true
+			actionBar.Fill.Size = UDim2.fromScale(math.clamp(fraction, 0, 1), 1)
+			actionBar.Label.Text = text or ""
+		else
+			actionBar.Frame.Visible = false
+		end
+	end
+
+	function self.SetStatus(text, fraction)
+		if fraction then
+			statusBar.Frame.Visible = true
+			statusBar.Fill.Size = UDim2.fromScale(math.clamp(fraction, 0, 1), 1)
+			statusBar.Label.Text = text or ""
+		else
+			statusBar.Frame.Visible = false
+		end
+	end
+
+	function self.SetSurvivors(rows)
+		for i, row in rows do
+			local l = listRows[i]
+			if not l then
+				l = label({
+					Parent = list,
+					LayoutOrder = i,
+					Size = UDim2.new(1, 0, 0, 26),
+					TextSize = 16,
+					TextXAlignment = Enum.TextXAlignment.Left,
+					BackgroundTransparency = 0.5,
+					BackgroundColor3 = Color3.fromRGB(10, 10, 10),
+				})
+				new("UIPadding", { PaddingLeft = UDim.new(0, 8), Parent = l })
+				corner(4).Parent = l
+				listRows[i] = l
+			end
+			l.Visible = true
+			l.Text = row.Text
+			l.TextColor3 = row.Color
+		end
+		for i = #rows + 1, #listRows do
+			listRows[i].Visible = false
+		end
+	end
+
+	function self.SetTerror(intensity)
+		for _, f in edges do
+			f.BackgroundTransparency = 1 - math.clamp(intensity, 0, 1) * 0.75
+		end
+	end
+
+	-- Запускает проверку навыка. onResult(result) вызывается один раз.
+	local activeCheck
+	function self.StartSkillCheck(zoneStart, duration, onResult)
+		local zoneWidth = 0.13
+		local greatWidth = 0.035
+		skillGreat.Position = UDim2.fromScale(zoneStart, 0)
+		skillGreat.Size = UDim2.fromScale(greatWidth, 1)
+		skillZone.Position = UDim2.fromScale(zoneStart + greatWidth, 0)
+		skillZone.Size = UDim2.fromScale(zoneWidth - greatWidth, 1)
+		needle.Position = UDim2.fromScale(0, 0.5)
+		skill.Visible = true
+		local check = { Start = os.clock() + 0.6, Done = false }
+		activeCheck = check
+		local function finish(result)
+			if check.Done then
+				return
+			end
+			check.Done = true
+			if activeCheck == check then
+				activeCheck = nil
+				skill.Visible = false
+			end
+			onResult(result)
+		end
+		function check.Position()
+			return math.clamp((os.clock() - check.Start) / duration, 0, 1)
+		end
+		function check.Press()
+			if os.clock() < check.Start then
+				finish("fail")
+				return
+			end
+			local p = check.Position()
+			if p >= zoneStart and p < zoneStart + greatWidth then
+				finish("great")
+			elseif p >= zoneStart and p <= zoneStart + zoneWidth then
+				finish("good")
+			else
+				finish("fail")
+			end
+		end
+		function check.Update()
+			needle.Position = UDim2.fromScale(check.Position(), 0.5)
+			if os.clock() > check.Start + duration then
+				finish("fail")
+			end
+		end
+		check.Cancel = function()
+			check.Done = true
+			if activeCheck == check then
+				activeCheck = nil
+				skill.Visible = false
+			end
+		end
+	end
+
+	function self.GetSkillCheck()
+		return activeCheck
+	end
+
+	function self.ShowResults(title, reason, rows, duration)
+		resultsTitle.Text = title
+		resultsReason.Text = reason or ""
+		local lines = {}
+		local statusText = {
+			Escaped = '<font color="#6eff8c">сбежал</font>',
+			Dead = '<font color="#ff5050">принесён в жертву</font>',
+			Left = '<font color="#aaaaaa">вышел</font>',
+			Playing = '<font color="#ffdc5a">выжил</font>',
+			Hooked = '<font color="#ff5050">на крюке</font>',
+			Carried = '<font color="#ff5050">в руках маньяка</font>',
+		}
+		for _, row in rows do
+			local role = row.Role == "Killer" and "Маньяк" or "Выживший"
+			local status = row.Role == "Killer" and "" or (" — " .. (statusText[row.Status] or row.Status))
+			table.insert(lines, string.format("<b>%s</b> (%s)%s", row.Name, role, status))
+		end
+		resultsBody.Text = table.concat(lines, "\n")
+		results.Visible = true
+		task.delay(duration or 10, function()
+			results.Visible = false
+		end)
+	end
+
+	return self
+end
+
+return UI
+]]></string>
+          </Properties>
+        </Item>
+      </Item>
+    </Item>
+  </Item>
+</roblox>
