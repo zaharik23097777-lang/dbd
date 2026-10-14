@@ -24,8 +24,9 @@ local lockerDoor: BasePart? = nil
 local spectateTarget: Player? = nil
 local appliedFX = CFrame.identity
 
--- Детали снаряжения маньяков, которые видны от первого лица
+-- Детали снаряжения маньяков, которые видны от первого лица (имена — из Art/KillerGear)
 local VIEWMODEL = {
+	-- оружие: тесак Траппера, топор Охотницы, дубина и колокол Призрака
 	Handle = true,
 	Blade = true,
 	BladeBlood = true,
@@ -33,6 +34,12 @@ local VIEWMODEL = {
 	Club = true,
 	Skull = true,
 	Bell = true,
+	-- снаряжение кистей и предплечий
+	Glove = true,
+	Wrap = true,
+	Bracer = true,
+	ArmWrap = true,
+	ArmRag = true,
 }
 
 function CameraController.shake(amount: number)
