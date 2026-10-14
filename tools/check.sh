@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Полная проверка: сборка, анализ типов (luau-lsp), все тесты Lune.
-#   tools/check.sh [test...]     (по умолчанию: map anim ui sim sim_edge)
+#   tools/check.sh [test...]     (по умолчанию: map anim ui audio sim sim_edge)
 # Переменные: TOOLS (папка с бинарниками), ROJO, LUNE, LUAU_LSP, LSP_DEFS (globalTypes.d.luau), TMPDIR
 set -uo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -27,7 +27,7 @@ if [ -f "$LSP_DEFS" ] && [ -x "$LUAU_LSP" ]; then
 	fi
 fi
 tests=("$@")
-[ ${#tests[@]} -eq 0 ] && tests=(map anim ui sim sim_edge)
+[ ${#tests[@]} -eq 0 ] && tests=(map anim ui audio sim sim_edge)
 for t in "${tests[@]}"; do
 	log="$WORK/$t.log"
 	if (cd "$ROOT" && "$LUNE" run "tests/$t.test.luau" "$PLACE") >"$log" 2>&1; then

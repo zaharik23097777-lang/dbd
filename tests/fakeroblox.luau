@@ -226,6 +226,7 @@ local EVENTS = {
 	Destroying = true,
 	ChildAdded = true,
 	ChildRemoved = true,
+	DescendantAdded = true,
 	CharacterAdded = true,
 	CharacterRemoving = true,
 	PlayerAdded = true,
@@ -289,6 +290,10 @@ local function defaultProp(self, key)
 		if d[key] ~= nil then
 			return d[key]
 		end
+	end
+	if cls == "Sound" and key == "IsLoaded" then
+		-- Звук «загружен», если тест не пометил его ID как битый (World.FailedAssets)
+		return not (World and World.FailedAssets and World.FailedAssets[rawget(self, "_props").SoundId])
 	end
 	if key == "Enabled" or key == "Visible" then
 		return true
@@ -784,6 +789,23 @@ function methods.BindActionAtPriority(_self, name, fn, _touch, _prio, ...)
 end
 function methods.UnbindAction(_self, name)
 	World.Actions[name] = nil
+end
+-- Поиск звуков Creator Store: без World.AudioSearch (функция params -> pages) — как без сети
+function methods.SearchAudioAsync(_self, params)
+	if World.AudioSearch then
+		return World.AudioSearch(params)
+	end
+	error("HTTP 403 (Forbidden): поиск звуков недоступен в эмуляторе")
+end
+-- Загрузка ресурсов: ID из World.FailedAssets не загружаются
+function methods.PreloadAsync(_self, list, callback)
+	for _, item in list do
+		local id = isFake[item] and item.SoundId or item
+		local failed = World.FailedAssets and World.FailedAssets[id]
+		if callback then
+			callback(id, failed and roblox.Enum.AssetFetchStatus.Failure or roblox.Enum.AssetFetchStatus.Success)
+		end
+	end
 end
 -- Terrain: записываем заливки (для превью и тестов)
 local function terrainFill(kind)

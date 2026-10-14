@@ -79,16 +79,23 @@ Config.BlindDuration = 2.5
 Config.ChestItemWeights = { Medkit = 40, Toolbox = 35, Flashlight = 25 }
 
 -- Радиус ужаса и звук
+-- Порядок выбора звука: SoundOverrides -> найденный в библиотеке Creator Store -> встроенный синтез.
 Config.SoundOverrides = {
-	-- Сюда можно вставить ID звуков из Toolbox (вкладка Audio), например:
+	-- Сюда можно вставить ID звуков из Toolbox (вкладка Audio): число, "rbxassetid://..." или список вариантов:
 	-- Heartbeat = "rbxassetid://1234567",
 	-- ChaseMusic = "rbxassetid://...",
-	-- Lullaby = "rbxassetid://...",
-	-- AmbientMusic = "rbxassetid://...",
-	-- Scream = "rbxassetid://...",
-	-- Bell = "rbxassetid://...",
-	-- Crow = "rbxassetid://...",
+	-- FootstepDirt = { "rbxassetid://...", "rbxassetid://..." },
+	-- Имена всех слотов — в src/shared/Sounds.lua
 }
+Config.SoundLibraryEnabled = true -- искать настоящие звуки (AssetService:SearchAudioAsync) при старте сервера
+Config.SoundSearchTimeLimit = 120 -- секунд на весь поиск, дальше — встроенные звуки
+Config.SoundSearchWorkers = 2 -- сколько запросов поиска идёт одновременно
+Config.SoundSearchRetries = 2 -- повторов при ошибке (с нарастающей паузой)
+Config.SoundSearchInterval = 0.5 -- секунд между запросами поиска (на весь сервер), чтобы не упереться в лимит
+Config.SoundLoadTimeout = 10 -- секунд на загрузку найденного звука на клиенте, иначе — встроенный
+Config.MaxSounds = 36 -- одновременно звучащих одноразовых звуков на ПК
+Config.MaxSoundsMobile = 18 -- то же на телефонах и планшетах
+Config.SoundGroupVolumes = { Master = 1, SFX = 1, Ambience = 0.75, Music = 0.7, Voice = 1, UI = 0.8 }
 Config.ChaseDistance = 26
 
 -- Вид маньяка от первого лица, как в оригинале
