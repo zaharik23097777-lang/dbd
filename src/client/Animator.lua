@@ -41,7 +41,12 @@ local LOD = {
 	SnapAfter = 0.5, -- после такого перерыва поза ставится сразу, без пружин
 }
 
-type Shot = { Name: string, Def: any, Start: number }
+-- Cut — момент отмены: слой не обрывается, а плавно уходит за CUT_FADE
+type Shot = { Name: string, Def: any, Start: number, Cut: number? }
+
+local CUT_FADE = 0.22 -- с: плавная отмена одноразовой анимации (Cancel)
+local ACTION_FADE_IN = 0.3 -- с: вход в действие (присесть к генератору и т.п.)
+local ACTION_FADE_OUT = 0.25 -- с: выход из действия
 
 type Entry = {
 	Char: Model,
@@ -63,6 +68,12 @@ type Entry = {
 	Pending: number,
 	Pose: { [string]: any },
 	Concealed: boolean?,
+	Action: string?, -- текущее действие и когда оно началось (клипы действий идут от начала)
+	ActionStart: number,
+	PrevAction: string?, -- закончившееся действие, пока его слой плавно уходит
+	PrevStart: number,
+	PrevEnd: number,
+	RunAt: number, -- когда последний раз бежал (быстрый прыжок через окно)
 }
 
 -- Спрятавшийся в шкафчике шире шкафчика: другим игрокам его не видно (как в DBD)
@@ -104,6 +115,10 @@ local function register(char: Instance)
 		-- случайный сдвиг, чтобы редко обновляемые персонажи не считались в одном кадре
 		Pending = math.random() * 0.1,
 		Pose = {},
+		ActionStart = 0,
+		PrevStart = 0,
+		PrevEnd = 0,
+		RunAt = -math.huge,
 	}
 	entries[char] = entry
 	char.Destroying:Connect(function()
@@ -121,7 +136,10 @@ end
 
 local function startShot(entry: Entry, name: string, t: number)
 	if name == "Cancel" then
-		entry.Shot = nil
+		local shot = entry.Shot
+		if shot and not shot.Cut then
+			shot.Cut = t
+		end
 		return
 	end
 	local def = Poses.OneShot[name]
@@ -252,6 +270,9 @@ local function choosePose(entry: Entry, t: number, dt: number, killerRoot: BaseP
 	end
 
 	conceal(entry, char ~= player.Character and attr("Hidden") == true)
+	if attr("Running") then
+		entry.RunAt = t
+	end
 
 	local base
 	local action = attr("ActionName")
@@ -274,10 +295,27 @@ local function choosePose(entry: Entry, t: number, dt: number, killerRoot: BaseP
 	end
 	-- своя таблица позы: слои кладутся в неё, не трогая возвращённые позы
 	local pose = Clip.copy(base, entry.Pose)
+	-- действие: клип идёт от начала действия, слой плавно входит и плавно уходит
+	if action ~= entry.Action then
+		if entry.Action and Poses.Action[entry.Action] then
+			entry.PrevAction, entry.PrevStart, entry.PrevEnd = entry.Action, entry.ActionStart, t
+		end
+		entry.Action, entry.ActionStart = action, t
+	end
 	if locomotion then
+		local prev = entry.PrevAction
+		if prev then
+			local k = (t - entry.PrevEnd) / ACTION_FADE_OUT
+			if k >= 1 then
+				entry.PrevAction = nil
+			else
+				Clip.layer(pose, Poses.Action[prev](t - entry.PrevStart, p), Clip.Ease.SineInOut(1 - k))
+			end
+		end
 		local actionPose = action and Poses.Action[action]
 		if actionPose then
-			Clip.layer(pose, actionPose(t, p), 1)
+			local e = t - entry.ActionStart
+			Clip.layer(pose, actionPose(e, p), Clip.Ease.SineInOut(math.min(e / ACTION_FADE_IN, 1)))
 		end
 		if attr("Item") == "Flashlight" and attr("ItemActive") then
 			pose.RArm = Poses.A(92 + math.sin(t * 3) * 2, 0, 4)
@@ -291,7 +329,8 @@ local function choosePose(entry: Entry, t: number, dt: number, killerRoot: BaseP
 		local name = char:GetAttribute("Anim")
 		local loc = entry.LocalShot
 		if not (loc and loc.Name == name and os.clock() - loc.At < 0.5) and typeof(name) == "string" then
-			startShot(entry, name, t)
+			-- сервер шлёт одно имя на разные длительности (прыжок с бега/шагом, колокол)
+			startShot(entry, Poses.shotVariant(name, t - entry.RunAt < 0.4, attr("PowerState")), t)
 		end
 	end
 	local stiffness = 1
@@ -299,12 +338,14 @@ local function choosePose(entry: Entry, t: number, dt: number, killerRoot: BaseP
 	if shot then
 		local def = shot.Def
 		local elapsed = t - shot.Start
-		if elapsed >= def.Duration or (shot.Name == "Windup" and attr("PowerCharge") == 0 and elapsed > 0.3) then
+		if not shot.Cut and shot.Name == "Windup" and attr("PowerCharge") == 0 and elapsed > 0.3 then
+			shot.Cut = t
+		end
+		local cut = shot.Cut and (t - shot.Cut) / CUT_FADE or 0
+		if elapsed >= def.Duration or cut >= 1 then
 			entry.Shot = nil
 		else
-			local w = Clip.weight(def, elapsed)
-			Clip.layer(pose, def.Fn(elapsed / def.Duration, p), w, def.Additive)
-			stiffness = 1 + ((def.Stiffness or 1) - 1) * w
+			stiffness = Poses.applyShot(pose, def, elapsed, p, 1 - Clip.Ease.SineInOut(cut))
 		end
 	end
 	return pose, stiffness
