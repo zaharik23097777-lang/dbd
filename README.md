@@ -57,27 +57,44 @@ rojo build -o DeadByDaylight.rbxlx
 - **Ворота** и **обрушение Сущности** (2 минуты), **люк** для последнего выжившего (маньяк может закрыть).
 - **Очки крови** по категориям (Цели, Выживание, Альтруизм, Смелость / Жестокость, Коварство, Охота, Жертвоприношение).
 
+## Графика
+Всё построено кодом из деталей, материалов, частиц и ландшафта (Terrain) — загружать модели не нужно.
+Объекты карты (генератор, крюк с лапами Сущности, ворота, люк, паллеты, шкафчики, тотемы, сундуки, капканы, вороны)
+собираются один раз при старте сервера в шаблоны (`src/server/Map/Art/Props/*`, по 2–3 варианта) и копируются
+на карту. Природа (ели, сухие деревья, камни, кукуруза, трава, лес за стенами), постройки, маньяки
+(маска Траппера с тесаком, Охотница в маске кролика, Призрак в бинтах с колоколом) и предметы — в `src/server/Map/Art/`.
+Бюджеты деталей рассчитаны на ПК и телефоны: мелочь без столкновений и теней, мало источников света.
+
 ## Анимации
-Все анимации R6 **процедурные** — их считает код (`src/shared/Anim/Poses.lua`), загружать ничего не нужно:
-ходьба/бег, хромота раненого, присед, ползание, перенос на плече, висение на крюке, ремонт, лечение,
-перелезание, удар с замахом, оглушение, ослепление, бросок топора, колокол Призрака, сидение у костра и другие.
+Все анимации R6 **процедурные** — их считает код (`src/shared/Anim/`), загружать ничего не нужно:
+- `Gait` — походка: ходьба, бег, спринт, хромота, присед, тяжёлый шаг маньяка, перенос; стопы ставятся на землю,
+  корпус наклоняется при разгоне и поворотах, голова стабилизируется;
+- `Spring` — пружины суставов (естественное догоняние позы с лёгким перехлёстом);
+- `Clip` — клипы по ключевым кадрам с плавностью; `States` — ползание, крюк, шкафчик, капкан, перенос, сидение;
+- далёкие и невидимые персонажи обновляются реже (экономия на телефонах).
 Персонажи всегда R6 — игра сама создаёт их из аватара игрока.
 
 ## Звук
-По умолчанию используются **звуки, встроенные в клиент Roblox** — они гарантированно работают в любой игре.
-Сердцебиение, взрывы генераторов, удары, колокол и т.д. собраны из них с помощью высоты тона и эффектов.
-Чтобы поставить свои звуки, найди их в Studio (Toolbox → Audio) и впиши ID в `Config.SoundOverrides`
-в `src/shared/Config.lua`:
+При старте сервер ищет **настоящие звуки** в открытой библиотеке Roblox (Creator Store) через
+`AssetService:SearchAudioAsync` — по ключевым словам для каждого слота (шаги по траве/дереву/металлу/камню,
+сердцебиение, музыка погони, колыбельная, крики, генератор, сирена ворот, ветер, сверчки, вороны, гром…).
+Если поиск недоступен (Studio без доступа к API, нет сети) или звук не загрузился — играет запасной вариант,
+собранный из звуков, встроенных в клиент Roblox. Порядок выбора: `Config.SoundOverrides` → найденный в библиотеке →
+встроенный. Микшер: группы Master / SFX / Ambience / Music / Voice / UI с эквалайзером и реверберацией,
+окружение приглушается во время погони и в шкафчике; на телефонах меньше одновременных звуков.
+
+Свои звуки — ID в `Config.SoundOverrides` (`src/shared/Config.lua`), остальные настройки там же
+(`SoundLibraryEnabled`, `SoundSearchTimeLimit`, `SoundGroupVolumes`, `MaxSounds`…):
 ```lua
 Config.SoundOverrides = {
 	Heartbeat = "rbxassetid://...",   -- сердцебиение
 	ChaseMusic = "rbxassetid://...",  -- музыка погони
 	Lullaby = "rbxassetid://...",     -- колыбельная Охотницы
-	AmbientMusic = "rbxassetid://...",
 	Scream = "rbxassetid://...",
 }
 ```
-Все имена звуков — в `src/shared/Sounds.lua`.
+Все слоты и ключевые слова поиска — в `src/shared/Sounds.lua`. Найденные звуки могут отличаться на разных
+серверах; понравившиеся лучше закрепить в `SoundOverrides`.
 
 ## Настройка
 Весь баланс (скорости, время ремонта, таймеры крюков, предметы, радиусы) — в `src/shared/Config.lua`,
@@ -86,22 +103,28 @@ Config.SoundOverrides = {
 ## Структура
 ```
 src/shared/        Config, Remotes, KillerDefs, ItemDefs, ActionInfo, Sounds, Util
-src/shared/Anim/   Rig (математика суставов R6), Poses (все позы)
-src/server/Core/   State, Actions (реестр действий), Match, Characters (R6), Lifecycle, Scoring, Lobby
+src/shared/Anim/   Rig, Spring, Clip, Gait (походка), States, Poses (разовые движения и действия)
+src/server/Core/   State, Actions (реестр действий), Match, Characters (R6), Lifecycle, Scoring, Lobby, SoundLibrary
 src/server/Systems Health, Carry (крюки), Combat, Generators, Exits (ворота/люк), Obstacles (паллеты/окна),
                    Lockers, Totems, Items, Crows, Chase
 src/server/Powers/ Trapper, Huntress, Wraith
-src/server/Map/    MapBuilder (раскладка карты), PropFX (состояния объектов), Terrain, Art/* (модели)
+src/server/Map/    MapBuilder (раскладка карты), PropFX (состояния объектов), Terrain
+src/server/Map/Art Kit (инструменты), Templates, Contract (что нужно логике), Props/*, Structures/*,
+                   Nature*, Lobby*, KillerGear, Items
 src/client/        Animator, CameraController, Audio, Effects, Auras, Interaction, Input, UI/*
-tests/             проверки для Lune (карта, анимации, интерфейс)
+tests/             проверки для Lune (карта, анимации, интерфейс, звук, полные матчи)
+tools/             check.sh (все проверки), preview/ (рендер превью моделей и поз в PNG)
 ```
 
 ## Проверки
 ```
+tools/check.sh                                  # всё сразу: сборка, типы (luau-lsp), все тесты
+tools/preview/preview.sh out.png template all   # превью всех объектов карты в PNG
 rojo build -o build.rbxlx
 lune run tests/map.test.luau build.rbxlx       # карта на 20 разных сидах
 lune run tests/anim.test.luau build.rbxlx      # суставы R6 и все позы
 lune run tests/ui.test.luau build.rbxlx        # интерфейс на реальной базе свойств Roblox
+lune run tests/audio.test.luau build.rbxlx     # поиск звуков, запасные варианты, микшер
 lune run tests/sim.test.luau build.rbxlx       # 3 полных матча (сервер + клиент) в эмуляторе
 lune run tests/sim_edge.test.luau build.rbxlx  # пограничные случаи: выходы, смерти, люк, предметы...
 ```
