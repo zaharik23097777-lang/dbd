@@ -20,7 +20,7 @@ local function spawnCrow()
 	end
 	local spot = spots[rng:NextInteger(1, #spots)]
 	local cf = spot * CFrame.Angles(0, rng:NextNumber(0, math.pi * 2), 0)
-	local model = Templates.spawn("Crow", cf, State.Map.Crows)
+	local model = Templates.spawn("Crow", cf, State.Map.Crows, rng)
 	table.insert(crows, { Model = model, Pos = cf.Position })
 end
 

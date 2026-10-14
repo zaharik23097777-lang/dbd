@@ -62,7 +62,21 @@ type Entry = {
 	Seed: number,
 	Pending: number,
 	Pose: { [string]: any },
+	Concealed: boolean?,
 }
+
+-- Спрятавшийся в шкафчике шире шкафчика: другим игрокам его не видно (как в DBD)
+local function conceal(entry: Entry, on: boolean)
+	if (entry.Concealed or false) == on then
+		return
+	end
+	entry.Concealed = on
+	for _, d in entry.Char:GetDescendants() do
+		if d:IsA("BasePart") or d:IsA("Decal") then
+			(d :: any).LocalTransparencyModifier = on and 1 or 0
+		end
+	end
+end
 
 local entries = {} :: { [Model]: Entry }
 
@@ -236,6 +250,8 @@ local function choosePose(entry: Entry, t: number, dt: number, killerRoot: BaseP
 			Audio.footstep(char, isKiller, speed, crouching)
 		end
 	end
+
+	conceal(entry, char ~= player.Character and attr("Hidden") == true)
 
 	local base
 	local action = attr("ActionName")

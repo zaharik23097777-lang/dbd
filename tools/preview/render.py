@@ -222,7 +222,8 @@ def render_view(scene, view, size, ground=True):
     px = np.linspace(-half_w, half_w, W)
     py = np.linspace(half_w, -half_w, H)
     gx, gy = np.meshgrid(px, py)
-    origin = center[None, :] - d[None, :] * 1000.0
+    # луч стартует рядом со сценой: при 1000 стадах float32-матрицы портят проверку шаров
+    origin = center[None, :] - d[None, :] * (np.linalg.norm(hi - lo) / 2 + 10.0)
     ro = origin + (gx.reshape(-1, 1) * right[None, :]) + (gy.reshape(-1, 1) * up[None, :])
     n = W * H
     depth = np.full(n, np.inf)

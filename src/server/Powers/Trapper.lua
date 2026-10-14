@@ -41,7 +41,7 @@ function Trapper.Setup(kdata)
 		spots[i], spots[j] = spots[j], spots[i]
 	end
 	for i = 1, math.min(DEF.TrapsOnMap, #spots) do
-		local trap = Templates.spawn("Trap", spots[i] * CFrame.Angles(0, rng:NextNumber(0, math.pi * 2), 0), map.Traps)
+		local trap = Templates.spawn("Trap", spots[i] * CFrame.Angles(0, rng:NextNumber(0, math.pi * 2), 0), map.Traps, rng)
 		trap:SetAttribute("Owner", kdata.Player.UserId)
 	end
 end

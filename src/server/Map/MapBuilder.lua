@@ -93,7 +93,7 @@ function MapBuilder.BuildMap(seed: number?): MapData
 	Structures.outerWalls(map, size, 16)
 	for i, side in { 1, -1 } do
 		local gateCF = CFrame.new(0, 0, side * half) * A(0, side == 1 and 0 or 180, 0)
-		local gate = Templates.spawn("ExitGate", gateCF, map.ExitGates)
+		local gate = Templates.spawn("ExitGate", gateCF, map.ExitGates, rng)
 		gate.Name = "ExitGate" .. i
 	end
 
@@ -161,7 +161,7 @@ function MapBuilder.BuildMap(seed: number?): MapData
 
 	-- Люк
 	local hatchCF = nextCell()
-	map.Hatch = Templates.spawn("Hatch", hatchCF, map.Model)
+	map.Hatch = Templates.spawn("Hatch", hatchCF, map.Model, rng)
 
 	-- Тотемы (один — проклятый) и сундуки
 	shuffle(map.TotemSpots, rng)

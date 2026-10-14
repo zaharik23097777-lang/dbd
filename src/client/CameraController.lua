@@ -20,7 +20,8 @@ local fovPunch = 0
 local mode = ""
 local bob = 0
 local lockerMode = false
-local lockerDoor: BasePart? = nil
+local lockerDoor: Model? = nil
+local lockerDoorParts: { BasePart } = {}
 local spectateTarget: Player? = nil
 local appliedFX = CFrame.identity
 
@@ -138,17 +139,28 @@ local function findLocker(): Model?
 	return nil
 end
 
-local function setLockerDoor(door: BasePart?)
-	if lockerDoor == door then
+-- Все детали двери шкафчика (группа LockerDoor), сквозь которые смотрит спрятавшийся
+local function setLockerDoor(locker: Model?)
+	if lockerDoor == locker then
 		return
 	end
-	if lockerDoor and lockerDoor.Parent then
-		lockerDoor.LocalTransparencyModifier = 0
+	if lockerDoor then
+		for _, part in lockerDoorParts do
+			if part.Parent then
+				part.LocalTransparencyModifier = 0
+			end
+		end
 	end
-	lockerDoor = door
-	if door then
+	lockerDoor = locker
+	lockerDoorParts = {}
+	if locker then
 		-- Изнутри видно сквозь щели
-		door.LocalTransparencyModifier = 0.7
+		for _, d in locker:GetDescendants() do
+			if d:IsA("BasePart") and (d:GetAttribute("FX") == "LockerDoor" or d.Name == "Door") then
+				d.LocalTransparencyModifier = 0.7
+				table.insert(lockerDoorParts, d)
+			end
+		end
 	end
 end
 
@@ -201,7 +213,7 @@ function CameraController.update(dt: number)
 			lockerMode = true
 			camera.CameraType = Enum.CameraType.Scriptable
 		end
-		setLockerDoor(locker:FindFirstChild("Door") :: BasePart?)
+		setLockerDoor(locker)
 		local look = inside.CFrame * CFrame.new(0, 1.8, -0.4)
 		local sway = CFrame.Angles(math.sin(os.clock() * 0.7) * 0.02, math.sin(os.clock() * 0.5) * 0.08, 0)
 		camera.CFrame = camera.CFrame:Lerp(look * sway, math.min(dt * 6, 1))
