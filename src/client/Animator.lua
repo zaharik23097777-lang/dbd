@@ -77,6 +77,9 @@ type Entry = {
 }
 
 -- Спрятавшийся в шкафчике шире шкафчика: другим игрокам его не видно (как в DBD)
+-- Снимаем только своё скрытие (= 1): Effects.updateCloak (RenderStepped, раньше нас в кадре)
+-- мог уже поставить свою прозрачность — маньяк вытащил из шкафчика: Hidden и Status = Carried
+-- приходят вместе, и обнуление здесь навсегда перебило бы его 0.75 (он кэширует значение).
 local function conceal(entry: Entry, on: boolean)
 	if (entry.Concealed or false) == on then
 		return
@@ -84,7 +87,12 @@ local function conceal(entry: Entry, on: boolean)
 	entry.Concealed = on
 	for _, d in entry.Char:GetDescendants() do
 		if d:IsA("BasePart") or d:IsA("Decal") then
-			(d :: any).LocalTransparencyModifier = on and 1 or 0
+			local v = d :: any
+			if on then
+				v.LocalTransparencyModifier = 1
+			elseif v.LocalTransparencyModifier == 1 then
+				v.LocalTransparencyModifier = 0
+			end
 		end
 	end
 end
