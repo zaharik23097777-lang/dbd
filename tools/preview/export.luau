@@ -129,6 +129,7 @@ local function addScene(title, root, opts)
 		count = Fake.isFake[root] and count(root) or nil,
 		views = opts.views,
 		ground = opts.ground ~= false,
+		groundPlane = opts.groundPlane or (opts.groundPlane == nil and (MODE == "template" or MODE == "structure" or MODE == "nature")),
 	})
 end
 

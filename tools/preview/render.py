@@ -207,6 +207,19 @@ def render_view(scene, view, size, ground=True):
     # границы сцены (детали без «земли», чтобы кадр был по модели)
     model_prims = [p for p in prims if not p.get("terrain")] or prims
     allc = np.concatenate([prim_corners(p) for p in model_prims])
+    if scene.get("groundPlane"):
+        # земля на y = 0 (как ландшафт в игре): закрывает утопленные в землю части
+        glo, ghi = allc.min(axis=0), allc.max(axis=0)
+        gx0, gz0 = (glo[0] + ghi[0]) / 2, (glo[2] + ghi[2]) / 2
+        prims.append({
+            "shape": "Block",
+            "cf": [gx0, -0.05, gz0, 1, 0, 0, 0, 1, 0, 0, 0, 1],
+            "size": [ghi[0] - glo[0] + 3, 0.1, ghi[2] - glo[2] + 3],
+            "color": [0.2, 0.22, 0.17],
+            "material": "SmoothPlastic",
+            "transparency": 0,
+            "terrain": True,
+        })
     if ground and not scene.get("terrain"):
         lo = allc.min(axis=0)
         hi = allc.max(axis=0)

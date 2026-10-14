@@ -235,13 +235,15 @@ local function grave(map, g: CFrame, h: number, rng: Random)
 		end
 	end
 	main.Name = "Tombstone"
-	-- холмик: два клина гребнем вдоль могилы (иногда осевший)
+	-- холмик: округлый — лежащий вдоль могилы цилиндр, утопленный в землю (иногда осевший),
+	-- и пологий скат земли в ногах
 	local mound = g * C(rng:NextNumber(-0.15, 0.15), 0, -2.0) * A(0, rng:NextNumber(-4, 4), 0)
 	local earth = Kit.jitter(Color3.fromRGB(58, 46, 36), 0.06, rng)
 	local mh = rng:NextNumber(0.22, 0.4)
-	for _, s in { -1, 1 } do
-		Kit.wedge(map.Decor, mound * C(s * 0.45, mh / 2 - 0.02, 0) * A(0, -s * 90, 0), V(3.0, mh, 0.9), earth, Mat.Ground, DECOR)
-	end
+	local d = 1.9
+	Kit.cyl(map.Decor, mound * C(0, mh - d / 2, 0) * A(0, 90, 0), 3.0, d, earth, Mat.Ground, DECOR)
+	local foot = 2 * math.sqrt(math.max((d / 2) ^ 2 - (d / 2 - mh) ^ 2, 0.01))
+	Kit.wedge(map.Decor, mound * C(0, mh / 2 - 0.02, -1.5 - 0.35), V(foot * 0.9, mh, 0.7), Kit.dark(earth, 0.05), Mat.Ground, DECOR)
 	if kind == 1 and rng:NextNumber() < 0.5 then
 		-- погасшая лампадка у камня
 		Kit.vcyl(map.Decor, g * C(rng:NextNumber(-0.6, 0.6), 0.25, -0.55), 0.5, 0.26, Kit.jitter(Color3.fromRGB(150, 54, 40), 0.08, rng), Mat.Glass, DECOR)

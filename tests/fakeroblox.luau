@@ -1021,12 +1021,25 @@ WorldMT.__index = WorldMT
 
 local RandomShim = {}
 RandomShim.__index = RandomShim
+-- Умножение по модулю 2^32 без потери точности (частичные произведения < 2^53)
+local function mul32(a, b)
+	local alo, ahi = a % 65536, math.floor(a / 65536)
+	local blo, bhi = b % 65536, math.floor(b / 65536)
+	return ((alo * bhi + ahi * blo) % 65536 * 65536 + alo * blo) % 4294967296
+end
+-- Нелинейное перемешивание сида (fmix32 из MurmurHash3): у MINSTD первые числа почти линейно
+-- зависят от сида, и при сидах 1, 2, 3... в превью и тестах выбирался один и тот же вариант
+local function fmix32(h)
+	h = bit32.bxor(h, bit32.rshift(h, 16))
+	h = mul32(h, 0x85ebca6b)
+	h = bit32.bxor(h, bit32.rshift(h, 13))
+	h = mul32(h, 0xc2b2ae35)
+	return bit32.bxor(h, bit32.rshift(h, 16))
+end
 function RandomShim.new(seed)
 	local self = setmetatable({}, RandomShim)
-	self.state = math.floor((seed or 12345) % 2147483647)
-	if self.state <= 0 then
-		self.state = 12345
-	end
+	local s = fmix32(math.floor(seed or 12345) % 4294967296) % 2147483647
+	self.state = s > 0 and s or 12345
 	return self
 end
 function RandomShim:_next()
