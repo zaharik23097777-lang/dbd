@@ -18,6 +18,7 @@ local Audio = require(script.Parent.Audio)
 local CameraController = require(script.Parent.CameraController)
 local Effects = require(script.Parent.Effects)
 local Auras = require(script.Parent.Auras)
+local Atmosphere = require(script.Parent.Atmosphere)
 local Interaction = require(script.Parent.Interaction)
 local Input = require(script.Parent.Input)
 
@@ -65,6 +66,14 @@ Remotes.Results.OnClientEvent:Connect(function(title, reason, rows)
 	Results.show(title, reason, rows, Config.ResultsTime)
 end)
 
+local INTRO_QUOTES = {
+	"Сущность голодна. Туман не выпустит никого.",
+	"Здесь нет рассвета. Только ночь, крюки и крики.",
+	"Кто-то уже смотрит на тебя из темноты.",
+	"Не беги слишком громко. Он слышит.",
+	"Генераторы — единственная надежда. Если успеешь.",
+}
+
 Remotes.Effect.OnClientEvent:Connect(function(name, value)
 	if name == "Shake" then
 		CameraController.shake(tonumber(value) or 0.5)
@@ -74,11 +83,16 @@ Remotes.Effect.OnClientEvent:Connect(function(name, value)
 		Hud.blind(tonumber(value) or 2)
 		CameraController.shake(0.3)
 	elseif name == "Intro" and typeof(value) == "table" then
+		Audio.play("EntityDrone")
+		Audio.play("TerrorStinger", nil, 0.7)
+		local quote = INTRO_QUOTES[math.random(1, #INTRO_QUOTES)]
 		if value.Role == "Killer" then
-			Hud.intro("Ты — " .. tostring(value.KillerName), "Принеси их в жертву Сущности")
+			Hud.intro("Ты — " .. tostring(value.KillerName), "Принеси их в жертву Сущности", quote)
 		else
-			Hud.intro("Выживи", "Маньяк: " .. tostring(value.KillerName))
+			Hud.intro("Выживи", "Маньяк: " .. tostring(value.KillerName), quote)
 		end
+	elseif name == "Scare" then
+		Atmosphere.scare(tonumber(value) or 1)
 	end
 end)
 
@@ -250,6 +264,7 @@ RunService.RenderStepped:Connect(function(dt)
 	spectateButton.Text = target and ("Следующий (" .. target.DisplayName .. ")") or "Наблюдать"
 
 	Auras.update()
+	Atmosphere.update(dt)
 	Effects.update(dt)
 	Audio.update(dt)
 	CameraController.update(dt)

@@ -73,8 +73,9 @@ function Harness.load(placePath)
 	local cache = {}
 	local env
 	local function requireModule(module)
-		if cache[module] ~= nil then
-			return cache[module]
+		local key = module:GetFullName()
+		if cache[key] ~= nil then
+			return cache[key]
 		end
 		assert(module.ClassName == "ModuleScript", "require() expects a ModuleScript, got " .. tostring(module))
 		local chunk = luau.load(module.Source, {
@@ -86,7 +87,7 @@ function Harness.load(placePath)
 			end)(),
 		})
 		local result = chunk()
-		cache[module] = result
+		cache[key] = result
 		return result
 	end
 	env = setmetatable({

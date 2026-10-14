@@ -129,6 +129,7 @@ Actions.register("SearchLocker", {
 			for _, sdata in State.Participants do
 				if sdata.Hidden == target and sdata.Status == "Playing" then
 					freeFromLocker(sdata, true)
+					State.effect(sdata.Player, "Scare", 1)
 					sdata.Health = 0
 					Carry.startCarry(data, sdata)
 					State.notifyAll(sdata.Player.DisplayName .. " вытащен из шкафчика!", State.RED)

@@ -1283,7 +1283,251 @@ function Props.lamp(parent: Instance, cf: CFrame)
 	light.Brightness = 2
 	light.Shadows = true
 	light.Face = Enum.NormalId.Bottom
+	light:SetAttribute("Flicker", true)
 	light.Parent = head
+end
+
+------------------------------------------------------------------------
+-- Ужасы: шипы Сущности, виселицы, ритуальные круги, кровь, черепа
+------------------------------------------------------------------------
+
+local ENTITY_BLACK = Color3.fromRGB(18, 10, 12)
+local ENTITY_RED = Color3.fromRGB(150, 14, 10)
+local BLOOD = Color3.fromRGB(70, 4, 4)
+
+-- Изогнутая «лапа» Сущности из сегментов: растёт из земли и загибается
+function Props.entityClaw(parent: Instance, cf: CFrame, length: number, bend: number, thick: number, decor: boolean?)
+	local segments = 5
+	local seg = length / segments
+	local cur = cf
+	for i = 1, segments do
+		local w = thick * (1 - (i - 1) / segments * 0.75)
+		local last = i == segments
+		P(parent, {
+			Name = "EntityClaw",
+			Size = Vector3.new(w, seg + 0.2, w),
+			CFrame = cur * CFrame.new(0, seg / 2, 0),
+			Color = last and ENTITY_RED or ENTITY_BLACK,
+			Material = last and Enum.Material.Neon or Enum.Material.Slate,
+			Decor = decor or i > 2,
+		})
+		cur = cur * CFrame.new(0, seg, 0) * A(-bend / segments, 0, 0)
+	end
+end
+
+-- Пучок шипов Сущности
+function Props.entitySpikes(parent: Instance, cf: CFrame, rng: Random, count: number?)
+	for _ = 1, count or rng:NextInteger(3, 6) do
+		local base = cf * CFrame.new(rng:NextNumber(-3, 3), -0.5, rng:NextNumber(-3, 3))
+			* A(rng:NextNumber(-25, 25), rng:NextNumber(0, 360), rng:NextNumber(-25, 25))
+		Props.entityClaw(parent, base, rng:NextNumber(5, 11), rng:NextNumber(20, 70), rng:NextNumber(0.5, 0.9))
+	end
+	P(parent, {
+		Name = "BlackGround",
+		Shape = Enum.PartType.Cylinder,
+		Size = Vector3.new(0.05, 9, 9),
+		CFrame = cf * CFrame.new(0, 0.03, 0) * A(0, 0, 90),
+		Color = Color3.fromRGB(12, 8, 8),
+		Decor = true,
+	})
+end
+
+-- Тело, висящее на цепи (cf — точка подвеса)
+function Props.hangingBody(parent: Instance, cf: CFrame, rng: Random)
+	local cloth = Color3.fromRGB(70, 62, 52):Lerp(Color3.fromRGB(40, 30, 28), rng:NextNumber())
+	local skin = Color3.fromRGB(120, 112, 100)
+	local tilt = cf * A(rng:NextNumber(-6, 6), rng:NextNumber(0, 360), rng:NextNumber(-6, 6))
+	for i = 1, 4 do
+		P(parent, {
+			Name = "Chain",
+			Size = Vector3.new(0.14, 0.5, 0.3),
+			CFrame = tilt * CFrame.new(0, -i * 0.45, 0) * A(0, i % 2 == 0 and 90 or 0, 0),
+			Color = Color3.fromRGB(60, 58, 55),
+			Material = Enum.Material.Metal,
+			Decor = true,
+		})
+	end
+	local body = tilt * CFrame.new(0, -2.2, 0)
+	P(parent, {
+		Name = "BodyHead",
+		Size = Vector3.new(1, 1, 1),
+		CFrame = body * CFrame.new(0, -0.6, -0.15) * A(-35, 0, 12),
+		Color = skin,
+		Decor = true,
+	})
+	P(parent, {
+		Name = "BodyTorso",
+		Size = Vector3.new(1.8, 2, 0.9),
+		CFrame = body * CFrame.new(0, -2.1, 0),
+		Color = cloth,
+		Material = Enum.Material.Fabric,
+		Decor = true,
+	})
+	P(parent, {
+		Name = "BodyBlood",
+		Size = Vector3.new(1.4, 1.2, 0.1),
+		CFrame = body * CFrame.new(0.1, -2.2, -0.47),
+		Color = BLOOD,
+		Decor = true,
+	})
+	for _, x in { -1.25, 1.25 } do
+		P(parent, {
+			Name = "BodyArm",
+			Size = Vector3.new(0.8, 2, 0.8),
+			CFrame = body * CFrame.new(x, -2.2, 0) * A(0, 0, x * 3),
+			Color = skin,
+			Decor = true,
+		})
+	end
+	for _, x in { -0.45, 0.45 } do
+		P(parent, {
+			Name = "BodyLeg",
+			Size = Vector3.new(0.85, 2, 0.85),
+			CFrame = body * CFrame.new(x, -4.1, 0) * A(rng:NextNumber(-8, 8), 0, 0),
+			Color = cloth:Lerp(Color3.new(0, 0, 0), 0.3),
+			Material = Enum.Material.Fabric,
+			Decor = true,
+		})
+	end
+	-- Лужа крови под телом
+	local ground = CFrame.new(body.Position.X, 0, body.Position.Z)
+	P(parent, {
+		Name = "BloodPool",
+		Shape = Enum.PartType.Cylinder,
+		Size = Vector3.new(0.05, 2.4, 2.4),
+		CFrame = ground * CFrame.new(0, 0.04, 0) * A(0, 0, 90),
+		Color = BLOOD,
+		Material = Enum.Material.Glass,
+		Decor = true,
+	})
+end
+
+-- Виселица с телом
+function Props.gallows(parent: Instance, cf: CFrame, rng: Random)
+	local wood = COLORS.DarkWood
+	for _, x in { -3, 3 } do
+		P(parent, {
+			Name = "GallowsPost",
+			Size = Vector3.new(0.8, 12, 0.8),
+			CFrame = cf * CFrame.new(x, 6, 0),
+			Color = wood,
+			Material = Enum.Material.Wood,
+		})
+	end
+	P(parent, {
+		Name = "GallowsBeam",
+		Size = Vector3.new(7.6, 0.8, 0.8),
+		CFrame = cf * CFrame.new(0, 12.2, 0),
+		Color = wood,
+		Material = Enum.Material.Wood,
+	})
+	Props.hangingBody(parent, cf * CFrame.new(rng:NextNumber(-1.2, 1.2), 11.8, 0), rng)
+	Props.bloodSplat(parent, cf * CFrame.new(0, 0, 2.5), rng)
+end
+
+-- Брызги и лужи крови на земле
+function Props.bloodSplat(parent: Instance, cf: CFrame, rng: Random)
+	for _ = 1, rng:NextInteger(3, 6) do
+		local r = rng:NextNumber(0.4, 1.8)
+		P(parent, {
+			Name = "Blood",
+			Shape = Enum.PartType.Cylinder,
+			Size = Vector3.new(0.05, r, r),
+			CFrame = cf * CFrame.new(rng:NextNumber(-2.5, 2.5), 0.04, rng:NextNumber(-2.5, 2.5)) * A(0, 0, 90),
+			Color = BLOOD:Lerp(Color3.new(0, 0, 0), rng:NextNumber(0, 0.4)),
+			Material = Enum.Material.Glass,
+			Decor = true,
+		})
+	end
+end
+
+-- Череп на колу
+function Props.skullPike(parent: Instance, cf: CFrame, rng: Random)
+	local h = rng:NextNumber(3.5, 5)
+	P(parent, {
+		Name = "Pike",
+		Size = Vector3.new(0.3, h, 0.3),
+		CFrame = cf * CFrame.new(0, h / 2, 0) * A(rng:NextNumber(-8, 8), 0, rng:NextNumber(-8, 8)),
+		Color = COLORS.DarkWood,
+		Material = Enum.Material.Wood,
+		Decor = true,
+	})
+	local skull = P(parent, {
+		Name = "PikeSkull",
+		Shape = Enum.PartType.Ball,
+		Size = Vector3.new(1, 1, 1),
+		CFrame = cf * CFrame.new(0, h + 0.2, 0) * A(rng:NextNumber(-20, 10), rng:NextNumber(0, 360), 0),
+		Color = COLORS.Bone,
+		Decor = true,
+	})
+	for _, x in { -0.2, 0.2 } do
+		P(parent, {
+			Name = "PikeEye",
+			Shape = Enum.PartType.Ball,
+			Size = Vector3.new(0.28, 0.28, 0.28),
+			CFrame = skull.CFrame * CFrame.new(x, 0.06, -0.4),
+			Color = COLORS.Black,
+			Decor = true,
+		})
+	end
+end
+
+-- Ритуальный круг: свечи, кости, кровь и мерцающий свет
+function Props.ritualCircle(parent: Instance, cf: CFrame, rng: Random)
+	local n = 9
+	for i = 1, n do
+		local a = i / n * math.pi * 2
+		local h = rng:NextNumber(0.5, 1.2)
+		local candle = P(parent, {
+			Name = "RitualCandle",
+			Size = Vector3.new(0.3, h, 0.3),
+			CFrame = cf * CFrame.new(math.cos(a) * 4, h / 2, math.sin(a) * 4),
+			Color = Color3.fromRGB(220, 205, 170),
+			Decor = true,
+		})
+		P(parent, {
+			Name = "Flame",
+			Size = Vector3.new(0.14, 0.3, 0.14),
+			CFrame = candle.CFrame * CFrame.new(0, h / 2 + 0.15, 0),
+			Color = Color3.fromRGB(255, 150, 60),
+			Material = Enum.Material.Neon,
+			Decor = true,
+		})
+	end
+	P(parent, {
+		Name = "RitualRing",
+		Shape = Enum.PartType.Cylinder,
+		Size = Vector3.new(0.05, 7, 7),
+		CFrame = cf * CFrame.new(0, 0.04, 0) * A(0, 0, 90),
+		Color = Color3.fromRGB(50, 3, 3),
+		Material = Enum.Material.Glass,
+		Decor = true,
+	})
+	for _ = 1, 6 do
+		P(parent, {
+			Name = "Bone",
+			Shape = Enum.PartType.Cylinder,
+			Size = Vector3.new(rng:NextNumber(0.8, 1.6), 0.22, 0.22),
+			CFrame = cf * CFrame.new(rng:NextNumber(-2, 2), 0.15, rng:NextNumber(-2, 2)) * A(0, rng:NextNumber(0, 180), 0),
+			Color = COLORS.Bone,
+			Decor = true,
+		})
+	end
+	Props.skullPike(parent, cf, rng)
+	local glow = P(parent, {
+		Name = "RitualGlow",
+		Size = Vector3.new(0.2, 0.2, 0.2),
+		CFrame = cf * CFrame.new(0, 1.2, 0),
+		Transparency = 1,
+		Decor = true,
+	})
+	local light = Instance.new("PointLight")
+	light.Color = Color3.fromRGB(255, 110, 50)
+	light.Range = 16
+	light.Brightness = 1.6
+	light.Shadows = true
+	light:SetAttribute("Flicker", true)
+	light.Parent = glow
 end
 
 -- Низкий туман
@@ -1297,15 +1541,15 @@ function Props.fog(parent: Instance, pos: Vector3, rng: Random)
 	})
 	local e = Instance.new("ParticleEmitter")
 	e.Texture = SMOKE_TEX
-	e.Color = ColorSequence.new(Color3.fromRGB(150, 155, 170))
-	e.Size = NumberSequence.new(8, 14)
+	e.Color = ColorSequence.new(Color3.fromRGB(120, 125, 140))
+	e.Size = NumberSequence.new(9, 16)
 	e.Transparency = NumberSequence.new({
 		NumberSequenceKeypoint.new(0, 1),
-		NumberSequenceKeypoint.new(0.3, 0.88),
+		NumberSequenceKeypoint.new(0.3, 0.84),
 		NumberSequenceKeypoint.new(1, 1),
 	})
 	e.Lifetime = NumberRange.new(10, 16)
-	e.Rate = 0.6
+	e.Rate = 0.8
 	e.Speed = NumberRange.new(0.3, 1)
 	e.SpreadAngle = Vector2.new(180, 10)
 	e.Rotation = NumberRange.new(0, 360)

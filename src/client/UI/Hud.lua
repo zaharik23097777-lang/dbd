@@ -38,6 +38,38 @@ local powerInfo: TextLabel
 local powerBar
 local controls: TextLabel
 local notifyOrder = 0
+local darkEdges = {}
+local bloodEdges = {}
+local flashOverlay: Frame
+local fateText: TextLabel
+local fateSub: TextLabel
+
+-- Четыре рамки с градиентом от края экрана к центру (виньетка)
+local function edgeFrames(color: Color3, thickness: number, zindex: number)
+	local list = {}
+	for _, data in
+		{
+			{ UDim2.fromScale(1, thickness), UDim2.fromScale(0, 0), 90 },
+			{ UDim2.fromScale(1, thickness), UDim2.fromScale(0, 1 - thickness), -90 },
+			{ UDim2.fromScale(thickness * 0.8, 1), UDim2.fromScale(0, 0), 0 },
+			{ UDim2.fromScale(thickness * 0.8, 1), UDim2.fromScale(1 - thickness * 0.8, 0), 180 },
+		}
+	do
+		table.insert(
+			list,
+			new("Frame", {
+				Parent = gui,
+				Size = data[1],
+				Position = data[2],
+				BackgroundColor3 = color,
+				BorderSizePixel = 0,
+				BackgroundTransparency = 1,
+				ZIndex = zindex,
+			}, { new("UIGradient", { Rotation = data[3], Transparency = NumberSequence.new(0, 1) }) })
+		)
+	end
+	return list
+end
 
 function Hud.mount(playerGui: PlayerGui)
 	gui = new("ScreenGui", {
@@ -48,6 +80,10 @@ function Hud.mount(playerGui: PlayerGui)
 		Parent = playerGui,
 	})
 	Hud.Gui = gui
+
+	-- Тёмная виньетка (всегда) и кровь по краям (ранен / повержен / на крюке)
+	darkEdges = edgeFrames(Color3.new(0, 0, 0), 0.3, 0)
+	bloodEdges = edgeFrames(Color3.fromRGB(90, 0, 0), 0.26, 0)
 
 	-- Красная виньетка радиуса ужаса
 	for _, data in
@@ -231,6 +267,38 @@ function Hud.mount(playerGui: PlayerGui)
 		BackgroundTransparency = 1,
 		ZIndex = 20,
 	})
+	flashOverlay = new("Frame", {
+		Parent = gui,
+		Size = UDim2.fromScale(1, 1),
+		BackgroundColor3 = Color3.new(0, 0, 0),
+		BackgroundTransparency = 1,
+		ZIndex = 25,
+	})
+	fateText = label({
+		Parent = gui,
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.fromScale(0.5, 0.42),
+		Size = UDim2.new(0.9, 0, 0, 90),
+		TextSize = 64,
+		Font = Widgets.FONT_TITLE,
+		TextTransparency = 1,
+		TextStrokeTransparency = 1,
+		ZIndex = 26,
+		Text = "",
+	})
+	fateSub = label({
+		Parent = gui,
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.fromScale(0.5, 0.52),
+		Size = UDim2.new(0.9, 0, 0, 30),
+		TextSize = 22,
+		Font = Widgets.FONT_REG,
+		TextColor3 = Color3.fromRGB(200, 190, 190),
+		TextTransparency = 1,
+		TextStrokeTransparency = 1,
+		ZIndex = 26,
+		Text = "",
+	})
 	fadeOverlay = new("Frame", {
 		Parent = gui,
 		Size = UDim2.fromScale(1, 1),
@@ -242,7 +310,7 @@ function Hud.mount(playerGui: PlayerGui)
 		Parent = fadeOverlay,
 		AnchorPoint = Vector2.new(0.5, 0.5),
 		Position = UDim2.fromScale(0.5, 0.5),
-		Size = UDim2.new(0.8, 0, 0, 120),
+		Size = UDim2.new(0.8, 0, 0, 240),
 		TextSize = 48,
 		Font = Widgets.FONT_TITLE,
 		TextColor3 = Color3.fromRGB(200, 30, 30),
@@ -341,6 +409,51 @@ function Hud.setTerror(intensity: number)
 	for _, f in edges do
 		f.BackgroundTransparency = 1 - math.clamp(intensity, 0, 1) * 0.75
 	end
+end
+
+-- Чёрные края экрана: 0 — нет, 1 — почти ничего не видно по краям
+function Hud.setDarkness(amount: number)
+	local tr = 1 - math.clamp(amount, 0, 1) * 0.95
+	for _, f in darkEdges do
+		f.BackgroundTransparency = tr
+	end
+end
+
+-- Кровь по краям экрана; pulse — пульсирует в такт сердцу
+function Hud.setBlood(amount: number, pulse: boolean?)
+	local a = math.clamp(amount, 0, 1)
+	if pulse and a > 0 then
+		a *= 0.75 + 0.25 * math.abs(math.sin(os.clock() * 2.4))
+	end
+	for _, f in bloodEdges do
+		f.BackgroundTransparency = 1 - a
+	end
+end
+
+-- Короткая вспышка цветом на весь экран (удар, скример)
+function Hud.flash(color: Color3, strength: number)
+	flashOverlay.BackgroundColor3 = color
+	flashOverlay.BackgroundTransparency = 1 - math.clamp(strength, 0, 1)
+	TweenService:Create(flashOverlay, TweenInfo.new(0.9, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+		BackgroundTransparency = 1,
+	}):Play()
+end
+
+-- Большая надпись о судьбе игрока («ТЫ ПРИНЕСЁН В ЖЕРТВУ»)
+function Hud.fate(text: string, sub: string?, color: Color3?)
+	fateText.Text = text
+	fateText.TextColor3 = color or Color3.fromRGB(200, 20, 20)
+	fateSub.Text = sub or ""
+	for _, l in { fateText, fateSub } do
+		l.TextTransparency = 1
+		l.TextStrokeTransparency = 1
+		TweenService:Create(l, TweenInfo.new(1.2), { TextTransparency = 0, TextStrokeTransparency = 0.4 }):Play()
+	end
+	task.delay(4.5, function()
+		for _, l in { fateText, fateSub } do
+			TweenService:Create(l, TweenInfo.new(2), { TextTransparency = 1, TextStrokeTransparency = 1 }):Play()
+		end
+	end)
 end
 
 ------------------------------------------------------------------------
@@ -509,13 +622,19 @@ function Hud.blind(duration: number)
 	}):Play()
 end
 
-function Hud.intro(text: string, sub: string?)
+function Hud.intro(text: string, sub: string?, quote: string?)
 	fadeOverlay.BackgroundTransparency = 0
-	fadeText.Text = text .. (sub and ("\n" .. sub) or "")
-	fadeText.TextTransparency = 0
-	task.delay(2, function()
-		TweenService:Create(fadeOverlay, TweenInfo.new(1.5), { BackgroundTransparency = 1 }):Play()
-		TweenService:Create(fadeText, TweenInfo.new(1.2), { TextTransparency = 1 }):Play()
+	fadeText.RichText = true
+	fadeText.Text = text
+		.. (sub and ("\n" .. sub) or "")
+		.. (quote and ('\n<font size="22" color="#8c8c8c"><i>' .. quote .. "</i></font>") or "")
+	fadeText.TextTransparency = 1
+	TweenService:Create(fadeText, TweenInfo.new(0.8), { TextTransparency = 0 }):Play()
+	task.delay(2.6, function()
+		TweenService:Create(fadeOverlay, TweenInfo.new(2.2, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
+			BackgroundTransparency = 1,
+		}):Play()
+		TweenService:Create(fadeText, TweenInfo.new(1.5), { TextTransparency = 1 }):Play()
 	end)
 end
 

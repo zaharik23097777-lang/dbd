@@ -88,8 +88,15 @@ Config.SoundOverrides = {
 	-- Scream = "rbxassetid://...",
 	-- Bell = "rbxassetid://...",
 	-- Crow = "rbxassetid://...",
+	-- Атмосфера: AmbientDrone, Whisper, Creak, DistantScream, Thunder, Stinger, KillerGrowl, EntityWhisper
 }
 Config.ChaseDistance = 26
+
+-- Ужас и мрачность
+Config.Darkness = 1 -- 0..1.5: насколько тёмная ночь на карте (больше — темнее)
+Config.LightningInterval = { 45, 100 } -- секунд между молниями (nil — без молний)
+Config.AmbientScareInterval = { 12, 30 } -- секунд между пугающими звуками вдалеке
+Config.JumpScares = true -- резкий звук и вспышка, когда маньяк внезапно оказывается рядом
 
 -- Вид маньяка от первого лица, как в оригинале
 Config.KillerFirstPerson = true

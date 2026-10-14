@@ -133,6 +133,7 @@ local function summonEntity(hook: Model)
 		Props.entityLegs(hook, 6)
 		local hp = hook:FindFirstChild("HangPoint")
 		State.sfx("EntityDrone", hp)
+		State.sfx("EntityWhisper", hp)
 	end
 end
 

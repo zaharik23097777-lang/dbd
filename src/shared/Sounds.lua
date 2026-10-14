@@ -54,6 +54,22 @@ Sounds.Defs = {
 	Notify = { Id = STEP, Volume = 0.5, Speed = 1.5 },
 	ChaseDrone = { Id = FALL, Volume = 0.45, Speed = 0.22, Looped = true, Effects = { Distortion = 0.5, LowPass = true } },
 
+	-- Атмосфера ужаса
+	AmbientDrone = { Id = FALL, Volume = 0.3, Speed = 0.12, Looped = true, Effects = { LowPass = true, Echo = { 0.5, 0.6 } } },
+	Whisper = { Id = OOF, Volume = 0.45, Speed = 0.45, MaxDistance = 90, Effects = { Echo = { 0.18, 0.55 }, LowPass = true } },
+	Creak = { Id = GETUP, Volume = 0.7, Speed = 0.35, MaxDistance = 90, Effects = { Echo = { 0.25, 0.4 } } },
+	DistantScream = { Id = OOF, Volume = 0.6, Speed = 0.68, MaxDistance = 400, Effects = { Echo = { 0.35, 0.6 }, LowPass = true } },
+	MetalScrape = { Id = FALL, Volume = 0.5, Speed = 1.8, Duration = 1.2, MaxDistance = 120, Effects = { Distortion = 0.9, Echo = { 0.2, 0.5 } } },
+	Thunder = { Id = LAND, Volume = 1, Speed = 0.12, Effects = { Distortion = 0.6, Echo = { 0.45, 0.6 }, LowPass = true } },
+	Stinger = { Id = LAND, Volume = 1, Speed = 0.5, Effects = { Distortion = 0.95, Echo = { 0.12, 0.5 } } },
+	StingerScreech = { Id = FALL, Volume = 0.8, Speed = 3.6, Duration = 0.7, Effects = { Distortion = 0.9, Echo = { 0.08, 0.4 } } },
+	TerrorStinger = { Id = FALL, Volume = 0.8, Speed = 0.25, Duration = 1.6, Effects = { Distortion = 0.7, LowPass = true } },
+	ChasePulse = { Id = LAND, Volume = 0.7, Speed = 0.4, Effects = { Distortion = 0.5, LowPass = true } },
+	FireCrackle = { Id = STEP, Volume = 0.3, Speed = 2.6, MaxDistance = 45 },
+	KillerGrowl = { Id = OOF, Volume = 0.8, Speed = 0.33, MaxDistance = 60, Effects = { Echo = { 0.1, 0.3 }, LowPass = true } },
+	Groan = { Id = OOF, Volume = 0.45, Speed = 1.05, MaxDistance = 45 },
+	EntityWhisper = { Id = OOF, Volume = 0.9, Speed = 0.25, MaxDistance = 120, Effects = { Echo = { 0.3, 0.7 }, Distortion = 0.4 } },
+
 	-- Слоты без звука по умолчанию: вставь свой ID в Config.SoundOverrides
 	ChaseMusic = { Id = "", Volume = 0.6, Looped = true },
 	Lullaby = { Id = "", Volume = 0.6, Looped = true },

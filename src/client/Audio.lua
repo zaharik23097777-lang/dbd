@@ -9,6 +9,7 @@ local Sounds = require(ReplicatedStorage.Shared.Sounds)
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
 local Util = require(ReplicatedStorage.Shared.Util)
 local KillerDefs = require(ReplicatedStorage.Shared.KillerDefs)
+local Config = require(ReplicatedStorage.Shared.Config)
 
 local player = Players.LocalPlayer
 local Audio = {}
@@ -136,6 +137,12 @@ local ambientMusic = Audio.create("AmbientMusic", nil)
 if ambientMusic then
 	ambientMusic:Play()
 end
+-- Низкий гул Сущности под всей картой
+local drone = Audio.create("AmbientDrone", nil)
+if drone then
+	drone.Volume = 0
+	drone:Play()
+end
 
 local heartbeatLoop = Audio.create("Heartbeat", nil) -- если задан свой звук
 local lullabyLoop = Audio.create("Lullaby", nil)
@@ -152,6 +159,10 @@ local chaseMaxVolume = chaseLayer and (Sounds.get(chaseMusic and "ChaseMusic" or
 
 local beatTimer = 0
 local crowTimer = 20
+local pulseTimer = 0
+local pulseBeat = 0
+local crackleTimer = 0
+local voiceTimers = {} :: { [Player]: number }
 local genSounds = {} :: { [Instance]: Sound }
 local hatchSound: Sound? = nil
 
@@ -241,10 +252,70 @@ function Audio.update(dt: number)
 		end
 	end
 
-	-- Погоня
+	-- Погоня: гул + тяжёлый ритм «бум-бум ... бум-бум»
+	local chasing = player:GetAttribute("Chase") == true
 	if chaseLayer then
-		local target = player:GetAttribute("Chase") and chaseMaxVolume or 0
+		local target = chasing and chaseMaxVolume or 0
 		chaseLayer.Volume += (target - chaseLayer.Volume) * math.min(dt * 1.5, 1)
+	end
+	if chasing and not chaseMusic then
+		pulseTimer -= dt
+		if pulseTimer <= 0 then
+			pulseBeat = (pulseBeat + 1) % 4
+			pulseTimer = pulseBeat == 1 and 0.18 or 0.42
+			Audio.play("ChasePulse", nil, pulseBeat == 1 and 0.7 or 1, pulseBeat == 3 and 0.8 or 1)
+		end
+	else
+		pulseBeat = 0
+	end
+
+	-- Гул Сущности на карте (громче в обрушении)
+	if drone then
+		local gs = ReplicatedStorage:FindFirstChild("GameState")
+		local endgame = gs and gs:GetAttribute("EndGame")
+		local want = map and (endgame and 0.75 or 0.3) or 0.06
+		drone.Volume += (want - drone.Volume) * math.min(dt, 1)
+		drone.PlaybackSpeed = endgame and 0.16 or 0.12
+	end
+
+	-- Треск костра в лобби
+	local myRoot = Util.getRoot(player)
+	if not inMatch then
+		crackleTimer -= dt
+		if crackleTimer <= 0 then
+			crackleTimer = 0.08 + math.random() * 0.35
+			local lobbyFire = Config.LobbyPosition + Vector3.new(0, 1.2, 0)
+			if myRoot and (myRoot.Position - lobbyFire).Magnitude < 60 then
+				Audio.play("FireCrackle", lobbyFire, 0.4 + math.random() * 0.6, 0.7 + math.random() * 0.8)
+			end
+		end
+	end
+
+	-- Голоса: стоны раненых и рычание маньяка (каждый клиент слышит их у персонажей)
+	if map then
+		for _, p in Players:GetPlayers() do
+			local role = p:GetAttribute("Role")
+			local status = p:GetAttribute("Status")
+			local root = Util.getRoot(p)
+			local voice: string? = nil
+			if role == "Killer" and status == "Playing" and p:GetAttribute("PowerState") ~= "Cloaked" then
+				voice = "KillerGrowl"
+			elseif role == "Survivor" and status == "Playing" and (p:GetAttribute("Health") or 2) < 2 and not p:GetAttribute("Hidden") then
+				voice = "Groan"
+			end
+			if not voice or not root then
+				voiceTimers[p] = nil
+				continue
+			end
+			local timer = (voiceTimers[p] or (2 + math.random() * 6)) - dt
+			if timer <= 0 then
+				timer = voice == "KillerGrowl" and 9 + math.random() * 12 or 4 + math.random() * 6
+				Audio.play(voice, root, 0.8 + math.random() * 0.3, 0.9 + math.random() * 0.2)
+			end
+			voiceTimers[p] = timer
+		end
+	else
+		table.clear(voiceTimers)
 	end
 
 	updateGenerators(map)

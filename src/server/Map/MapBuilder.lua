@@ -135,7 +135,11 @@ local function shack(map, cf: CFrame)
 	light.Range = 16
 	light.Brightness = 1.2
 	light.Shadows = true
+	light:SetAttribute("Flicker", true)
 	light.Parent = bulb
+	-- Следы бойни внутри
+	Props.bloodSplat(map.Decor, cf * CFrame.new(2, 0.1, -2), Random.new())
+	Props.hangingBody(map.Decor, cf * CFrame.new(-4, h - 0.3, -2), Random.new())
 end
 
 -- Дом из двух комнат
@@ -178,6 +182,7 @@ local function house(map, cf: CFrame)
 		light.Color = Color3.fromRGB(255, 170, 100)
 		light.Range = 14
 		light.Brightness = 1
+		light:SetAttribute("Flicker", true)
 		light.Parent = bulb
 	end
 end
@@ -283,6 +288,7 @@ function MapBuilder.BuildMap(seed: number?): MapData
 	for i = 1, 8 do
 		local cf = nextCell()
 		Props.hook(map.Hooks, cf, i)
+		Props.bloodSplat(map.Decor, cf * CFrame.new(0, 0, -3.9), rng)
 		table.insert(map.CrowSpots, cf * CFrame.new(0, 12, 0))
 	end
 	for _ = 1, 8 do
@@ -334,10 +340,48 @@ function MapBuilder.BuildMap(seed: number?): MapData
 			Props.tree(map.Walls, cf * CFrame.new(rng:NextNumber(-8, 8), 0, rng:NextNumber(-8, 8)), rng)
 		end
 	end
-	for _ = 1, 3 do
+	for i = 1, 3 do
 		local cf = nextCell()
 		Props.deadTree(map.Walls, cf, rng)
 		table.insert(map.CrowSpots, cf * CFrame.new(0, 0, 3))
+		if i <= 2 then
+			Props.hangingBody(map.Decor, cf * CFrame.new(3.5, rng:NextNumber(12, 14), 0), rng)
+		end
+	end
+
+	-- Ужасы: виселицы, ритуальные круги, шипы Сущности, черепа на кольях
+	for _ = 1, 2 do
+		Props.gallows(map.Walls, (nextCell()), rng)
+	end
+	for _ = 1, 2 do
+		local cf = nextCell()
+		Props.ritualCircle(map.Decor, cf, rng)
+		table.insert(map.CrowSpots, cf * CFrame.new(5, 0, 5))
+	end
+	for _ = 1, 2 do
+		local cf = nextCell()
+		Props.entitySpikes(map.Walls, cf, rng)
+		Props.bloodSplat(map.Decor, cf * CFrame.new(5, 0, 0), rng)
+	end
+	for _ = 1, 6 do
+		local c = cells[rng:NextInteger(1, idx)]
+		Props.skullPike(map.Decor, CFrame.new(c + Vector3.new(rng:NextNumber(-9, 9), 0, rng:NextNumber(-9, 9))), rng)
+	end
+	-- Когти Сущности нависают над внешними стенами
+	for _, side in { 1, -1 } do
+		for k = 1, 6 do
+			local along = -half + size * (k - 0.5) / 6 + rng:NextNumber(-6, 6)
+			for _, base in
+				{
+					CFrame.new(along, 0, side * (half - 2)) * A(0, side == 1 and 0 or 180, 0),
+					CFrame.new(side * (half - 2), 0, along) * A(0, side == 1 and 90 or -90, 0),
+				}
+			do
+				if math.abs(base.Position.X) > gateGap or math.abs(base.Position.Z) < half - 4 then
+					Props.entityClaw(map.Decor, base * A(-rng:NextNumber(5, 20), 0, 0), rng:NextNumber(18, 30), rng:NextNumber(60, 110), rng:NextNumber(1, 1.6), true)
+				end
+			end
+		end
 	end
 	for _ = 1, 4 do
 		Props.rock(map.Walls, (nextCell()), rng)
@@ -362,7 +406,7 @@ function MapBuilder.BuildMap(seed: number?): MapData
 	end
 
 	-- Туман по всей карте
-	for _ = 1, 14 do
+	for _ = 1, 20 do
 		Props.fog(map.Decor, Vector3.new(rng:NextNumber(-half, half), 1, rng:NextNumber(-half, half)), rng)
 	end
 
@@ -484,12 +528,69 @@ function MapBuilder.BuildLobby(): Model
 			Color = Color3.fromRGB(60, 55, 45),
 			Material = Enum.Material.Fabric,
 		})
+		local lantern = P(lobby, {
+			Name = "Lantern",
+			Size = Vector3.new(0.6, 0.8, 0.6),
+			CFrame = tcf * CFrame.new(0, 0.5, -3.6),
+			Color = Color3.fromRGB(255, 170, 80),
+			Material = Enum.Material.Neon,
+			Decor = true,
+		})
+		local ll = Instance.new("PointLight")
+		ll.Color = Color3.fromRGB(255, 150, 70)
+		ll.Range = 10
+		ll.Brightness = 1
+		ll:SetAttribute("Flicker", true)
+		ll.Parent = lantern
 	end
-	for _ = 1, 26 do
+	for i = 1, 26 do
 		local a = rng:NextNumber(0, math.pi * 2)
 		local r = rng:NextNumber(32, 55)
-		Props.tree(lobby, base * CFrame.new(math.cos(a) * r, 0, math.sin(a) * r), rng)
+		local tcf = base * CFrame.new(math.cos(a) * r, 0, math.sin(a) * r)
+		if i % 3 == 0 then
+			Props.deadTree(lobby, tcf, rng)
+		else
+			Props.tree(lobby, tcf, rng)
+		end
 	end
+	-- Гигантские лапы Сущности склоняются над поляной из темноты
+	for i = 1, 6 do
+		local a = i / 6 * math.pi * 2 + 0.3
+		local r = rng:NextNumber(42, 52)
+		local p = pos + Vector3.new(math.cos(a) * r, -2, math.sin(a) * r)
+		local look = CFrame.lookAt(p, Vector3.new(pos.X, p.Y, pos.Z))
+		Props.entityClaw(lobby, look, rng:NextNumber(40, 55), rng:NextNumber(90, 120), rng:NextNumber(2.2, 3), true)
+	end
+	-- Крюк у края поляны и черепа на кольях
+	Props.hook(lobby, base * CFrame.new(-18, 0, -22) * A(0, 35, 0), 0)
+	Props.bloodSplat(lobby, base * CFrame.new(-18, 0, -25), rng)
+	for i = 1, 5 do
+		local a = i / 5 * math.pi * 2
+		Props.skullPike(lobby, base * CFrame.new(math.cos(a) * 28, 0, math.sin(a) * 28), rng)
+	end
+	-- Красная дымка от Сущности
+	local mist = P(lobby, {
+		Name = "EntityMist",
+		Size = Vector3.new(100, 1, 100),
+		CFrame = base * CFrame.new(0, 0.5, 0),
+		Transparency = 1,
+		Decor = true,
+	})
+	local mistFx = Instance.new("ParticleEmitter")
+	mistFx.Texture = Props.SmokeTexture
+	mistFx.Color = ColorSequence.new(Color3.fromRGB(110, 20, 20))
+	mistFx.Size = NumberSequence.new(10, 18)
+	mistFx.Transparency = NumberSequence.new({
+		NumberSequenceKeypoint.new(0, 1),
+		NumberSequenceKeypoint.new(0.4, 0.9),
+		NumberSequenceKeypoint.new(1, 1),
+	})
+	mistFx.Lifetime = NumberRange.new(12, 18)
+	mistFx.Rate = 1.2
+	mistFx.Speed = NumberRange.new(0.2, 0.8)
+	mistFx.SpreadAngle = Vector2.new(180, 10)
+	mistFx.LightInfluence = 0.6
+	mistFx.Parent = mist
 	for _ = 1, 6 do
 		Props.fog(lobby, pos + Vector3.new(rng:NextNumber(-40, 40), 1, rng:NextNumber(-40, 40)), rng)
 	end
@@ -541,12 +642,13 @@ end
 ------------------------------------------------------------------------
 
 function MapBuilder.SetupLighting()
-	Lighting.ClockTime = 0.3
-	Lighting.Brightness = 1.2
-	Lighting.Ambient = Color3.fromRGB(35, 35, 50)
-	Lighting.OutdoorAmbient = Color3.fromRGB(70, 70, 90)
-	Lighting.EnvironmentDiffuseScale = 0.4
-	Lighting.EnvironmentSpecularScale = 0.4
+	-- Клиент (Atmosphere.lua) плавно меняет освещение под ситуацию; здесь — базовая ночь
+	Lighting.ClockTime = 0
+	Lighting.Brightness = 0.7
+	Lighting.Ambient = Color3.fromRGB(20, 20, 28)
+	Lighting.OutdoorAmbient = Color3.fromRGB(42, 44, 58)
+	Lighting.EnvironmentDiffuseScale = 0.25
+	Lighting.EnvironmentSpecularScale = 0.3
 	Lighting.GlobalShadows = true
 	Lighting.FogEnd = 100000
 	for _, child in Lighting:GetChildren() do
@@ -554,25 +656,25 @@ function MapBuilder.SetupLighting()
 	end
 
 	local atmosphere = Instance.new("Atmosphere")
-	atmosphere.Density = 0.48
-	atmosphere.Offset = 0.1
-	atmosphere.Color = Color3.fromRGB(120, 130, 155)
-	atmosphere.Decay = Color3.fromRGB(40, 45, 60)
+	atmosphere.Density = 0.55
+	atmosphere.Offset = 0.05
+	atmosphere.Color = Color3.fromRGB(70, 76, 95)
+	atmosphere.Decay = Color3.fromRGB(14, 16, 24)
 	atmosphere.Glare = 0
-	atmosphere.Haze = 2.2
+	atmosphere.Haze = 2.8
 	atmosphere.Parent = Lighting
 
 	local sky = Instance.new("Sky")
 	sky.CelestialBodiesShown = true
-	sky.MoonAngularSize = 14
-	sky.StarCount = 1500
+	sky.MoonAngularSize = 18
+	sky.StarCount = 300
 	sky.Parent = Lighting
 
 	local cc = Instance.new("ColorCorrectionEffect")
-	cc.Saturation = -0.35
-	cc.Contrast = 0.15
-	cc.Brightness = 0.02
-	cc.TintColor = Color3.fromRGB(215, 225, 255)
+	cc.Saturation = -0.45
+	cc.Contrast = 0.25
+	cc.Brightness = -0.03
+	cc.TintColor = Color3.fromRGB(195, 210, 235)
 	cc.Parent = Lighting
 
 	local bloom = Instance.new("BloomEffect")

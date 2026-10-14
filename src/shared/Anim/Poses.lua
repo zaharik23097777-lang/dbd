@@ -25,6 +25,7 @@ export type Params = {
 	Struggle: boolean?,
 	LookYaw: number?, -- поворот головы к маньяку (градусы)
 	KillerType: string?,
+	Fear: number?, -- 0..1: насколько близко маньяк (сутулится, дрожит, озирается)
 }
 
 local function lerp(a: number, b: number, t: number): number
@@ -128,6 +129,18 @@ function Poses.locomotion(t: number, p: Params)
 		pose.Neck = A(-12 + sin(t * 3.5) * 2, look, 0)
 	end
 
+	local fear = p.Fear or 0
+	if fear > 0 and not p.Killer then
+		-- страх: сжимается, руки ближе к телу, дрожит и озирается
+		local tremble = sin(t * 23) * 1.6 * fear
+		pose.Root = pose.Root * A(-8 * fear, 0, tremble * 0.5)
+		if not moving then
+			pose.LArm = A(28 * fear + tremble, 0, -4 + 14 * fear)
+			pose.RArm = A(28 * fear - tremble, 0, 4 - 14 * fear)
+			pose.Neck = A(-6 * fear + tremble, look + sin(t * 1.9) * 25 * fear, 0)
+		end
+	end
+
 	if p.Killer then
 		-- тяжёлая походка, оружие в правой руке
 		if moving then
@@ -139,7 +152,9 @@ function Poses.locomotion(t: number, p: Params)
 			pose.RootPos = V(0, b * 0.05, 0)
 			pose.RArm = A(18 + b * 3, 0, 12)
 			pose.LArm = A(6 + b * 2, 0, -10)
-			pose.Neck = A(-10 + b * 3, sin(t * 0.5) * 18, 0)
+			-- голова медленно склоняется набок, как у хищника, который прислушивается
+			local tilt = math.max(0, sin(t * 0.31)) ^ 3
+			pose.Neck = A(-10 + b * 3, sin(t * 0.5) * 18, tilt * 24)
 		end
 		if p.Carrying then
 			pose.RArm = A(168, 0, 6)

@@ -120,13 +120,15 @@ local function choosePose(entry: Entry, t: number, dt: number, killerRoot: BaseP
 		end
 	end
 
-	-- Голова поворачивается к маньяку
+	-- Голова поворачивается к маньяку, рядом с ним выживший сжимается от страха
 	local lookYaw = 0
+	local fear = 0
 	if not isKiller and killerRoot and status == "Playing" then
 		local rel = root.CFrame:PointToObjectSpace(killerRoot.Position)
 		if rel.Magnitude < 30 then
 			lookYaw = math.clamp(math.deg(math.atan2(-rel.X, -rel.Z)), -70, 70)
 		end
+		fear = math.clamp(1 - rel.Magnitude / 32, 0, 1)
 	end
 
 	local p: Poses.Params = {
@@ -140,6 +142,7 @@ local function choosePose(entry: Entry, t: number, dt: number, killerRoot: BaseP
 		Struggle = (attr("HookCount") or 0) >= 2,
 		LookYaw = lookYaw,
 		KillerType = char:GetAttribute("KillerType"),
+		Fear = fear,
 	}
 
 	local pose
