@@ -186,9 +186,44 @@ local function logFormat(results: { any })
 	end
 end
 
-local function isRateLimit(err: string): boolean
-	local e = err:lower()
-	return e:find("429", 1, true) ~= nil or e:find("too many", 1, true) ~= nil or e:find("throttl", 1, true) ~= nil
+local function mentions(err: any, words: { string }): boolean
+	local e = tostring(err):lower()
+	for _, w in words do
+		if e:find(w, 1, true) then
+			return true
+		end
+	end
+	return false
+end
+
+-- Слишком много запросов: подождать и продолжить
+function SoundLibrary.isRateLimit(err: any): boolean
+	return mentions(err, { "429", "too many", "throttl", "rate limit" })
+end
+
+-- Поиск запрещён этому серверу (нет прав, выключен): повторять бессмысленно
+function SoundLibrary.isPermanent(err: any): boolean
+	return mentions(err, { "403", "forbidden", "capability", "cannot call", "not permitted", "permission", "not enabled" })
+end
+
+-- Общая очередь запросов сервера: не чаще одного запроса в Config.SoundSearchInterval
+local nextRequestAt = 0
+
+local function reserveRequest(deadline: number): boolean
+	local at = math.max(os.clock(), nextRequestAt)
+	if at > deadline then
+		return false
+	end
+	nextRequestAt = at + Config.SoundSearchInterval
+	if at > os.clock() then
+		task.wait(at - os.clock())
+	end
+	return true
+end
+
+-- Пауза для всех запросов сервера (после ответа «слишком много запросов»)
+local function backOff(seconds: number)
+	nextRequestAt = math.max(nextRequestAt, os.clock() + seconds)
 end
 
 -- Один запрос поиска с повторами; кэшируется на весь сервер
@@ -198,8 +233,11 @@ function SoundLibrary.query(keyword: string, spec: Sounds.Search, deadline: numb
 	if cached then
 		return true, cached
 	end
-	local err: any = nil
+	local err: any = "время поиска вышло"
 	for attempt = 0, Config.SoundSearchRetries do
+		if not reserveRequest(deadline) then
+			break
+		end
 		local ok, result = pcall(function()
 			local params = Instance.new("AudioSearchParams")
 			params.SearchKeyword = keyword
@@ -220,11 +258,14 @@ function SoundLibrary.query(keyword: string, spec: Sounds.Search, deadline: numb
 			return true, result
 		end
 		err = if ok then "пустой ответ" else result
-		local wait = 1.5 * 2 ^ attempt * (if isRateLimit(tostring(err)) then 3 else 1)
-		if attempt == Config.SoundSearchRetries or os.clock() + wait > deadline then
+		if SoundLibrary.isPermanent(err) then
 			break
 		end
-		task.wait(wait)
+		-- Нарастающая пауза перед повтором; при лимите запросов — длиннее и для всех запросов
+		local limited = SoundLibrary.isRateLimit(err)
+		if limited or attempt < Config.SoundSearchRetries then
+			backOff(1.5 * 2 ^ attempt * (if limited then 3 else 1))
+		end
 	end
 	return false, err
 end
@@ -306,13 +347,17 @@ function SoundLibrary.run()
 				end
 			else
 				lastError = err
-				failStreak += 1
-				-- Несколько запросов подряд с ошибкой: поиск недоступен, не тратим время
-				if failStreak >= 3 then
-					stop = true
+				if SoundLibrary.isRateLimit(err) then
+					-- Лимит запросов: слот в конец очереди, повторим после общей паузы
+					table.insert(queue, def)
+				else
+					failStreak += 1
+					-- Поиск запрещён или раз за разом падает: он недоступен, не тратим время
+					if SoundLibrary.isPermanent(err) or failStreak >= (if found > 0 then 6 else 3) then
+						stop = true
+					end
 				end
 			end
-			task.wait(0.3)
 		end
 		running -= 1
 	end

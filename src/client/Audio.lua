@@ -66,6 +66,9 @@ local MIX = {
 	{ Name = "UI", Parent = "Master" },
 } :: { { [string]: any } }
 
+-- Группы, которые глушатся, когда выживший в шкафчике (музыка и сердце — «в голове», их не глушим)
+local MUFFLED = { SFX = true, Ambience = true, Voice = true }
+
 Audio.Groups = {} :: { [string]: SoundGroup }
 local groupEq: { [string]: EqualizerSoundEffect } = {}
 local baseHighGain: { [string]: number } = {}
@@ -681,6 +684,9 @@ function Audio.footstep(char: Model, isKiller: boolean, speed: number, crouching
 	local hum = char:FindFirstChildOfClass("Humanoid")
 	local slot = if hum then Audio.surface(hum.FloorMaterial) else "Footstep"
 	local vol = if crouching then 0.35 else math.clamp(speed / 16, 0.45, 1.1)
+	if isKiller and char == player.Character then
+		vol *= 0.6 -- свои шаги маньяк слышит у самой камеры
+	end
 	if isKiller then
 		-- Маньяк: тот же пол, но ниже и громче, плюс тяжёлый удар сапога
 		Audio.play(slot, root, vol * 1.15, 0.85)
@@ -726,14 +732,18 @@ end
 -- Щелчки кнопок интерфейса
 ------------------------------------------------------------------------
 
+local hooked: { [Instance]: boolean } = setmetatable({}, { __mode = "k" }) :: any
+
 local function hookButton(inst: Instance)
-	if not inst:IsA("GuiButton") then
+	-- Кнопку, перенесённую внутри PlayerGui, второй раз не подключаем (иначе щелчок двойной)
+	if not inst:IsA("GuiButton") or hooked[inst] then
 		return
 	end
 	-- Экранные кнопки управления (прыжок, действия) не щёлкают
 	if inst:FindFirstAncestor("ContextActionGui") or inst:FindFirstAncestor("TouchGui") then
 		return
 	end
+	hooked[inst] = true
 	local button = inst :: GuiButton
 	button.Activated:Connect(function()
 		Audio.play("UiClick")
@@ -741,7 +751,7 @@ local function hookButton(inst: Instance)
 end
 
 task.spawn(function()
-	local gui = player:WaitForChild("PlayerGui")
+	local gui = player:WaitForChild("PlayerGui", 30)
 	if gui then
 		for _, d in gui:GetDescendants() do
 			hookButton(d)
@@ -814,9 +824,11 @@ local function updateMap(map: Instance, now: number)
 				gateSeen[gate] = { Progress = p, Changed = if seen then now else -math.huge }
 			end
 			local opening = now - gateSeen[gate].Changed < 1
-			local siren = gate:FindFirstChild("Siren", true) or (gate:IsA("Model") and (gate :: Model).PrimaryPart)
-			if opening and siren and siren:IsA("BasePart") and gate:GetAttribute("Powered") and not gate:GetAttribute("Open") then
-				want("GateSiren", siren, 1)
+			if opening and gate:GetAttribute("Powered") and not gate:GetAttribute("Open") then
+				local siren = gate:FindFirstChild("Siren", true) or (gate:IsA("Model") and (gate :: Model).PrimaryPart)
+				if siren and siren:IsA("BasePart") then
+					want("GateSiren", siren, 1)
+				end
 			end
 		end
 	end
@@ -938,7 +950,7 @@ function Audio.update(dt: number)
 	local hidden = inGame and player:GetAttribute("Hidden") == true
 	muffle = if hidden then math.min(muffle + dt * 3, 1) else math.max(muffle - dt * 3, 0)
 	for name, eq in groupEq do
-		if name == "SFX" or name == "Ambience" then
+		if MUFFLED[name] then
 			eq.HighGain = baseHighGain[name] - 18 * muffle
 		end
 	end

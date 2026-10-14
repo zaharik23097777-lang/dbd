@@ -104,12 +104,14 @@ Sounds.LibraryFolder = "SoundLibrary" -- папка в ReplicatedStorage с на
 Sounds.List = {
 	-- Радиус ужаса и погоня
 	{
+		-- Сердце звучит «в голове» выжившего: группа Music — сухо и не глушится в шкафчике.
+		-- Короткие записи (до 1.5 с) — это один удар «тук-тук», а не серия со своим темпом.
 		Name = "Heartbeat",
-		Group = "SFX",
-		Volume = 1,
+		Group = "Music",
+		Volume = 1.3,
 		Priority = 3,
 		Duration = 1.2,
-		Search = { Keywords = { "heartbeat", "heart beat" }, Min = 0.3, Max = 2.5 },
+		Search = { Keywords = { "heartbeat", "heart beat" }, Min = 0.3, Max = 1.5 },
 		Synth = { L(LAND, 1, 0.32, { LowPass = 20 }), L(LAND, 0.7, 0.29, { Delay = 0.16, LowPass = 20 }) },
 	},
 	{
@@ -119,7 +121,7 @@ Sounds.List = {
 		Looped = true,
 		FadeIn = 0.6,
 		FadeOut = 3,
-		Search = { Keywords = { "horror chase", "chase horror", "intense horror" }, Music = true, Min = 30, Max = 300 },
+		Search = { Keywords = { "horror chase", "chase horror", "intense horror" }, Music = true, Min = 30, Max = 180 },
 		Synth = {
 			L(FALL, 0.75, 0.22, { Distortion = 0.5, LowPass = 18 }),
 			L(SWIM, 0.35, 0.5, { Tremolo = { 2.4, 0.9, 0.5 }, LowPass = 10 }),
@@ -133,7 +135,7 @@ Sounds.List = {
 		Looped = true,
 		FadeIn = 1.5,
 		FadeOut = 2,
-		Search = { Keywords = { "horror drone", "dark drone", "tension drone" }, Min = 8, Max = 200 },
+		Search = { Keywords = { "horror drone", "dark drone", "tension drone" }, Min = 8, Max = 120 },
 		Synth = { L(FALL, 1, 0.15, { LowPass = 25, Distortion = 0.25 }), L(SWIM, 0.5, 0.18, { LowPass = 20 }) },
 	},
 	{
@@ -143,7 +145,7 @@ Sounds.List = {
 		Looped = true,
 		FadeIn = 1,
 		FadeOut = 2,
-		Search = { Keywords = { "creepy lullaby", "music box lullaby", "lullaby" }, Music = true, Min = 10, Max = 240 },
+		Search = { Keywords = { "creepy lullaby", "music box lullaby", "lullaby" }, Music = true, Min = 10, Max = 120 },
 		-- Колыбельная Охотницы: напевающий голос с эхом
 		Melody = {
 			Layer = L(OOF, 0.7, 0.9, { Duration = 0.5, Echo = { 0.3, 0.45 }, LowPass = 8 }),
@@ -579,7 +581,7 @@ Sounds.List = {
 		Looped = true,
 		FadeIn = 3,
 		FadeOut = 3,
-		Search = { Keywords = { "wind howling", "wind ambience", "wind loop" }, Min = 10, Max = 300 },
+		Search = { Keywords = { "wind howling", "wind ambience", "wind loop" }, Min = 10, Max = 120 },
 		Synth = {
 			L(FALL, 0.6, 0.3, { LowPass = 18 }),
 			L(FALL, 0.35, 0.23, { Start = 0.7, LowPass = 22, Tremolo = { 0.15, 0.6, 0.5 } }),
@@ -592,7 +594,7 @@ Sounds.List = {
 		Looped = true,
 		FadeIn = 3,
 		FadeOut = 3,
-		Search = { Keywords = { "crickets night", "night insects", "crickets" }, Min = 10, Max = 300 },
+		Search = { Keywords = { "crickets night", "night insects", "crickets" }, Min = 10, Max = 120 },
 		Synth = {
 			L(STEP, 0.16, 4.2, { Tremolo = { 9, 1, 0.3 }, HighPass = 10 }),
 			L(SWIM, 0.1, 3.4, { HighPass = 14, Tremolo = { 6, 0.8, 0.5 } }),
@@ -607,7 +609,7 @@ Sounds.List = {
 		MinDistance = 4,
 		FadeIn = 1,
 		FadeOut = 1,
-		Search = { Keywords = { "campfire crackling", "fire crackling", "fireplace" }, Min = 5, Max = 300 },
+		Search = { Keywords = { "campfire crackling", "fire crackling", "fireplace" }, Min = 5, Max = 120 },
 		Synth = {
 			L(FALL, 0.45, 0.6, { LowPass = 14 }),
 			L(SWIM, 0.18, 2.4, { Distortion = 0.6, Tremolo = { 7, 0.7, 0.4 } }),
@@ -665,7 +667,7 @@ Sounds.List = {
 		Looped = true,
 		FadeIn = 3,
 		FadeOut = 3,
-		Search = { Keywords = { "dark ambient", "eerie ambient", "horror ambience" }, Music = true, Min = 60, Max = 400 },
+		Search = { Keywords = { "dark ambient", "eerie ambient", "horror ambience" }, Music = true, Min = 60, Max = 240 },
 	},
 
 	-- Интерфейс

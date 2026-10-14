@@ -91,6 +91,7 @@ Config.SoundLibraryEnabled = true -- искать настоящие звуки 
 Config.SoundSearchTimeLimit = 120 -- секунд на весь поиск, дальше — встроенные звуки
 Config.SoundSearchWorkers = 2 -- сколько запросов поиска идёт одновременно
 Config.SoundSearchRetries = 2 -- повторов при ошибке (с нарастающей паузой)
+Config.SoundSearchInterval = 0.5 -- секунд между запросами поиска (на весь сервер), чтобы не упереться в лимит
 Config.SoundLoadTimeout = 10 -- секунд на загрузку найденного звука на клиенте, иначе — встроенный
 Config.MaxSounds = 36 -- одновременно звучащих одноразовых звуков на ПК
 Config.MaxSoundsMobile = 18 -- то же на телефонах и планшетах

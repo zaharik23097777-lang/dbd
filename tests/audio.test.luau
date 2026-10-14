@@ -229,6 +229,77 @@ do
 end
 
 ------------------------------------------------------------------------
+print("== Поиск: лимит запросов, запрет, сбои")
+do
+	-- Ответ поиска на любой запрос
+	local function page(params, n)
+		local out = {}
+		for i = 1, 3 do
+			out[i] = { Id = n * 10 + i, Title = params.SearchKeyword, Duration = ((params.MinDuration or 0) + (params.MaxDuration or 10)) / 2 }
+		end
+		return {
+			GetCurrentPage = function()
+				return out
+			end,
+		}
+	end
+	-- Запускает поиск с заглушкой fail(n) -> текст ошибки или nil; возвращает папку, число и время запросов
+	local function search(fail)
+		local W, RS, SSS = newWorld()
+		local times = {}
+		W.AudioSearch = function(params)
+			table.insert(times, Sched.Time)
+			local err = fail(#times)
+			if err then
+				error(err)
+			end
+			return page(params, #times)
+		end
+		local Sounds = W:require(RS.Shared.Sounds)
+		local Config = W:require(RS.Shared.Config)
+		W:require(SSS.Server.Core.SoundLibrary).start()
+		local waited = 0
+		repeat
+			W:step(1, 0.25)
+			waited += 1
+		until RS.SoundLibrary:GetAttribute("Status") ~= "Searching" or waited > Config.SoundSearchTimeLimit + 10
+		local found = 0
+		for _, def in Sounds.List do
+			if RS.SoundLibrary:GetAttribute(def.Name) then
+				found += 1
+			end
+		end
+		return RS.SoundLibrary:GetAttribute("Status"), found, times, #Sounds.List, Config
+	end
+
+	-- Всплеск «слишком много запросов» посреди поиска не обрывает его
+	local status, found, times, total, Config = search(function(n)
+		return if n >= 10 and n <= 25 then "HTTP 429 (Too Many Requests)" else nil
+	end)
+	errorsOk("rate limit")
+	check(status == "Ready" and found == total, ("rate limit: all slots found after back-off (%s, %d/%d)"):format(tostring(status), found, total))
+	local gap = math.huge
+	for i = 2, #times do
+		gap = math.min(gap, times[i] - times[i - 1])
+	end
+	check(gap >= Config.SoundSearchInterval - 1e-6, "requests paced: min gap " .. gap)
+
+	-- Нет прав на поиск: сразу Offline, без повторов
+	status, found, times = search(function()
+		return "The current thread cannot call 'SearchAudioAsync' (lacking capability Assets)"
+	end)
+	errorsOk("no permission")
+	check(status == "Offline" and found == 0 and #times == 1, "no permission: one request, then offline (" .. #times .. ")")
+
+	-- Сервис стабильно падает: после нескольких слотов — Offline, без бесконечных повторов
+	status, found, times = search(function()
+		return "HTTP 500 (Internal Server Error)"
+	end)
+	errorsOk("server errors")
+	check(status == "Offline" and found == 0 and #times <= 12, "failing search gives up: " .. #times .. " requests")
+end
+
+------------------------------------------------------------------------
 print("== Без сети: всё на встроенных звуках")
 do
 	local W, RS, SSS = newWorld()
@@ -325,6 +396,13 @@ do
 	check(#soundsNamed(W, "AmbientMusic") == 0, "no lobby music without library")
 	button.Activated:Fire()
 	check(#soundsNamed(W, "UiClick") == 1, "button click sound")
+	-- Кнопка, перенесённая в другой экран, щёлкает один раз, а не два
+	local screen2 = Fake.Instance.new("ScreenGui")
+	screen2.Parent = gui
+	button.Parent = screen2
+	W:step(1)
+	button.Activated:Fire()
+	check(#soundsNamed(W, "UiClick") == 1, "moved button clicks once: " .. #soundsNamed(W, "UiClick"))
 	RS.Remotes.Sfx.OnClientEvent:Fire("Clank", V3.new(3, 0, 0))
 	check(#soundsNamed(W, "Clank") == 1, "server sfx played")
 	check(soundsNamed(W, "Clank")[1].Parent.Name == "SfxPoint", "sfx at a world point")
