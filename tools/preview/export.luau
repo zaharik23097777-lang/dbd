@@ -11,7 +11,8 @@
 --   map [seed]                       — вся карта сверху
 --   poses [filter]                   — лист поз R6 (locomotion/state/action/oneshot), фильтр по заголовку
 --   gait <пресет> [кадров]           — цикл походки: кадры + «стробоскоп» (стопа не должна скользить)
---   clip <OneShot> [кадров] [killer] — одноразовая анимация по кадрам
+--   clip <OneShot|Action> [кадров] [killer] — одноразовая анимация (или действие) по кадрам;
+--     прыжки — с подоконником и движением корня, как на сервере; крик/Сущность — на крюке
 --     для поз: VIEWS=side,front — ракурсы, SPRING=1 — с пружинами суставов, как в игре
 local fs = require("@lune/fs")
 local process = require("@lune/process")
@@ -208,7 +209,10 @@ elseif MODE == "poses" or MODE == "gait" or MODE == "clip" then
 	local envViews = process.env.VIEWS
 	local useSpring = process.env.SPRING == "1"
 	local function viewsOr(default)
-		return (envViews and envViews ~= "") and nil or default
+		if envViews and envViews ~= "" then
+			return nil -- ракурсы из VIEWS (render.py --views)
+		end
+		return default
 	end
 	local ORDER = { "Root", "Neck", "LArm", "RArm", "LLeg", "RLeg" }
 
@@ -393,9 +397,12 @@ elseif MODE == "poses" or MODE == "gait" or MODE == "clip" then
 		end
 		local base = params(findSpec("idle"))
 		for name, fn in Poses.Action do
-			local title = "action: " .. name
-			if want(title) then
-				single(title, Clip.layer(Clip.copy(Poses.locomotion(0.4, base), {}), fn(0.4, base), 1), false)
+			local len = Poses.ActionLength[name] or 2
+			for _, a in { 0.2, 0.55 } do
+				local title = ("action: %s t=%.1f"):format(name, a * len)
+				if want(title) then
+					single(title, Clip.layer(Clip.copy(Poses.locomotion(0.4, base), {}), fn(a * len, base), 1), false)
+				end
 			end
 		end
 		for name, shot in Poses.OneShot do
@@ -403,7 +410,8 @@ elseif MODE == "poses" or MODE == "gait" or MODE == "clip" then
 				local title = ("oneshot: %s @%.2f"):format(name, a)
 				if want(title) then
 					local pose = Clip.copy(Poses.locomotion(0.4, base), {})
-					single(title, Clip.layer(pose, shot.Fn(a, base), Clip.weight(shot, a * shot.Duration), shot.Additive), false)
+					Poses.applyShot(pose, shot, a * shot.Duration, base)
+					single(title, pose, false)
 				end
 			end
 		end
@@ -462,40 +470,81 @@ elseif MODE == "poses" or MODE == "gait" or MODE == "clip" then
 			addScene(("%s φ=%.0f°"):format(spec[1], math.deg(phases[i])), list, { views = viewsOr({ "side" }) })
 		end
 	elseif MODE == "clip" then
-		-- Одноразовая анимация по кадрам поверх стояния: clip <Имя> [кадров] [killer]
+		-- Одноразовая анимация (или действие) по кадрам: clip <Имя> [кадров] [killer]
 		local name = args[4]
 		local shot = Poses.OneShot[name]
-		assert(shot, "нет Poses.OneShot." .. tostring(name))
+		local action = Poses.Action[name]
+		assert(shot or action, "нет Poses.OneShot/Poses.Action " .. tostring(name))
+		local duration = shot and shot.Duration or (Poses.ActionLength[name] or 3)
+		if shot and duration > 5 then
+			duration = 2 -- Windup держится долго: показываем начало
+		end
 		local frames = math.max(2, tonumber(args[5]) or 8)
-		local p = params(findSpec(args[6] == "killer" and "killer idle" or "idle"))
+		local killer = args[6] == "killer"
+		local p = params(findSpec(killer and "killer idle" or "idle"))
+		local hooked = name == "HookScream" or name == "Entity"
+		local vault = name == "Vault" or name == "VaultWalk" or name == "KillerVault"
 		local lead = useSpring and 0.5 or 0 -- с пружинами: полсекунды стояния перед клипом
 		local times = {}
 		for i = 1, frames do
-			times[i] = lead + (i - 1) / (frames - 1) * shot.Duration
+			times[i] = lead + (i - 1) / (frames - 1) * duration
+		end
+		-- Корень: прыжок — как Obstacles (вверх на 2.2 к подоконнику за половину времени, затем вниз);
+		-- крюк — висит на высоте
+		local function rootAt(e)
+			if vault then
+				local u = math.clamp(e / duration, 0, 1)
+				if u < 0.5 then
+					local k = u / 0.5
+					return CF.new(0, 3 + 2.2 * k, 2.4 * (1 - k))
+				end
+				local k = (u - 0.5) / 0.5
+				return CF.new(0, 5.2 - 2.2 * k, -3.4 * k)
+			elseif hooked then
+				return CF.new(0, 7, 0)
+			end
+			return CF.new(0, 3, 0)
 		end
 		local function poseAt(t)
-			local pose = Clip.copy(Poses.locomotion(t, p), {})
 			local e = t - lead
+			local q = table.clone(p)
+			q.Struggle = name == "Entity"
+			local pose = Clip.copy(hooked and Poses.State.Hooked(t, q) or Poses.locomotion(t, p), {})
 			if e < 0 then
 				return pose, 1
 			end
-			local w = Clip.weight(shot, e)
-			Clip.layer(pose, shot.Fn(math.clamp(e / shot.Duration, 0, 1), p), w, shot.Additive)
-			return pose, 1 + ((shot.Stiffness or 1) - 1) * w
+			if action then
+				return Clip.layer(pose, action(e, p), 1), 1
+			end
+			return pose, Poses.applyShot(pose, shot, e, p)
 		end
-		local _, simRig = newChar(CF.new(100, 3, 0), p.Killer)
+		local function props(list)
+			if vault then
+				box(CF.new(0, 1.5, 0), V3.new(4, 3, 1), Color3.fromRGB(110, 85, 60), list)
+				ground(list, 4, 9, 0, -0.5)
+			elseif hooked then
+				local red = Color3.fromRGB(95, 25, 20)
+				box(CF.new(-0.25, 6, 4.3), V3.new(0.9, 12, 0.9), red, list)
+				box(CF.new(-0.25, 11.4, 2.3), V3.new(0.7, 0.7, 4.4), red, list)
+				ground(list)
+			else
+				ground(list)
+			end
+		end
+		local _, simRig = newChar(CF.new(100, 3, 0), killer)
 		local function emit(i)
 			local list = {}
-			local char, rig = newChar(CF.new(0, 3, 0), p.Killer)
+			local e = times[i] - lead
+			local char, rig = newChar(rootAt(e), killer)
 			if useSpring then
 				copyTransforms(simRig, rig)
 			else
 				setPose(rig, (poseAt(times[i])))
 			end
 			table.insert(list, char)
-			ground(list)
-			local e = times[i] - lead
-			addScene(("%s t=%.2f вес %.2f%s"):format(name, e, Clip.weight(shot, e), useSpring and " (пружины)" or ""), list, { views = viewsOr({ "side", "threequarter" }) })
+			props(list)
+			local w = shot and Clip.weight(shot, e) or 1
+			addScene(("%s t=%.2f вес %.2f%s"):format(name, e, w, useSpring and " (пружины)" or ""), list, { views = viewsOr({ "side", "threequarter" }) })
 		end
 		if useSpring then
 			simulate(simRig, poseAt, times, emit)

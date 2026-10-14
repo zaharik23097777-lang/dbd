@@ -486,6 +486,132 @@ for name, shot in Poses.OneShot do
 	end
 end
 
+------------------------------------------------------------------------
+-- 6. Одноразовые анимации и действия: без рывков, от базовой позы к базовой, длительности = сервер
+------------------------------------------------------------------------
+
+do
+	local Config = req(game.ReplicatedStorage.Shared.Config)
+	local KillerDefs = req(game.ReplicatedStorage.Shared.KillerDefs)
+	local OneShot = Poses.OneShot
+	-- все имена, которые шлёт сервер (+ варианты, которые выбирает Animator)
+	for _, name in { "Swing", "Wipe", "Stun", "Blind", "Pickup", "Vault", "VaultWalk", "KillerVault", "PalletDrop", "Flinch", "Windup", "Throw", "Bell", "BellUncloak", "HookScream", "Entity" } do
+		check(OneShot[name] ~= nil, "oneshot exists: " .. name)
+	end
+	local function dur(name, want)
+		check(OneShot[name] and near(OneShot[name].Duration, want, 1e-6), ("%s duration %.2f = server %.2f"):format(name, OneShot[name] and OneShot[name].Duration or -1, want))
+	end
+	dur("Stun", Config.PalletStunTime)
+	dur("Blind", Config.BlindDuration)
+	dur("Vault", 0.55) -- Obstacles: с бега
+	dur("VaultWalk", 0.95) -- шагом
+	dur("KillerVault", 1.6)
+	dur("Swing", 0.7)
+	dur("Bell", KillerDefs.Wraith.CloakTime)
+	dur("BellUncloak", KillerDefs.Wraith.UncloakTime)
+	check(OneShot.Swing.Duration >= Config.KillerLungeTime and OneShot.Wipe.Duration <= Config.AttackCooldownHit, "swing/wipe fit lunge and hit cooldown")
+	check(OneShot.Windup.Duration >= 10, "windup is held while charging")
+	check(Poses.shotVariant("Vault", false, nil) == "VaultWalk" and Poses.shotVariant("Vault", true, nil) == "Vault", "vault variant by running")
+	check(Poses.shotVariant("Bell", false, "Uncloaking") == "BellUncloak" and Poses.shotVariant("Bell", false, "Cloaking") == "Bell", "bell variant by power state")
+	check(Poses.shotVariant("Swing", false, nil) == "Swing", "other shots keep their name")
+
+	local KEYS = { "Root", "Neck", "LArm", "RArm", "LLeg", "RLeg" }
+	-- наибольшее отличие двух поз: (угол в градусах, сдвиг корпуса)
+	local function diff(a, b)
+		local worst = 0
+		for _, k in KEYS do
+			worst = math.max(worst, math.deg(angleBetween(a[k] or CFrame.identity, b[k] or CFrame.identity)))
+		end
+		local d = ((a.RootPos or Vector3.zero) - (b.RootPos or Vector3.zero)).Magnitude
+		return worst, d
+	end
+	local function layered(base, shot, e, p)
+		local pose = Clip.copy(base, {})
+		Poses.applyShot(pose, shot, e, p)
+		return pose
+	end
+	local function idleBase(killer)
+		local p = { Speed = 0, Phase = 0, LookYaw = 0, Seed = 0.4, Breath = 0.3, Killer = killer }
+		return Clip.copy(Poses.locomotion(1, p), {}), p
+	end
+	local function runBase()
+		local p = { Speed = 16, Phase = 2.1, LookYaw = 0, Seed = 0.4, Breath = 0.3 }
+		return Clip.copy(Poses.locomotion(1, p), {}), p
+	end
+	for name, shot in OneShot do
+		if shot.Tracks then
+			for _, issue in Clip.check(shot) do
+				check(false, "oneshot " .. name .. ": " .. issue)
+			end
+		end
+		-- конечные значения по всей длине
+		for i = 0, 40 do
+			checkPose("oneshot sample " .. name, shot.Fn(i / 40, params))
+		end
+		local bases = { { idleBase(false) }, { idleBase(true) }, { runBase() } }
+		if name == "HookScream" or name == "Entity" then
+			local p = { Speed = 0, Phase = 0, Seed = 0.4, Breath = 0.3, Struggle = name == "Entity" }
+			bases = { { Clip.copy(Poses.State.Hooked(1, p), {}), p } }
+		end
+		for _, b in bases do
+			local base, p = b[1], b[2]
+			local d = math.min(shot.Duration, 3)
+			-- начало и конец — базовая поза (или поза клипа, за которым этот идёт)
+			local a0, p0 = diff(layered(base, shot, 0, p), base)
+			if shot.Follows then
+				local prev = OneShot[shot.Follows]
+				local best = math.huge
+				for i = 0, 60 do
+					local x = diff(shot.Fn(0, p), prev.Fn(i / 60, p))
+					best = math.min(best, x)
+				end
+				check(best < 8, ("%s starts from a %s pose (%.1f°)"):format(name, shot.Follows, best))
+			else
+				check(a0 < 2 and p0 < 0.02, ("%s starts at base pose (%.1f°, %.2f)"):format(name, a0, p0))
+			end
+			local a1, p1 = diff(layered(base, shot, shot.Duration, p), base)
+			check(a1 < 2 and p1 < 0.02, ("%s ends at base pose (%.1f°, %.2f)"):format(name, a1, p1))
+			-- без рывков: разрыв остаётся разрывом при любой частоте, а быстрое движение за 1/240 с мало
+			local prev = layered(base, shot, 0, p)
+			local worst, at = 0, 0
+			for i = 1, math.ceil(d * 240) do
+				local cur = layered(base, shot, i / 240, p)
+				local x = diff(cur, prev)
+				if x > worst then
+					worst, at = x, i / 240
+				end
+				prev = cur
+			end
+			check(worst < 20, ("%s jumps %.0f° in 1/240 s at t=%.2f"):format(name, worst, at))
+			n += 1
+		end
+	end
+
+	-- действия: конечны 10 с, клипы проходят Clip.check, зацикленные — без скачка на стыке
+	local Actions = req(Anim.Actions)
+	for _, name in { "Repair", "Heal", "Cleanse", "OpenChest", "FreeTrap", "DisarmTrap", "Unhook", "OpenGate", "SelfHeal", "EscapeTrap", "Hook", "Break", "Kick", "SearchLocker", "SetTrap", "PickupTrap", "ResetTrap", "CloseHatch" } do
+		check(Poses.Action[name] ~= nil, "action exists: " .. name)
+	end
+	for name, fn in Poses.Action do
+		local clip = Actions.Clips[name]
+		if clip then
+			for _, issue in Clip.check(clip) do
+				check(false, "action " .. name .. ": " .. issue)
+			end
+		end
+		local prev = Clip.copy(fn(0, params), {})
+		local worst = 0
+		for i = 1, 600 do
+			local pose = fn(i / 60, params)
+			checkPose("action 10s " .. name, pose)
+			worst = math.max(worst, (diff(pose, prev)))
+			Clip.copy(pose, prev)
+		end
+		check(worst < 30, ("action %s jumps %.0f° in one frame"):format(name, worst))
+		n += 1
+	end
+end
+
 -- Походка при множестве сочетаний параметров
 local rngState = 7
 local rng = {}
