@@ -9,7 +9,10 @@
 --   hatchet                          — топор Охотницы
 --   lobby                            — лобби
 --   map [seed]                       — вся карта сверху
---   poses [filter]                   — лист поз R6 (locomotion/state/action/oneshot)
+--   poses [filter]                   — лист поз R6 (locomotion/state/action/oneshot), фильтр по заголовку
+--   gait <пресет> [кадров]           — цикл походки: кадры + «стробоскоп» (стопа не должна скользить)
+--   clip <OneShot> [кадров] [killer] — одноразовая анимация по кадрам
+--     для поз: VIEWS=side,front — ракурсы, SPRING=1 — с пружинами суставов, как в игре
 local fs = require("@lune/fs")
 local process = require("@lune/process")
 local serde = require("@lune/serde")
@@ -194,70 +197,310 @@ elseif MODE == "map" then
 	local MapBuilder = W:require(SSS.Server.Map.MapBuilder)
 	local map = MapBuilder.BuildMap((tonumber(args[4]) or 1) * 7919)
 	addScene(("map (%d деталей)"):format(count(map.Model)), map.Model, { terrain = true, views = { "top", "threequarter" } })
-elseif MODE == "poses" then
+elseif MODE == "poses" or MODE == "gait" or MODE == "clip" then
+	-- Позы R6. VIEWS (через запятую) переопределяет ракурсы; SPRING=1 — с пружинами суставов.
 	local Rig = W:require(RS.Shared.Anim.Rig)
 	local Poses = W:require(RS.Shared.Anim.Poses)
-	local filter = args[4]
-	local function poseScene(title, pose, killer)
+	local Clip = W:require(RS.Shared.Anim.Clip)
+	local Driver = W:require(RS.Shared.Anim.Driver)
+	local Color3 = roblox.Color3
+	local envViews = process.env.VIEWS
+	local useSpring = process.env.SPRING == "1"
+	local function viewsOr(default)
+		return (envViews and envViews ~= "") and nil or default
+	end
+	local ORDER = { "Root", "Neck", "LArm", "RArm", "LLeg", "RLeg" }
+
+	-- Персонаж R6 с HumanoidRootPart в rootCF; tint — яркость (для «стробоскопа»)
+	local function newChar(rootCF, killer, tint)
 		local char = Fake.buildR6()
-		local hrp = char.HumanoidRootPart
-		hrp.CFrame = CF.new(0, 3, 0)
-		local rig = Rig.find(char)
-		local order = { "Root", "Neck", "LArm", "RArm", "LLeg", "RLeg" }
-		for _, name in order do
-			local joint = rig.Joints[name]
-			local rot = pose[name] or CF.identity
-			local offset = name == "Root" and (pose.RootPos or V3.zero) or nil
-			local t = Rig.transform(joint, rot, offset)
-			local m = joint.Motor
-			m.Part1.CFrame = m.Part0.CFrame * joint.C0 * t * joint.C1:Inverse()
-		end
-		for _, p in char:GetChildren() do
-			if p:IsA("BasePart") then
-				p.Color = p.Name == "Torso" and (killer and roblox.Color3.fromRGB(70, 40, 40) or roblox.Color3.fromRGB(60, 90, 130))
-					or p.Name == "Head" and roblox.Color3.fromRGB(230, 190, 150)
-					or (p.Name:match("Leg") and roblox.Color3.fromRGB(50, 50, 60) or roblox.Color3.fromRGB(230, 190, 150))
+		char.HumanoidRootPart.CFrame = rootCF
+		local k = tint or 1
+		for _, part in char:GetChildren() do
+			if part:IsA("BasePart") then
+				-- левые конечности чуть холоднее правых, чтобы различать ноги в профиль
+				local left = part.Name:match("^Left") ~= nil
+				local c = part.Name == "Torso" and (killer and Color3.fromRGB(80, 38, 38) or Color3.fromRGB(60, 90, 130))
+					or part.Name == "Head" and Color3.fromRGB(230, 190, 150)
+					or (part.Name:match("Leg") and (left and Color3.fromRGB(40, 50, 75) or Color3.fromRGB(70, 52, 40)))
+					or (left and Color3.fromRGB(200, 185, 170) or Color3.fromRGB(235, 185, 140))
+				part.Color = Color3.new(c.R * k, c.G * k, c.B * k)
 			end
 		end
 		char.Parent = W:service("Workspace")
-		addScene(title, char, { views = { "side", "threequarter" } })
+		return char, Rig.find(char)
 	end
-	local params = { Speed = 0, Phase = 0, LookYaw = 0 }
-	local function want(name)
-		return not filter or name:lower():find(filter:lower(), 1, true)
+	-- Детали по Motor6D.Transform (как движок)
+	local function solveParts(rig)
+		for _, name in ORDER do
+			local joint = rig.Joints[name]
+			local m = joint.Motor
+			m.Part1.CFrame = m.Part0.CFrame * joint.C0 * m.Transform * joint.C1:Inverse()
+		end
 	end
-	for _, spec in {
-		{ "idle", 0, 0, {} },
-		{ "walk", 10, 1.2, {} },
-		{ "run", 16, 1.2, {} },
-		{ "injured run", 16, 1.2, { Injured = true } },
-		{ "crouch walk", 5, 1.2, { Crouching = true } },
-		{ "killer walk", 18, 1.2, { Killer = true } },
-		{ "killer carry", 16, 1.2, { Killer = true, Carrying = true } },
-	} do
-		if want(spec[1]) then
-			local p = table.clone(params)
-			p.Speed, p.Phase = spec[2], spec[3]
-			for k, v in spec[4] do
-				p[k] = v
+	local function setPose(rig, pose)
+		for _, name in ORDER do
+			local joint = rig.Joints[name]
+			local offset = name == "Root" and (pose.RootPos or V3.zero) or nil
+			joint.Motor.Transform = Rig.transform(joint, pose[name] or CF.identity, offset)
+		end
+		solveParts(rig)
+	end
+	local function copyTransforms(from, to)
+		for _, name in ORDER do
+			to.Joints[name].Motor.Transform = from.Joints[name].Motor.Transform
+		end
+		solveParts(to)
+	end
+	local function box(cf, size, color, list)
+		local part = Fake.Instance.new("Part")
+		part.CFrame = cf
+		part.Size = size
+		part.Color = color
+		part.Parent = W:service("Workspace")
+		table.insert(list, part)
+		return part
+	end
+	-- Земля (верх на y = 0)
+	local function ground(list, width, depth, x, z)
+		box(CF.new(x or 0, -0.05, z or 0), V3.new(width or 7, 0.1, depth or 7), Color3.fromRGB(70, 75, 60), list)
+	end
+
+	local function want(title)
+		return not args[4] or title:lower():find(args[4]:lower(), 1, true)
+	end
+	local LOCO = {
+		{ "idle", 0, {} },
+		{ "walk", 10, {} },
+		{ "run", 16, {} },
+		{ "sprint", 22, {} },
+		{ "injured idle", 0, { Injured = true } },
+		{ "injured walk", 10, { Injured = true } },
+		{ "injured run", 16, { Injured = true } },
+		{ "crouch idle", 0, { Crouching = true } },
+		{ "crouch walk", 5, { Crouching = true } },
+		{ "killer idle", 0, { Killer = true } },
+		{ "killer walk", 6, { Killer = true } },
+		{ "killer stride", 16, { Killer = true } },
+		{ "killer strafe", 16, { Killer = true, Forward = 0, Strafe = 1 } },
+		{ "killer backpedal", 12, { Killer = true, Forward = -1 } },
+		{ "wraith stride", 16, { Killer = true, KillerType = "Wraith" } },
+		{ "killer carry", 14.3, { Killer = true, Carrying = true } },
+		{ "run accelerating", 12, { AccelForward = 40 } },
+		{ "run braking", 6, { AccelForward = -40 } },
+		{ "run turning left", 16, { AccelSide = -45, TurnRate = 3 } },
+	}
+	local function params(spec)
+		local p = { Speed = spec[2], Phase = 0, LookYaw = 0, Seed = 0.3, Breath = 0.7 }
+		for k, v in spec[3] do
+			p[k] = v
+		end
+		return p
+	end
+	local function findSpec(name)
+		for _, spec in LOCO do
+			if spec[1] == name then
+				return spec
 			end
-			poseScene("locomotion: " .. spec[1], Poses.locomotion(0.4, p), p.Killer)
+		end
+		error("нет пресета походки " .. tostring(name))
+	end
+
+	-- Пошаговая симуляция, как в Animator: поза -> пружины (60 кадров/с).
+	-- poseAt(t, dt) -> поза, жёсткость; capture(i) — в моменты times[i].
+	local function simulate(rig, poseAt, times, capture)
+		local driver = Driver.new(rig)
+		local dt = 1 / 60
+		local t = 0
+		local nextI = 1
+		while nextI <= #times do
+			local pose, stiff = poseAt(t, dt)
+			Driver.apply(driver, pose, dt, stiff)
+			while nextI <= #times and t + dt * 0.5 >= times[nextI] do
+				capture(nextI)
+				nextI += 1
+			end
+			t += dt
 		end
 	end
-	for name, fn in Poses.State do
-		if want(name) then
-			poseScene("state: " .. name, fn(0.4, { Speed = 2, Phase = 1, Wiggle = 0.5, Struggle = name == "Hooked" }), false)
-		end
+
+	local function single(title, pose, killer)
+		local list = {}
+		local char, rig = newChar(CF.new(0, 3, 0), killer)
+		setPose(rig, pose)
+		ground(list)
+		table.insert(list, char)
+		addScene(title, list, { views = viewsOr({ "side", "threequarter" }) })
 	end
-	for name, fn in Poses.Action do
-		if want(name) then
-			poseScene("action: " .. name, Poses.merge(Poses.locomotion(0.4, params), fn(0.4, params)), false)
+
+	if MODE == "poses" then
+		for _, spec in LOCO do
+			local title = "locomotion: " .. spec[1]
+			if want(title) then
+				local p = params(spec)
+				p.Phase = 1.2
+				single(title, Poses.locomotion(0.4, p), p.Killer)
+			end
 		end
-	end
-	for name, shot in Poses.OneShot do
-		if want(name) then
+		local stateParams = { Speed = 0, Phase = 1, Wiggle = 0.5, Seed = 0.3, Breath = 0.7, LookYaw = 0 }
+		for name, fn in Poses.State do
+			local title = "state: " .. name
+			if want(title) then
+				local list = {}
+				local p = table.clone(stateParams)
+				if name == "Carried" then
+					-- на плече у маньяка (как Carry.startCarry)
+					local kp = { Speed = 0, Phase = 1, Killer = true, Carrying = true, Seed = 0.6, Breath = 0.7 }
+					local kchar, krig = newChar(CF.new(0, 3, 0), true)
+					setPose(krig, Poses.locomotion(0.4, kp))
+					table.insert(list, kchar)
+					local scf = CF.new(0, 3, 0) * CF.new(1.4, 1.7, 0.6) * CF.Angles(math.rad(90), 0, 0) * CF.Angles(0, math.pi, 0)
+					local char, rig = newChar(scf, false)
+					setPose(rig, fn(0.4, p))
+					table.insert(list, char)
+					ground(list)
+				elseif name == "Hooked" then
+					-- упрощённый крюк (как Art/Props/Hook.lua); справа — борьба с Сущностью
+					local red = Color3.fromRGB(95, 25, 20)
+					for _, x in { 0, 6 } do
+						box(CF.new(x, 6, 0), V3.new(0.9, 12, 0.9), red, list)
+						box(CF.new(x, 11.4, -2), V3.new(0.7, 0.7, 4.4), red, list)
+						box(CF.new(x, 10.2, -3.9), V3.new(0.3, 1.6, 0.3), Color3.fromRGB(80, 80, 80), list)
+						box(CF.new(x, 8.8, -3.6), V3.new(0.3, 1.2, 0.3), Color3.fromRGB(150, 150, 150), list)
+					end
+					for i, struggle in { false, true } do
+						local q = table.clone(p)
+						q.Struggle = struggle
+						local char, rig = newChar(CF.new(0.25 + (i - 1) * 6, 7, -4.3), false)
+						setPose(rig, fn(0.4, q))
+						table.insert(list, char)
+					end
+					ground(list, 14, 10, 3, -3)
+				else
+					if name == "Sit" then
+						box(CF.new(0, 0.75, 0.2), V3.new(3, 1.5, 1.4), Color3.fromRGB(90, 60, 40), list)
+					elseif name == "Crawl" then
+						p.Speed = 2.5
+					end
+					local char, rig = newChar(CF.new(0, 3, 0), false)
+					setPose(rig, fn(0.4, p))
+					table.insert(list, char)
+					ground(list)
+				end
+				addScene(title, list, { views = viewsOr({ "side", "threequarter" }) })
+			end
+		end
+		local base = params(findSpec("idle"))
+		for name, fn in Poses.Action do
+			local title = "action: " .. name
+			if want(title) then
+				single(title, Clip.layer(Clip.copy(Poses.locomotion(0.4, base), {}), fn(0.4, base), 1), false)
+			end
+		end
+		for name, shot in Poses.OneShot do
 			for _, a in { 0.15, 0.4, 0.7 } do
-				poseScene(("oneshot: %s @%.2f"):format(name, a), Poses.merge(Poses.locomotion(0.4, params), shot.Fn(a, params)), false)
+				local title = ("oneshot: %s @%.2f"):format(name, a)
+				if want(title) then
+					local pose = Clip.copy(Poses.locomotion(0.4, base), {})
+					single(title, Clip.layer(pose, shot.Fn(a, base), Clip.weight(shot, a * shot.Duration), shot.Additive), false)
+				end
+			end
+		end
+	elseif MODE == "gait" then
+		-- Цикл походки: кадры по фазе + «стробоскоп» — все кадры со смещением тела на пройденный
+		-- путь, опорная стопа должна стоять на месте. gait <пресет> [кадров]
+		local spec = findSpec(args[4] or "walk")
+		local frames = tonumber(args[5]) or 8
+		local p = params(spec)
+		local v = p.Speed
+		local rate = Poses.stepRate(v, p.Crouching, p)
+		local period = rate > 0 and (2 * math.pi / rate) or 2
+		local phases, times = {}, {}
+		for i = 1, frames do
+			phases[i] = (i - 1) / frames * 2 * math.pi
+			times[i] = period * 2 + (i - 1) / frames * period
+		end
+		local dirX, dirZ = (p.Strafe or 0), -(p.Forward or 1)
+		local _, simRig = newChar(CF.new(100, 3, 0), p.Killer)
+		local strobe, tiles = {}, {}
+		local function emit(i)
+			local list = {}
+			local travel = v * (i - 1) / frames * period
+			for k, rootCF in { CF.new(0, 3, 0), CF.new(dirX * travel, 3, dirZ * travel) } do
+				local char, rig = newChar(rootCF, p.Killer, k == 1 and 1 or 0.55 + 0.45 * i / frames)
+				if useSpring then
+					copyTransforms(simRig, rig)
+				else
+					local q = table.clone(p)
+					q.Phase = phases[i]
+					setPose(rig, Poses.locomotion(times[i], q))
+				end
+				table.insert(k == 1 and list or strobe, char)
+			end
+			ground(list)
+			tiles[i] = list
+		end
+		if useSpring then
+			local phase = 0
+			simulate(simRig, function(t, dt)
+				phase += Poses.stepRate(v, p.Crouching, p) * dt
+				local q = table.clone(p)
+				q.Phase = phase
+				return Poses.locomotion(t, q), 1
+			end, times, emit)
+		else
+			for i = 1, frames do
+				emit(i)
+			end
+		end
+		local span = v * period
+		ground(strobe, 6 + span * math.abs(dirX), 6 + span * math.abs(dirZ), dirX * span / 2, dirZ * span / 2)
+		local head = ("gait %s v=%.1f, %.2f шаг/с%s"):format(spec[1], v, rate / math.pi, useSpring and ", пружины" or "")
+		addScene(head .. " — стробоскоп", strobe, { views = viewsOr({ "side" }) })
+		for i, list in tiles do
+			addScene(("%s φ=%.0f°"):format(spec[1], math.deg(phases[i])), list, { views = viewsOr({ "side" }) })
+		end
+	elseif MODE == "clip" then
+		-- Одноразовая анимация по кадрам поверх стояния: clip <Имя> [кадров] [killer]
+		local name = args[4]
+		local shot = Poses.OneShot[name]
+		assert(shot, "нет Poses.OneShot." .. tostring(name))
+		local frames = math.max(2, tonumber(args[5]) or 8)
+		local p = params(findSpec(args[6] == "killer" and "killer idle" or "idle"))
+		local lead = useSpring and 0.5 or 0 -- с пружинами: полсекунды стояния перед клипом
+		local times = {}
+		for i = 1, frames do
+			times[i] = lead + (i - 1) / (frames - 1) * shot.Duration
+		end
+		local function poseAt(t)
+			local pose = Clip.copy(Poses.locomotion(t, p), {})
+			local e = t - lead
+			if e < 0 then
+				return pose, 1
+			end
+			local w = Clip.weight(shot, e)
+			Clip.layer(pose, shot.Fn(math.clamp(e / shot.Duration, 0, 1), p), w, shot.Additive)
+			return pose, 1 + ((shot.Stiffness or 1) - 1) * w
+		end
+		local _, simRig = newChar(CF.new(100, 3, 0), p.Killer)
+		local function emit(i)
+			local list = {}
+			local char, rig = newChar(CF.new(0, 3, 0), p.Killer)
+			if useSpring then
+				copyTransforms(simRig, rig)
+			else
+				setPose(rig, (poseAt(times[i])))
+			end
+			table.insert(list, char)
+			ground(list)
+			local e = times[i] - lead
+			addScene(("%s t=%.2f вес %.2f%s"):format(name, e, Clip.weight(shot, e), useSpring and " (пружины)" or ""), list, { views = viewsOr({ "side", "threequarter" }) })
+		end
+		if useSpring then
+			simulate(simRig, poseAt, times, emit)
+		else
+			for i = 1, frames do
+				emit(i)
 			end
 		end
 	end

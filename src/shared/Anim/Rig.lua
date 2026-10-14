@@ -5,6 +5,8 @@
 -- поэтому не нужно помнить странные оси C0/C1 у R6.
 local Rig = {}
 
+local rad = math.rad
+
 Rig.JointNames = { "Root", "Neck", "LArm", "RArm", "LLeg", "RLeg" }
 
 local JOINT_PATHS = {
@@ -58,6 +60,32 @@ function Rig.find(char: Model): RigData?
 		scale = s
 	end
 	return { Joints = joints, Scale = scale }
+end
+
+-- Поворот из углов в градусах в соглашении поз: +X — вперёд, +Y — влево, +Z — вправо
+function Rig.A(x: number, y: number?, z: number?): CFrame
+	return CFrame.Angles(rad(x), rad(y or 0), rad(z or 0))
+end
+
+-- Поворот конечности (руки или ноги), при котором она указывает вдоль dir.
+-- dir задаётся в пространстве родителя (торса): -Z — вперёд, +X — вправо, -Y — вниз.
+-- Это обратная задача к Angles(x, 0, z): конец конечности = (sin z, -cos z·cos x, -cos z·sin x).
+function Rig.aim(dir: Vector3): CFrame
+	local u = dir.Unit
+	return CFrame.Angles(math.atan2(-u.Z, -u.Y), 0, math.asin(math.clamp(u.X, -1, 1)))
+end
+
+-- Вектор поворота (ось × угол, рад) кратчайшим путём: угол в [-π, π].
+-- ToAxisAngle может вернуть угол до 2π (так в Lune) — приводим.
+function Rig.rotVec(cf: CFrame): Vector3
+	local axis, angle = cf:ToAxisAngle()
+	if angle ~= angle or axis.X ~= axis.X or math.abs(angle) < 1e-7 then
+		return Vector3.zero
+	end
+	if angle > math.pi then
+		angle -= 2 * math.pi
+	end
+	return axis * angle
 end
 
 -- rot: поворот вокруг точки сустава; offset: сдвиг в пространстве родителя (в стадах)
