@@ -3,29 +3,25 @@
 --   Neck, LArm, RArm, LLeg, RLeg.
 -- Углы в градусах: +X — вперёд (руку поднять перед собой), +Y — влево, +Z — вправо.
 -- Корпус наклоняется вперёд ОТРИЦАТЕЛЬНЫМ X. Не указанные суставы берутся из базовой позы.
+--   Poses.locomotion / Poses.stepRate — походка (Anim/Gait.lua)
+--   Poses.State.*  — особые состояния (Anim/States.lua)
+--   Poses.Action.* — зацикленные действия, пока игрок держит кнопку: (t, p) -> поза
+--   Poses.OneShot.* — одноразовые: { Duration, Fn(a, p) -> поза } или клип Anim/Clip.lua
+--     (необязательно: FadeIn, FadeOut, Additive, Stiffness — как у клипа)
+local Rig = require(script.Parent.Rig)
+local Gait = require(script.Parent.Gait)
+local States = require(script.Parent.States)
+
 local Poses = {}
 
-local sin, cos, abs, clamp, rad = math.sin, math.cos, math.abs, math.clamp, math.rad
+local sin, abs, clamp = math.sin, math.abs, math.clamp
 
-local function A(x: number, y: number?, z: number?): CFrame
-	return CFrame.Angles(rad(x), rad(y or 0), rad(z or 0))
-end
+local A = Rig.A
 Poses.A = A
 
 local V = Vector3.new
 
-export type Params = {
-	Speed: number, -- скорость по земле
-	Phase: number, -- фаза шага (радианы)
-	Injured: boolean?,
-	Crouching: boolean?,
-	Killer: boolean?,
-	Carrying: boolean?,
-	Wiggle: number?,
-	Struggle: boolean?,
-	LookYaw: number?, -- поворот головы к маньяку (градусы)
-	KillerType: string?,
-}
+export type Params = Gait.Params
 
 local function lerp(a: number, b: number, t: number): number
 	return a + (b - a) * t
@@ -56,201 +52,9 @@ local function merge(base, over)
 end
 Poses.merge = merge
 
-------------------------------------------------------------------------
--- Передвижение
-------------------------------------------------------------------------
-
--- Скорость изменения фазы шага (рад/с) для данной скорости
-function Poses.stepRate(speed: number, crouching: boolean?): number
-	if speed < 0.5 then
-		return 0
-	end
-	local rate = clamp(speed, 0, 30) * 0.55 + 2
-	if crouching then
-		rate *= 1.4
-	end
-	return rate
-end
-
-function Poses.locomotion(t: number, p: Params)
-	local s = p.Speed
-	local ph = p.Phase
-	local moving = s > 0.6
-	local look = p.LookYaw or 0
-
-	if p.Crouching then
-		local sw = moving and sin(ph) * 18 or 0
-		return {
-			Root = A(-28),
-			RootPos = V(0, -1.05, 0),
-			LLeg = A(85 + sw),
-			RLeg = A(-35 - sw * 0.6, 0, 4),
-			LArm = A(35 - sw, 0, -8),
-			RArm = A(35 + sw, 0, 8),
-			Neck = A(18, look, 0),
-		}
-	end
-
-	local amp = clamp(s * 3.2, 0, 58)
-	local pose
-	if moving then
-		local swing = sin(ph) * amp
-		local lean = -clamp(s, 0, 22) * 0.55
-		local bob = -abs(cos(ph)) * 0.12 * clamp(s / 16, 0, 1.4)
-		pose = {
-			Root = A(lean, sin(ph) * 4, 0),
-			RootPos = V(0, bob, 0),
-			LLeg = A(swing),
-			RLeg = A(-swing),
-			LArm = A(-swing * 0.85, 0, -4),
-			RArm = A(swing * 0.85, 0, 4),
-			Neck = A(-lean * 0.6, look, 0),
-		}
-	else
-		local breath = sin(t * 2.2)
-		pose = {
-			Root = A(breath * 1.2),
-			RootPos = V(0, breath * 0.03, 0),
-			LLeg = A(2, 0, -2),
-			RLeg = A(-2, 0, 2),
-			LArm = A(breath * 2, 0, -4 - breath),
-			RArm = A(breath * 2, 0, 4 + breath),
-			Neck = A(sin(t * 0.7) * 3, look + sin(t * 0.37) * 10, 0),
-		}
-	end
-
-	if p.Injured then
-		-- держится за бок, хромает, сутулится
-		local limp = moving and sin(ph) * amp or 0
-		pose.Root = pose.Root * A(-10, 0, moving and sin(ph) * 5 or 3)
-		pose.LArm = A(45 + sin(t * 3) * 3, 0, 32)
-		pose.RLeg = A(-limp * 0.45)
-		pose.Neck = A(-12 + sin(t * 3.5) * 2, look, 0)
-	end
-
-	if p.Killer then
-		-- тяжёлая походка, оружие в правой руке
-		if moving then
-			pose.Root = pose.Root * A(-4)
-			pose.RArm = A(25 + sin(ph) * amp * 0.25, 0, 10)
-		else
-			local b = sin(t * 1.4)
-			pose.Root = A(-6 + b * 2)
-			pose.RootPos = V(0, b * 0.05, 0)
-			pose.RArm = A(18 + b * 3, 0, 12)
-			pose.LArm = A(6 + b * 2, 0, -10)
-			pose.Neck = A(-10 + b * 3, sin(t * 0.5) * 18, 0)
-		end
-		if p.Carrying then
-			pose.RArm = A(168, 0, 6)
-		end
-		if p.KillerType == "Wraith" and not p.Carrying then
-			pose.LArm = A(55 + sin(t * 2) * 4, 0, -12) -- держит колокол
-		end
-	end
-	return pose
-end
-
-------------------------------------------------------------------------
--- Особые состояния (выжившие)
-------------------------------------------------------------------------
-
-Poses.State = {}
-
--- Повержен: ползёт на животе
-function Poses.State.Crawl(t: number, p: Params)
-	local s = p.Speed
-	local ph = s > 0.3 and p.Phase or t * 1.5
-	local reach = sin(ph) * (s > 0.3 and 28 or 10)
-	return {
-		Root = A(-84, 0, sin(ph) * 6),
-		RootPos = V(0, -2.4, -0.3),
-		LArm = A(150 + reach, 0, -12),
-		RArm = A(150 - reach, 0, 12),
-		LLeg = A(-4 + sin(ph) * 6),
-		RLeg = A(-4 - sin(ph) * 6),
-		Neck = A(65, sin(t * 0.8) * 10, 0),
-	}
-end
-
--- На плече у маньяка (тело лежит животом вниз, голова за спиной маньяка)
-function Poses.State.Carried(t: number, p: Params)
-	local w = p.Wiggle or 0
-	local k = 0.4 + w * 1.6
-	return {
-		Root = A(0),
-		LArm = A(85 + sin(t * 2.5) * 10 * k, 0, -8),
-		RArm = A(85 + sin(t * 2.5 + 1) * 10 * k, 0, 8),
-		LLeg = A(80 + sin(t * 9) * 22 * k),
-		RLeg = A(80 - sin(t * 9) * 22 * k),
-		Neck = A(-25 + sin(t * 3) * 8 * k, sin(t * 4) * 20 * k, 0),
-	}
-end
-
--- Висит на крюке
-function Poses.State.Hooked(t: number, p: Params)
-	if p.Struggle then
-		local f = sin(t * 7)
-		return {
-			Root = A(6, sin(t * 3) * 6, f * 4),
-			LArm = A(160 + f * 18, 0, -15),
-			RArm = A(160 - f * 18, 0, 15),
-			LLeg = A(25 + sin(t * 9) * 25),
-			RLeg = A(25 - sin(t * 9) * 25),
-			Neck = A(30 + f * 5, 0, 0),
-		}
-	end
-	local sway = sin(t * 1.1)
-	return {
-		Root = A(-8 + sway * 2, sway * 3, 10),
-		LArm = A(8 + sway * 4, 0, -6),
-		RArm = A(150, 0, 18), -- рука на крюке
-		LLeg = A(6 + sway * 5),
-		RLeg = A(-4 + sway * 5),
-		Neck = A(-28, sin(t * 0.6) * 12, 8),
-	}
-end
-
--- В шкафчике: быстро и испуганно дышит
-function Poses.State.Hidden(t: number, _p: Params)
-	local b = sin(t * 7)
-	return {
-		Root = A(-4 + b * 1.5),
-		RootPos = V(0, b * 0.03, 0),
-		LArm = A(20, 0, 25),
-		RArm = A(20, 0, -25),
-		LLeg = A(0),
-		RLeg = A(0),
-		Neck = A(-5 + b * 2, sin(t * 0.9) * 15, 0),
-	}
-end
-
--- Нога в капкане
-function Poses.State.Trapped(t: number, _p: Params)
-	local pull = sin(t * 4)
-	return {
-		Root = A(-30 + pull * 6, 0, -6),
-		RootPos = V(0, -0.5, 0),
-		LLeg = A(45, 0, -6),
-		RLeg = A(-30 + pull * 4),
-		LArm = A(55 + pull * 15, 0, 10),
-		RArm = A(55 - pull * 15, 0, -10),
-		Neck = A(-35, 0, 0),
-	}
-end
-
--- Сидит у костра
-function Poses.State.Sit(t: number, _p: Params)
-	local b = sin(t * 1.8)
-	return {
-		Root = A(-6 + b),
-		LLeg = A(90, 0, -4),
-		RLeg = A(90, 0, 4),
-		LArm = A(40, 0, 18),
-		RArm = A(40, 0, -18),
-		Neck = A(-8 + b * 2, sin(t * 0.4) * 20, 0),
-	}
-end
+Poses.stepRate = Gait.stepRate
+Poses.locomotion = Gait.locomotion
+Poses.State = States
 
 ------------------------------------------------------------------------
 -- Действия (зацикленные, пока игрок держит кнопку)
