@@ -511,7 +511,8 @@ do
 	dur("BellUncloak", KillerDefs.Wraith.UncloakTime)
 	check(OneShot.Swing.Duration >= Config.KillerLungeTime and OneShot.Wipe.Duration <= Config.AttackCooldownHit, "swing/wipe fit lunge and hit cooldown")
 	check(OneShot.Windup.Duration >= 10, "windup is held while charging")
-	check(Poses.shotVariant("Vault", false, nil) == "VaultWalk" and Poses.shotVariant("Vault", true, nil) == "Vault", "vault variant by running")
+	-- прыжок через окно выбирает сервер ("Vault" с бега / "VaultWalk" шагом) — клиент имя не меняет
+	check(Poses.shotVariant("Vault", false, nil) == "Vault" and Poses.shotVariant("VaultWalk", true, nil) == "VaultWalk", "vault name comes from the server")
 	check(Poses.shotVariant("Bell", false, "Uncloaking") == "BellUncloak" and Poses.shotVariant("Bell", false, "Cloaking") == "Bell", "bell variant by power state")
 	check(Poses.shotVariant("Swing", false, nil) == "Swing", "other shots keep their name")
 

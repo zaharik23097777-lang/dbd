@@ -108,7 +108,8 @@ Actions.register("Vault", {
 			State.playAnim(data.Player, "KillerVault")
 		else
 			duration = data.Sprinting and 0.55 or 0.95
-			State.playAnim(data.Player, "Vault")
+			-- длительность клипа должна совпасть с перемещением: быстрый прыжок или шагом
+			State.playAnim(data.Player, data.Sprinting and "Vault" or "VaultWalk")
 			if data.Sprinting then
 				-- быстрый прыжок шумит
 				State.noise(root.Position)

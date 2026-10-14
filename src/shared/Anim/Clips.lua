@@ -175,12 +175,10 @@ function Clips.apply(dst: Pose, def: any, elapsed: number, p: any?, fade: number
 	return 1 + ((def.Stiffness or 1) - 1) * w
 end
 
--- Сервер шлёт одно имя, а длительность зависит от обстоятельств: прыжок с бега — 0.55 с,
--- шагом — 0.95 с; колокол Призрака: исчезнуть — 1.5 с, проявиться — 1 с.
-function Clips.variant(name: string, running: boolean, powerState: any): string
-	if name == "Vault" and not running then
-		return "VaultWalk"
-	elseif name == "Bell" and (powerState == "Uncloaking" or powerState == "Cloaked") then
+-- Колокол Призрака: исчезнуть — 1.5 с, проявиться — 1 с (сервер шлёт одно имя "Bell").
+-- Прыжок через окно сервер выбирает сам: "Vault" (с бега, 0.55 с) или "VaultWalk" (шагом, 0.95 с).
+function Clips.variant(name: string, _running: boolean, powerState: any): string
+	if name == "Bell" and (powerState == "Uncloaking" or powerState == "Cloaked") then
 		return "BellUncloak"
 	end
 	return name
