@@ -23,7 +23,6 @@ local Interaction = require(script.Parent.Interaction)
 local Input = require(script.Parent.Input)
 
 local player = Players.LocalPlayer
-local camera = workspace.CurrentCamera
 local gameState = ReplicatedStorage:WaitForChild("GameState")
 
 Hud.mount(player:WaitForChild("PlayerGui") :: PlayerGui)

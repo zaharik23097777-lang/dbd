@@ -345,7 +345,17 @@ function MapBuilder.BuildMap(seed: number?): MapData
 		Props.deadTree(map.Walls, cf, rng)
 		table.insert(map.CrowSpots, cf * CFrame.new(0, 0, 3))
 		if i <= 2 then
-			Props.hangingBody(map.Decor, cf * CFrame.new(3.5, rng:NextNumber(12, 14), 0), rng)
+			-- Толстая ветка, на которой висит тело
+			local y = rng:NextNumber(12, 14)
+			P(map.Decor, {
+				Name = "HangBranch",
+				Size = Vector3.new(4.4, 0.5, 0.5),
+				CFrame = cf * CFrame.new(1.9, y + 0.2, 0) * A(0, 0, 8),
+				Color = Color3.fromRGB(45, 38, 34),
+				Material = Enum.Material.Wood,
+				Decor = true,
+			})
+			Props.hangingBody(map.Decor, cf * CFrame.new(3.5, y, 0), rng)
 		end
 	end
 
@@ -363,9 +373,11 @@ function MapBuilder.BuildMap(seed: number?): MapData
 		Props.entitySpikes(map.Walls, cf, rng)
 		Props.bloodSplat(map.Decor, cf * CFrame.new(5, 0, 0), rng)
 	end
+	-- Черепа на кольях — в углах ячеек, чтобы не втыкались в генераторы и крюки
 	for _ = 1, 6 do
 		local c = cells[rng:NextInteger(1, idx)]
-		Props.skullPike(map.Decor, CFrame.new(c + Vector3.new(rng:NextNumber(-9, 9), 0, rng:NextNumber(-9, 9))), rng)
+		local corner = Vector3.new(rng:NextNumber() < 0.5 and -10 or 10, 0, rng:NextNumber() < 0.5 and -10 or 10)
+		Props.skullPike(map.Decor, CFrame.new(c + corner), rng)
 	end
 	-- Когти Сущности нависают над внешними стенами
 	for _, side in { 1, -1 } do

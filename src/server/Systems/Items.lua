@@ -104,6 +104,7 @@ function Items.remove(data)
 	data.ItemActive = false
 	data.Player:SetAttribute("Item", nil)
 	data.Player:SetAttribute("ItemCharges", nil)
+	data.Player:SetAttribute("ItemMax", nil)
 	data.Player:SetAttribute("ItemActive", nil)
 	removeModel(data)
 end

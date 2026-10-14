@@ -124,14 +124,22 @@ type Flicker = { Light: Light, Base: number, Part: BasePart?, BaseColor: Color3?
 
 local flickers = {} :: { Flicker }
 local scannedMap: Instance? = nil
+local scannedLobby: Instance? = nil
 
-local function scanLights(map: Instance?)
+-- Собирает мерцающие лампы карты и лобби (фонари у палаток)
+local function scanLights(map: Instance?, lobby: Instance?)
 	scannedMap = map
+	scannedLobby = lobby
 	table.clear(flickers)
-	if not map then
-		return
+	local list = {}
+	for _, root in { map, lobby } do
+		if root then
+			for _, d in (root :: Instance):GetDescendants() do
+				table.insert(list, d)
+			end
+		end
 	end
-	for _, d in map:GetDescendants() do
+	for _, d in list do
 		if d:IsA("Light") and d:GetAttribute("Flicker") then
 			local part = d.Parent
 			local isPart = part and part:IsA("BasePart")
@@ -408,8 +416,9 @@ function Atmosphere.update(dt: number)
 
 	-- Лампы и свой свет
 	local map = workspace:FindFirstChild("Map")
-	if map ~= scannedMap then
-		scanLights(map)
+	local lobby = workspace:FindFirstChild("Lobby")
+	if map ~= scannedMap or lobby ~= scannedLobby then
+		scanLights(map, lobby)
 	end
 	local killer = findKiller()
 	local kroot = Util.getRoot(killer)
