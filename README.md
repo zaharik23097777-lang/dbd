@@ -71,6 +71,9 @@ rojo build -o DeadByDaylight.rbxlx
   корпус наклоняется при разгоне и поворотах, голова стабилизируется;
 - `Spring` — пружины суставов (естественное догоняние позы с лёгким перехлёстом);
 - `Clip` — клипы по ключевым кадрам с плавностью; `States` — ползание, крюк, шкафчик, капкан, перенос, сидение;
+- `Clips` — разовые движения с подготовкой, действием и возвратом (удар, вытирание лезвия, перелезание с бега и шагом,
+  сброс паллеты, оглушение, ослепление, подъём на плечо, бросок топора, колокол, крик на крюке, Сущность);
+  длительности совпадают с серверными; `Actions` — зацикленные действия (ремонт, лечение, ворота, капканы…);
 - далёкие и невидимые персонажи обновляются реже (экономия на телефонах).
 Персонажи всегда R6 — игра сама создаёт их из аватара игрока.
 
@@ -103,7 +106,7 @@ Config.SoundOverrides = {
 ## Структура
 ```
 src/shared/        Config, Remotes, KillerDefs, ItemDefs, ActionInfo, Sounds, Util
-src/shared/Anim/   Rig, Spring, Clip, Gait (походка), States, Poses (разовые движения и действия)
+src/shared/Anim/   Rig, Spring, Clip, Gait (походка), States, Clips (разовые движения), Actions, Poses
 src/server/Core/   State, Actions (реестр действий), Match, Characters (R6), Lifecycle, Scoring, Lobby, SoundLibrary
 src/server/Systems Health, Carry (крюки), Combat, Generators, Exits (ворота/люк), Obstacles (паллеты/окна),
                    Lockers, Totems, Items, Crows, Chase
