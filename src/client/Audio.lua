@@ -676,13 +676,32 @@ function Audio.surface(material: Enum.Material): string
 	return SURFACE[material.Name] or "Footstep"
 end
 
+-- Материал пола под персонажем. У чужих персонажей на клиенте Humanoid.FloorMaterial бывает Air
+-- (их физику считает не этот клиент), поэтому тогда смотрим лучом вниз. nil — персонаж в воздухе.
+local floorParams = RaycastParams.new()
+floorParams.FilterType = Enum.RaycastFilterType.Exclude
+function Audio.floorMaterial(char: Model): Enum.Material?
+	local hum = char:FindFirstChildOfClass("Humanoid")
+	if hum and hum.FloorMaterial ~= Enum.Material.Air then
+		return hum.FloorMaterial
+	end
+	local root = char:FindFirstChild("HumanoidRootPart") :: BasePart?
+	if not root then
+		return nil
+	end
+	floorParams.FilterDescendantsInstances = { char }
+	-- R6: центр корня на 3 стада над землёй (у масштабированного маньяка — больше), плюс запас
+	local hit = workspace:Raycast(root.Position, Vector3.new(0, -(root.Size.Y * 1.5 + 1.5), 0), floorParams)
+	return if hit then (hit.Material or Enum.Material.Plastic) else nil
+end
+
 function Audio.footstep(char: Model, isKiller: boolean, speed: number, crouching: boolean)
 	local root = char:FindFirstChild("HumanoidRootPart")
 	if not root then
 		return
 	end
-	local hum = char:FindFirstChildOfClass("Humanoid")
-	local slot = if hum then Audio.surface(hum.FloorMaterial) else "Footstep"
+	local floor = Audio.floorMaterial(char)
+	local slot = if floor then Audio.surface(floor) else "Footstep"
 	local vol = if crouching then 0.35 else math.clamp(speed / 16, 0.45, 1.1)
 	if isKiller and char == player.Character then
 		vol *= 0.6 -- свои шаги маньяк слышит у самой камеры

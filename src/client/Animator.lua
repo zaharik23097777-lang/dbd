@@ -271,7 +271,7 @@ local function choosePose(entry: Entry, t: number, dt: number, killerRoot: BaseP
 	local step = math.floor(entry.Phase / math.pi)
 	if step ~= entry.Step then
 		entry.Step = step
-		local grounded = hum.FloorMaterial ~= Enum.Material.Air
+		local grounded = Audio.floorMaterial(char) ~= nil
 		if speed > 1.5 and grounded and status ~= "Hooked" and status ~= "Carried" and health > 0 then
 			Audio.footstep(char, isKiller, speed, crouching)
 		end

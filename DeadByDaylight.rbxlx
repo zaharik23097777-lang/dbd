@@ -68,6 +68,329 @@ return {
         </Properties>
         <Item class="ModuleScript" referent="6">
           <Properties>
+            <string name="Name">Actions</string>
+            <string name="Source"><![CDATA[-- Действия, пока игрок держит кнопку (Poses.Action): ключевые клипы всего тела.
+-- Функция действия (t, p) -> поза, где t — секунды от НАЧАЛА действия (Animator считает его сам
+-- и плавно вводит/выводит слой). Зацикленные (Loop) — пока действие длится сколько угодно
+-- (ремонт, лечение); с фиксированной длительностью ActionInfo (крюк, пинок, обыск) — один проход,
+-- последняя поза держится. Позы — как в Anim/Clips.lua: body{} (корпус вокруг таза, ноги —
+-- мировые углы, руки/голова — в пространстве торса). Clip.sample пишет в общую таблицу клипа —
+-- без выделения памяти каждый кадр.
+local Rig = require(script.Parent.Rig)
+local Clip = require(script.Parent.Clip)
+local Clips = require(script.Parent.Clips)
+
+local Actions = {}
+
+local A = Rig.A
+local V = Vector3.new
+local AT, K, body = Clips.AT, Clips.K, Clips.body
+
+local Action = {}
+Actions.Action = Action
+-- Длина клипа каждого действия (для превью и тестов)
+Actions.Length = {} :: { [string]: number }
+Actions.Clips = {} :: { [string]: Clip.Clip }
+
+-- Стойка + поза (стойка подставляет таз и ноги, если их нет в позе)
+local function on(stance: Clips.Spec, s: Clips.Spec): Clip.Pose
+	local spec = table.clone(stance)
+	for k, v in s do
+		(spec :: any)[k] = v
+	end
+	return body(spec)
+end
+
+-- На правом колене (левая нога впереди) и на левом; таз на высоте ~1 стада
+local KNEEL_R: Clips.Spec = { hip = V(0, -1.0, 0), ll = A(60, 0, -6), rl = A(-58, 0, 6) }
+local KNEEL_L: Clips.Spec = { hip = V(0, -1.0, 0), ll = A(-58, 0, -6), rl = A(60, 0, 6) }
+local STAND: Clips.Spec = { ll = A(0, 0, -3), rl = A(0, 0, 3) }
+
+local function define(names: { string }, def: Clip.Def)
+	local clip = Clip.new(def)
+	local fn = function(t: number, _p: any?): Clip.Pose
+		return Clip.sample(clip, t)
+	end
+	for _, name in names do
+		Action[name] = fn
+		Actions.Length[name] = clip.Duration
+		Actions.Clips[name] = clip
+	end
+end
+
+------------------------------------------------------------------------
+-- Выживший
+------------------------------------------------------------------------
+
+-- Ремонт: на колене, руки копаются в механизме (вразнобой, с поворотом кистей), тянется глубже,
+-- дёргает провода на себя, замирает и оглядывается через плечо.
+do
+	local function k(t, s, e)
+		return K(t, on(KNEEL_R, s), e or "SineInOut")
+	end
+	define({ "Repair" }, {
+		Duration = 6.4,
+		Loop = true,
+		Keys = {
+			k(0, { lean = 18, turn = 3, la = AT(80, -6, -10), ra = AT(70, 8, 12), neck = A(-16, 4, 0) }),
+			k(0.4, { lean = 17, turn = -2, la = AT(68, -10, 8), ra = AT(84, 4, -14), neck = A(-18, -3, 0) }),
+			k(0.8, { lean = 19, turn = 4, la = AT(84, -4, -16), ra = AT(66, 10, 10), neck = A(-15, 6, 0) }),
+			k(1.2, { lean = 17, turn = -3, la = AT(70, -12, 6), ra = AT(80, 2, -10), neck = A(-17, -2, 0) }),
+			k(1.65, { lean = 24, hip = V(0, -0.98, -0.1), la = AT(92, -2, 0), ra = AT(94, 0, 0), neck = A(-8, 0, 0) }),
+			k(1.9, { lean = 10, turn = 2, la = AT(56, -12, 10), ra = AT(60, 12, -10), neck = A(-20, 0, 0) }, "QuadOut"),
+			k(2.3, { lean = 17, la = AT(78, -6, -8), ra = AT(72, 6, 8), neck = A(-16, 2, 0) }),
+			k(2.65, { lean = 18, turn = -3, la = AT(68, -10, 10), ra = AT(84, 4, -12), neck = A(-17, -4, 0) }),
+			k(3.0, { lean = 17, turn = 3, la = AT(82, -4, -12), ra = AT(68, 8, 12), neck = A(-15, 5, 0) }),
+			k(3.4, { lean = 15, la = AT(76, -6, 0), ra = AT(76, 6, 0), neck = A(-12, 0, 0) }),
+			k(3.8, { lean = 11, turn = 12, roll = 2, la = AT(74, -6, 0), ra = AT(72, 6, 0), neck = A(-2, 58, 0) }),
+			k(4.4, { lean = 11, turn = 10, roll = 2, la = AT(74, -6, 0), ra = AT(72, 6, 0), neck = A(2, 50, -4) }, "Linear"),
+			k(4.8, { lean = 17, la = AT(78, -6, -8), ra = AT(70, 8, 10), neck = A(-16, 0, 0) }),
+			k(5.2, { lean = 18, turn = -3, la = AT(68, -10, 10), ra = AT(84, 4, -12), neck = A(-17, -4, 0) }),
+			k(5.6, { lean = 17, turn = 3, la = AT(84, -4, -14), ra = AT(68, 10, 12), neck = A(-15, 5, 0) }),
+			k(6.0, { lean = 18, turn = -1, la = AT(70, -12, 6), ra = AT(80, 2, -10), neck = A(-17, -2, 0) }),
+		},
+	})
+end
+
+-- Лечение другого: на левом колене, ладони на ране — ритмично давит всем корпусом,
+-- перевязывает, иногда поднимает глаза.
+do
+	local function k(t, s, e)
+		return K(t, on(KNEEL_L, s), e or "SineInOut")
+	end
+	local up = { lean = 24, la = AT(58, 8, 0), ra = AT(56, -8, 0), neck = A(-24, 0, 0) }
+	local press = { lean = 31, hip = V(0, -1.05, -0.05), la = AT(46, 10, 4), ra = AT(44, -10, -4), neck = A(-26, 0, 0) }
+	define({ "Heal" }, {
+		Duration = 3.2,
+		Loop = true,
+		Keys = {
+			k(0, up),
+			k(0.4, press),
+			k(0.8, up),
+			k(1.2, press),
+			k(1.65, { lean = 22, turn = 6, la = AT(64, -6, -10), ra = AT(50, -16, 8), neck = A(-24, -6, 4) }),
+			k(2.05, { lean = 24, turn = 2, la = AT(52, 14, 6), ra = AT(60, -4, -6), neck = A(-22, 4, 0) }),
+			k(2.45, press),
+			k(2.85, { lean = 20, turn = 4, la = AT(56, 8, 0), ra = AT(54, -8, 0), neck = A(-4, 34, 0) }),
+		},
+	})
+end
+
+-- Очищение тотема: на колене, выдирает кости и отбрасывает в стороны
+do
+	local function k(t, s, e)
+		return K(t, on(KNEEL_R, s), e or "SineInOut")
+	end
+	local reach = { lean = 32, la = A(55, 0, -4), ra = A(52, 0, 4), neck = A(-22, 0, 0) }
+	define({ "Cleanse" }, {
+		Duration = 2.4,
+		Loop = true,
+		Keys = {
+			k(0, reach),
+			k(0.45, { lean = 22, turn = -12, la = A(50, 0, -8), ra = A(95, 0, 50), neck = A(-14, -14, 0) }, "QuadOut"),
+			k(0.8, reach),
+			k(1.2, { lean = 30, turn = 6, la = AT(58, -20, -15), ra = AT(58, 20, 15), neck = A(-24, 4, 0) }),
+			k(1.6, { lean = 22, turn = 12, la = A(90, 0, -55), ra = A(55, 0, 6), neck = A(-14, 16, 0) }, "QuadOut"),
+			k(2.0, { lean = 32, la = A(54, 0, -6), ra = A(52, 0, 6), neck = A(-22, 0, 0) }),
+		},
+	})
+end
+
+-- Сундук (5 с): роется двумя руками по очереди, заглядывает внутрь, откидывает хлам
+do
+	local function k(t, s, e)
+		return K(t, on(KNEEL_L, s), e or "SineInOut")
+	end
+	define({ "OpenChest" }, {
+		Duration = 2.6,
+		Loop = true,
+		Keys = {
+			k(0, { lean = 28, la = AT(62, -4, 10), ra = AT(48, 6, -10), neck = A(-22, 0, 0) }),
+			k(0.35, { lean = 30, turn = -4, la = AT(46, -8, -10), ra = AT(66, 2, 12), neck = A(-24, -6, 0) }),
+			k(0.7, { lean = 27, turn = 4, la = AT(66, -2, 8), ra = AT(46, 8, -8), neck = A(-20, 6, 0) }),
+			k(1.05, { lean = 34, hip = V(0, -0.98, -0.08), la = AT(56, -6, 0), ra = AT(58, 6, 0), neck = A(-14, 0, 0) }),
+			k(1.4, { lean = 22, turn = -10, la = A(52, 0, -6), ra = A(100, 0, 55), neck = A(-16, -18, 0) }, "QuadOut"),
+			k(1.8, { lean = 30, turn = 2, la = AT(48, -8, -6), ra = AT(64, 4, 10), neck = A(-24, 2, 0) }),
+			k(2.2, { lean = 28, turn = -2, la = AT(64, -4, 8), ra = AT(50, 6, -6), neck = A(-22, -4, 0) }),
+		},
+	})
+end
+
+-- Освободить из капкана / обезвредить: на колене, раздвигает челюсти капкана, руки дрожат от
+-- натуги, челюсти срываются — хватается снова.
+do
+	local function k(t, s, e)
+		return K(t, on(KNEEL_R, s), e or "SineInOut")
+	end
+	define({ "FreeTrap", "DisarmTrap" }, {
+		Duration = 2.0,
+		Loop = true,
+		Keys = {
+			k(0, { lean = 38, la = A(66, 0, 4), ra = A(66, 0, -4), neck = A(-24, 0, 0) }),
+			k(0.5, { lean = 30, hip = V(0, -0.96, 0.08), la = A(62, 0, -22), ra = A(62, 0, 22), neck = A(-18, 0, 0) }),
+			k(0.7, { lean = 31, hip = V(0, -0.96, 0.08), la = A(63, 0, -24), ra = A(61, 0, 21), neck = A(-17, 3, 0) }, "Linear"),
+			k(0.9, { lean = 30, hip = V(0, -0.96, 0.08), la = A(61, 0, -21), ra = A(63, 0, 24), neck = A(-19, -3, 0) }, "Linear"),
+			k(1.1, { lean = 31, hip = V(0, -0.96, 0.08), la = A(63, 0, -25), ra = A(62, 0, 25), neck = A(-16, 0, 0) }, "Linear"),
+			k(1.25, { lean = 42, la = A(64, 0, 8), ra = A(64, 0, -8), neck = A(-28, 0, 0) }, "QuadIn"),
+			k(1.6, { lean = 38, la = A(66, 0, 4), ra = A(66, 0, -4), neck = A(-24, 6, 0) }),
+		},
+	})
+end
+
+-- Снять с крюка (1.2 с): тянется вверх, берёт под руки, поднимает с натугой, отклоняясь назад
+define({ "Unhook" }, {
+	Duration = 1.2,
+	Keys = {
+		K(0, on(STAND, { lean = 2, la = A(150, 0, -10), ra = A(150, 0, 10), neck = A(25, 0, 0) })),
+		K(0.3, on(STAND, { lean = 0, la = A(142, 0, 8), ra = A(142, 0, -8), neck = A(24, 0, 0) }), "SineInOut"),
+		K(0.75, on(STAND, { lean = -10, hip = V(0, 0.06, 0.06), ll = A(6, 0, -3), rl = A(-8, 0, 3), la = A(166, 0, 5), ra = A(166, 0, -5), neck = A(30, 0, 0) }), "SineInOut"),
+		K(1.2, on(STAND, { lean = -12, hip = V(0, 0.08, 0.08), ll = A(8, 0, -3), rl = A(-10, 0, 3), la = A(172, 0, 6), ra = A(172, 0, -6), neck = A(32, 0, 0) }), "SineInOut"),
+	},
+})
+
+-- Ворота: правая держит рычаг вниз (дожимает), левая упирается в щиток, нервно оглядывается
+do
+	local function k(t, s, e)
+		return K(t, on({ ll = A(4, 0, -4), rl = A(-6, 0, 4) }, s), e or "SineInOut")
+	end
+	define({ "OpenGate" }, {
+		Duration = 4.0,
+		Loop = true,
+		Keys = {
+			k(0, { lean = 8, turn = 4, la = A(80, 0, -12), ra = AT(70, 4, 10), neck = A(-6, 0, 0) }),
+			k(0.7, { lean = 10, turn = 4, la = A(80, 0, -12), ra = AT(64, 4, 10), neck = A(-8, -4, 0) }),
+			k(1.3, { lean = 8, turn = 2, la = A(78, 0, -12), ra = AT(70, 4, 10), neck = A(-4, 2, 0) }),
+			k(1.8, { lean = 6, turn = 14, roll = 2, la = A(74, 0, -14), ra = AT(68, 4, 10), neck = A(2, 55, 0) }),
+			k(2.6, { lean = 6, turn = 12, roll = 2, la = A(74, 0, -14), ra = AT(68, 4, 10), neck = A(4, 48, -4) }, "Linear"),
+			k(3.1, { lean = 10, turn = 2, la = A(80, 0, -12), ra = AT(64, 4, 10), neck = A(-8, -20, 0) }),
+			k(3.6, { lean = 9, turn = 4, la = A(80, 0, -12), ra = AT(68, 4, 10), neck = A(-6, -6, 0) }),
+		},
+	})
+end
+
+-- Лечение аптечкой: аптечка в правой у левого бока, левая придерживает одежду, сутулится,
+-- прикладывает и морщится от боли.
+do
+	local function k(t, s, e)
+		return K(t, on({ hip = V(-0.08, -0.05, 0), ll = A(6, 0, -6), rl = A(-4, 0, 5) }, s), e or "SineInOut")
+	end
+	define({ "SelfHeal" }, {
+		Duration = 2.4,
+		Loop = true,
+		Keys = {
+			k(0, { lean = 20, turn = 8, roll = 4, la = A(36, 0, 24), ra = AT(52, -38, 20), neck = A(-28, 10, 6) }),
+			k(0.5, { lean = 22, turn = 9, roll = 4, la = A(38, 0, 22), ra = AT(46, -42, 26), neck = A(-30, 12, 6) }),
+			k(0.8, { lean = 26, turn = 4, roll = 6, la = A(42, 0, 18), ra = AT(50, -36, 18), neck = A(-34, 6, 10) }, "QuadOut"),
+			k(1.2, { lean = 20, turn = 8, roll = 4, la = A(36, 0, 24), ra = AT(54, -40, 22), neck = A(-26, 10, 6) }),
+			k(1.7, { lean = 21, turn = 10, roll = 4, la = A(38, 0, 22), ra = AT(46, -44, 28), neck = A(-30, 14, 6) }),
+			k(2.0, { lean = 18, turn = 6, roll = 3, la = A(34, 0, 24), ra = AT(52, -38, 20), neck = A(-12, 30, 0) }),
+		},
+	})
+end
+
+-- Вырваться из капкана (1.4 с — одна попытка): правая нога в капкане, левое колено на земле;
+-- хватается за ногу и рвёт её вверх всем телом.
+do
+	local function k(t, s, e)
+		return K(t, on({ hip = V(0.1, -0.4, -0.1), rl = A(-4, 0, 3), ll = A(-70, 0, -6) }, s), e or "SineInOut")
+	end
+	define({ "EscapeTrap" }, {
+		Duration = 1.4,
+		Loop = true,
+		Keys = {
+			k(0, { lean = 38, turn = -8, roll = -5, la = A(66, 0, 24), ra = A(62, 0, 6), neck = A(-28, 0, 0) }),
+			k(0.35, { lean = 44, turn = -10, roll = -6, la = A(76, 0, 26), ra = A(72, 0, 8), neck = A(-30, 0, 0) }),
+			k(0.55, { lean = 22, turn = -4, roll = -8, hip = V(0.1, -0.3, -0.04), la = A(40, 0, 20), ra = A(36, 0, 4), neck = A(-8, 0, 0) }, "QuadOut"),
+			k(0.75, { lean = 26, turn = -6, roll = -6, hip = V(0.1, -0.32, -0.06), la = A(44, 0, 22), ra = A(40, 0, 4), neck = A(-14, -6, 0) }),
+			k(1.05, { lean = 40, turn = -8, roll = -4, la = A(70, 0, 24), ra = A(66, 0, 6), neck = A(-30, 6, 0) }),
+		},
+	})
+end
+
+------------------------------------------------------------------------
+-- Маньяк
+------------------------------------------------------------------------
+
+-- Повесить на крюк (1.2 с): выживший на правом плече; приседает и подхватывает обеими руками,
+-- рывком поднимает вверх и насаживает, отклоняясь назад.
+define({ "Hook" }, {
+	Duration = 1.2,
+	Keys = {
+		K(0, on(STAND, { lean = 8, la = A(10, 0, -10), ra = A(132, 0, 10), neck = A(-4, 0, 0) })),
+		K(0.3, on({ hip = V(0, -0.18, 0), ll = A(16, 0, -8), rl = A(-14, 0, 8) }, { lean = 16, la = A(120, 0, -8), ra = A(118, 0, 16), neck = A(6, 0, 0) }), "SineInOut"),
+		K(0.62, on({ hip = V(0, 0.04, 0), ll = A(4, 0, -4), rl = A(-6, 0, 4) }, { lean = -8, la = A(168, 0, -6), ra = A(166, 0, 12), neck = A(28, 0, 0) }), "QuadOut"),
+		K(0.9, on({ hip = V(0, 0.06, 0.04), ll = A(6, 0, -4), rl = A(-8, 0, 4) }, { lean = -12, la = A(174, 0, -4), ra = A(172, 0, 10), neck = A(32, 0, 0) }), "SineInOut"),
+		K(1.2, on({ hip = V(0, 0.02, 0.02), ll = A(4, 0, -4), rl = A(-6, 0, 4) }, { lean = -6, la = A(160, 0, -8), ra = A(158, 0, 12), neck = A(24, 0, 0) }), "SineInOut"),
+	},
+})
+
+-- Сломать паллету (2.6 с): высоко заносит правую ногу и топчет; второй замах сильнее — паллета ломается
+do
+	local lift = { hip = V(-0.14, 0.04, 0.05), ll = A(-2, 0, -4) }
+	local stomp = { hip = V(-0.1, -0.12, -0.05), ll = A(-6, 0, -4) }
+	define({ "Break" }, {
+		Duration = 2.6,
+		Keys = {
+			K(0, on(STAND, { lean = 6, la = A(6, 0, -9), ra = A(16, 0, 12), neck = A(-6, 0, 0) })),
+			K(0.45, on(lift, { lean = -4, rl = A(85, 0, 6), la = A(30, 0, -35), ra = A(40, 0, 35), neck = A(-24, 0, 0) }), "SineInOut"),
+			K(0.58, on(stomp, { lean = 14, rl = A(26, 0, 4), la = A(10, 0, -22), ra = A(14, 0, 24), neck = A(-34, 0, 0) }), "CubicIn"),
+			K(0.9, on(STAND, { lean = 8, rl = A(10, 0, 4), la = A(10, 0, -14), ra = A(18, 0, 14), neck = A(-26, 0, 0) }), "SineInOut"),
+			K(1.6, on(lift, { lean = -10, hip = V(-0.15, 0.06, 0.08), rl = A(98, 0, 6), la = A(50, 0, -45), ra = A(60, 0, 40), neck = A(-26, 4, 0) }), "SineInOut"),
+			K(1.74, on(stomp, { lean = 20, hip = V(-0.1, -0.16, -0.08), rl = A(28, 0, 4), la = A(6, 0, -26), ra = A(10, 0, 28), neck = A(-36, 0, 0) }), "CubicIn"),
+			K(2.1, on(stomp, { lean = 16, rl = A(24, 0, 4), la = A(8, 0, -18), ra = A(16, 0, 18), neck = A(-30, 0, 0) }), "SineInOut"),
+			K(2.6, on(STAND, { lean = 8, rl = A(4, 0, 3), la = A(6, 0, -10), ra = A(16, 0, 12), neck = A(-14, 0, 0) }), "SineInOut"),
+		},
+	})
+end
+
+-- Повредить генератор (1.8 с): заносит ногу, отклоняясь назад, мощный прямой удар, ставит ногу
+define({ "Kick" }, {
+	Duration = 1.8,
+	Keys = {
+		K(0, on(STAND, { lean = 6, la = A(6, 0, -9), ra = A(16, 0, 12), neck = A(0, 0, 0) })),
+		K(0.5, on({ hip = V(-0.12, 0.02, 0.1), ll = A(-4, 0, -4) }, { lean = -10, turn = -8, rl = A(70, 0, 4), la = A(40, 0, -30), ra = A(50, 0, 30), neck = A(-10, 8, 0) }), "SineInOut"),
+		K(0.62, on({ hip = V(-0.1, 0.04, -0.2), ll = A(-14, 0, -4) }, { lean = -16, turn = 6, rl = A(84, 0, 2), la = A(-10, 0, -34), ra = A(-6, 0, 30), neck = A(-4, -6, 0) }), "CubicIn"),
+		K(0.85, on({ hip = V(-0.1, 0.02, -0.1), ll = A(-8, 0, -4) }, { lean = -8, turn = 2, rl = A(60, 0, 4), la = A(10, 0, -24), ra = A(14, 0, 24), neck = A(-8, 0, 0) }), "QuadOut"),
+		K(1.25, on(STAND, { lean = 8, rl = A(-4, 0, 3), la = A(8, 0, -12), ra = A(18, 0, 14), neck = A(-10, 0, 0) }), "SineInOut"),
+		K(1.8, on(STAND, { lean = 6, la = A(6, 0, -9), ra = A(16, 0, 12), neck = A(-4, 0, 0) }), "SineInOut"),
+	},
+})
+
+-- Обыск шкафчика (0.9 с): левой рывком распахивает дверцу, правой лезет внутрь
+define({ "SearchLocker" }, {
+	Duration = 0.9,
+	Keys = {
+		K(0, on(STAND, { lean = 6, la = A(6, 0, -9), ra = A(16, 0, 12), neck = A(0, 0, 0) })),
+		K(0.2, on(STAND, { lean = 10, turn = -6, la = A(84, 0, -4), ra = A(24, 0, 14), neck = A(-4, -4, 0) }), "SineInOut"),
+		K(0.36, on(STAND, { lean = 6, turn = 14, la = A(56, 0, -72), ra = A(30, 0, 16), neck = A(-2, -10, 0) }), "QuadOut"),
+		K(0.6, on({ hip = V(0, -0.06, -0.18), ll = A(-12, 0, -4), rl = A(14, 0, 4) }, { lean = 22, turn = 6, la = A(60, 0, -60), ra = A(92, 0, -4), neck = A(-6, -6, 0) }), "SineInOut"),
+		K(0.9, on({ hip = V(0, -0.06, -0.2), ll = A(-12, 0, -4), rl = A(14, 0, 4) }, { lean = 24, turn = 4, la = A(58, 0, -58), ra = A(98, 0, 8), neck = A(-8, -2, 0) }), "SineInOut"),
+	},
+})
+
+-- Капкан: ставит, забирает, взводит; люк закрывает — на колене, руки у земли, разжимает пружины
+do
+	local function k(t, s, e)
+		return K(t, on({ hip = V(0, -1.05, 0), ll = A(58, 0, -8), rl = A(-60, 0, 8) }, s), e or "SineInOut")
+	end
+	define({ "SetTrap", "PickupTrap", "ResetTrap", "CloseHatch" }, {
+		Duration = 1.6,
+		Loop = true,
+		Keys = {
+			k(0, { lean = 40, la = A(72, 0, -8), ra = A(72, 0, 8), neck = A(-20, 0, 0) }),
+			k(0.4, { lean = 46, hip = V(0, -1.1, 0), la = A(64, 0, -12), ra = A(64, 0, 12), neck = A(-24, 0, 0) }),
+			k(0.8, { lean = 42, turn = -4, la = A(66, 0, -12), ra = A(80, 0, -4), neck = A(-22, -6, 0) }),
+			k(1.2, { lean = 40, la = A(70, 0, -10), ra = A(70, 0, 10), neck = A(-18, 4, 0) }),
+		},
+	})
+end
+
+return Actions
+]]></string>
+          </Properties>
+        </Item>
+        <Item class="ModuleScript" referent="7">
+          <Properties>
             <string name="Name">Clip</string>
             <string name="Source"><![CDATA[-- Ключевые клипы для R6: позы по времени с плавностью (easing) на каждом ключе.
 --
@@ -551,7 +874,579 @@ return Clip
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="7">
+        <Item class="ModuleScript" referent="8">
+          <Properties>
+            <string name="Name">Clips</string>
+            <string name="Source"><![CDATA[-- Одноразовые анимации (Poses.OneShot) — ключевые клипы Anim/Clip.lua.
+-- Ритм: подготовка -> действие -> захлёст -> возврат; голова и свободная рука запаздывают,
+-- вес переносится через таз (корпус поворачивается вокруг таза, ноги не уезжают).
+--
+-- Два вида клипов:
+--   * всё тело (обычный слой): позы ключей собирает body{} — корпус поворачивается вокруг таза,
+--     ноги задаются МИРОВЫМИ углами (относительно HumanoidRootPart), руки и голова — в пространстве
+--     торса. Для случаев, когда персонаж стоит или его двигает сервер (прыжок в окно, крюк).
+--   * верх тела (Upper = true, ключи собирает up{}): персонаж может бежать. Корпус ключа — ДОБАВКА
+--     к корпусу походки (поворот вокруг таза), RootPos — сдвиг таза, ноги походки сохраняют мировое
+--     положение (ноги ключа применяются, только пока персонаж стоит), руки и голова — как обычно.
+-- Clips.apply накладывает любой из них (Animator, превью, тесты).
+--
+-- Поля сверх Clip: Upper; Follows — имя клипа, из позы которого этот начинается без FadeIn
+-- (Wipe после Swing, Throw после Windup).
+--
+-- Длительности = серверные времена (Config, KillerDefs, Systems/*, Powers/*):
+--   Swing 0.7 (выпад KillerLungeTime 0.35), Wipe 2.4 (замедление после удара 2.7),
+--   Stun 2.2 (PalletStunTime), Blind 2.5 (BlindDuration), Vault 0.55 / VaultWalk 0.95 (Obstacles:
+--   с бега / шагом — сервер везёт корень вверх на 2.2 к середине и вниз), KillerVault 1.6,
+--   PalletDrop 0.6 (удар паллеты о землю на 0.22), Windup — держится до Throw/Cancel (30),
+--   Throw 0.45, Bell 1.5 (CloakTime) / BellUncloak 1.0 (UncloakTime), Pickup 0.8, Flinch 0.45,
+--   HookScream 1.4, Entity 2.8 (Сущность поднимает тело с 1.6 по 2.8).
+local Rig = require(script.Parent.Rig)
+local Clip = require(script.Parent.Clip)
+local Life = require(script.Parent.Life)
+
+local Clips = {}
+
+type Pose = Clip.Pose
+
+local rad, clamp = math.rad, math.clamp
+local A = Rig.A
+local V = Vector3.new
+local YXZ = CFrame.fromEulerAnglesYXZ
+local IDENTITY = CFrame.identity
+local ZERO = Vector3.zero
+local DOWN = Vector3.new(0, -1, 0)
+
+------------------------------------------------------------------------
+-- Помощники авторинга
+------------------------------------------------------------------------
+
+-- Рука/нога вдоль направления (x вправо, y вверх, z назад — в пространстве родителя;
+-- вперёд — минус z) с поворотом twist (°) вокруг своей оси (куда смотрит оружие в руке)
+local function aim(x: number, y: number, z: number, twist: number?): CFrame
+	local cf = Rig.aim(V(x, y, z))
+	return twist and cf * CFrame.Angles(0, rad(twist), 0) or cf
+end
+Clips.aim = aim
+
+-- Как Rig.A(x, 0, z), но с поворотом twist вокруг оси конечности (направление не меняется)
+local function AT(x: number, z: number, twist: number): CFrame
+	return A(x, 0, z) * CFrame.Angles(0, rad(twist), 0)
+end
+Clips.AT = AT
+
+-- Корпус: наклон вперёд, поворот влево, крен влево (правое плечо вверх), в градусах
+local function torso(lean: number?, turn: number?, roll: number?): CFrame
+	return YXZ(rad(-(lean or 0)), rad(turn or 0), rad(roll or 0))
+end
+
+export type Spec = {
+	lean: number?,
+	turn: number?,
+	roll: number?,
+	hip: Vector3?, -- сдвиг таза (стады): +X вправо, +Y вверх, +Z назад
+	ll: CFrame?, -- ноги — мировые углы
+	rl: CFrame?,
+	la: CFrame?, -- руки и голова — в пространстве торса
+	ra: CFrame?,
+	neck: CFrame?,
+}
+
+-- Поза всего тела. center = true — корпус вращается вокруг своего центра (висит на крюке),
+-- иначе вокруг таза (стоит на ногах); hip — сдвиг этой точки от положения стоя.
+local function body(s: Spec, center: boolean?): Pose
+	local r = torso(s.lean, s.turn, s.roll)
+	local inv = r:Inverse()
+	local hip = s.hip or ZERO
+	return {
+		Root = r,
+		RootPos = if center then hip else hip + DOWN + r.UpVector,
+		LLeg = inv * (s.ll or IDENTITY),
+		RLeg = inv * (s.rl or IDENTITY),
+		LArm = s.la,
+		RArm = s.ra,
+		Neck = s.neck,
+	}
+end
+Clips.body = body
+
+local function hang(s: Spec): Pose
+	return body(s, true)
+end
+
+-- Кадр «верха тела» (см. шапку): корпус и таз — добавки, ноги — мировые углы (необязательно)
+local function up(s: Spec): Pose
+	return {
+		Root = torso(s.lean, s.turn, s.roll),
+		RootPos = s.hip or ZERO,
+		LLeg = s.ll,
+		RLeg = s.rl,
+		LArm = s.la,
+		RArm = s.ra,
+		Neck = s.neck,
+	}
+end
+
+local function K(t: number, pose: Pose, ease: Clip.Ease?): Clip.Key
+	return { T = t, Pose = pose, Ease = ease }
+end
+Clips.K = K
+
+local function upperClip(def: Clip.Def): Clip.Clip
+	local clip = Clip.new(def);
+	(clip :: any).Upper = true
+	return clip
+end
+
+------------------------------------------------------------------------
+-- Наложение
+------------------------------------------------------------------------
+
+local LEGS = { "LLeg", "RLeg" }
+local TOP = { "Neck", "LArm", "RArm" }
+
+-- Слой «верх тела» с весом w: корпус поворачивается вокруг таза походки, стопы остаются на месте
+local function layerUpper(dst: Pose, f: Pose, w: number, legW: number)
+	local r = dst.Root or IDENTITY
+	local hip = (dst.RootPos or ZERO) - r.UpVector
+	local d = f.Root
+	local r2 = r
+	if d then
+		r2 = r * (if w >= 1 then d else IDENTITY:Lerp(d, w))
+	end
+	local off = f.RootPos
+	if off then
+		hip += off * w
+	end
+	dst.Root = r2
+	dst.RootPos = hip + r2.UpVector
+	local inv = r2:Inverse()
+	for _, leg in LEGS do
+		local world = r * (dst[leg] or IDENTITY)
+		local lw = f[leg]
+		if lw and legW > 0 then
+			world = world:Lerp(lw, legW)
+		end
+		dst[leg] = inv * world
+	end
+	for _, k in TOP do
+		local v = f[k]
+		if v then
+			dst[k] = if w >= 1 then v else (dst[k] or IDENTITY):Lerp(v, w)
+		end
+	end
+end
+
+-- Наложить одноразовую анимацию def на позу dst (своя таблица) в момент elapsed (с) от начала.
+-- fade — дополнительный множитель веса (плавная отмена). Возвращает множитель жёсткости пружин.
+function Clips.apply(dst: Pose, def: any, elapsed: number, p: any?, fade: number?): number
+	local w = Clip.weight(def, elapsed) * (fade or 1)
+	if w <= 0 then
+		return 1
+	end
+	local frame = def.Fn(clamp(elapsed / def.Duration, 0, 1), p)
+	if def.Upper then
+		-- ноги клипа — только пока стоит (на бегу ноги ведёт походка)
+		local speed = p and p.Speed or 0
+		layerUpper(dst, frame, w, w * clamp(1 - (speed - 1) / 3, 0, 1))
+	else
+		Clip.layer(dst, frame, w, def.Additive)
+	end
+	return 1 + ((def.Stiffness or 1) - 1) * w
+end
+
+-- Колокол Призрака: исчезнуть — 1.5 с, проявиться — 1 с (сервер шлёт одно имя "Bell").
+-- Прыжок через окно сервер выбирает сам: "Vault" (с бега, 0.55 с) или "VaultWalk" (шагом, 0.95 с).
+function Clips.variant(name: string, _running: boolean, powerState: any): string
+	if name == "Bell" and (powerState == "Uncloaking" or powerState == "Cloaked") then
+		return "BellUncloak"
+	end
+	return name
+end
+
+local OneShot = {}
+Clips.OneShot = OneShot
+
+------------------------------------------------------------------------
+-- Маньяк: удар (0.7 с, выпад 0.35 с) — замах за плечо со скруткой корпуса, быстрый диагональный
+-- удар с выпадом, корпус проваливается следом, тяжёлый возврат.
+------------------------------------------------------------------------
+
+local SWING_FOLLOW = {
+	lean = 22,
+	turn = 30,
+	roll = -12,
+	hip = V(0, -0.22, -0.12),
+	la = A(-28, 0, -30),
+	ra = aim(-0.35, -0.75, -0.55),
+	neck = A(8, -22, 8),
+}
+
+OneShot.Swing = upperClip({
+	Duration = 0.7,
+	FadeIn = 0.06,
+	FadeOut = 0.26,
+	Stiffness = 1.7,
+	Keys = {
+		K(0, up({ la = A(12, 0, -12), ra = A(26, 0, 14), neck = A(0, 0, 0) })),
+		-- рука идёт вперёд-вверх (а не назад через низ)
+		K(0.07, up({ lean = -2, turn = -12, roll = 3, la = A(40, 0, -22), ra = aim(0.5, 0.55, -0.67), neck = A(-2, 10, -2) }), "SineIn"),
+		-- замах: оружие за правым плечом, корпус скручен вправо и чуть назад, левая рука — вперёд
+		K(0.15, up({ lean = -6, turn = -28, roll = 8, hip = V(0, -0.03, 0.08), la = A(66, 0, -30), ra = aim(0.45, 0.8, 0.4), neck = A(-4, 24, -6) }), "QuadOut"),
+		-- удар по диагонали: сверху справа вниз влево, корпус раскручивается, вес — вперёд
+		K(0.205, up({ lean = 2, turn = -8, roll = 2, hip = V(0, -0.08, 0), la = A(45, 0, -28), ra = aim(0.25, 0.7, -0.65), neck = A(-2, 8, 0) }), "QuadIn"),
+		K(0.26, up({ lean = 14, turn = 18, roll = -8, hip = V(0, -0.16, -0.08), la = A(-10, 0, -32), ra = aim(-0.45, -0.45, -0.77), neck = A(4, -14, 6) })),
+		K(0.36, up(SWING_FOLLOW), "QuadOut"),
+		-- оружие тяжёлое: рука висит, корпус выпрямляется не сразу
+		K(0.5, up({ lean = 14, turn = 18, roll = -6, hip = V(0, -0.14, -0.06), la = A(-12, 0, -20), ra = aim(-0.05, -0.85, -0.45), neck = A(4, -14, 4) }), "SineInOut"),
+	},
+})
+
+-- После попадания (2.4 с, маньяк медленно идёт): доводит удар, выпрямляется, проводит клинком
+-- по левой руке (дважды), стряхивает и опускает оружие; голова склонена набок.
+OneShot.Wipe = upperClip({
+	Duration = 2.4,
+	FadeIn = 0,
+	FadeOut = 0.5,
+	Stiffness = 1.15,
+	Keys = {
+		K(0, up(SWING_FOLLOW)),
+		K(0.3, up({ lean = 8, turn = 8, roll = -3, hip = V(0, -0.06, -0.02), la = A(5, 0, -14), ra = A(30, 0, 4), neck = A(2, -8, 0) }), "SineInOut"),
+		-- клинок поперёк груди (смотрит влево), левая рука под ним
+		K(0.7, up({ lean = 10, turn = -10, la = aim(0.55, -0.2, -0.81), ra = aim(-0.35, -0.05, -0.94, 85), neck = A(-24, 14, 14) }), "SineInOut"),
+		K(1.05, up({ lean = 10, turn = -6, la = aim(0.5, -0.25, -0.83), ra = aim(0.15, -0.05, -0.99, 85), neck = A(-24, 6, 14) }), "SineInOut"),
+		K(1.25, up({ lean = 10, turn = -10, la = aim(0.55, -0.2, -0.81), ra = aim(-0.35, -0.05, -0.94, 85), neck = A(-22, 12, 12) }), "SineInOut"),
+		K(1.5, up({ lean = 9, turn = -4, la = aim(0.48, -0.28, -0.83), ra = aim(0.3, -0.1, -0.95, 85), neck = A(-20, 0, 10) }), "QuadIn"),
+		-- стряхивает кровь
+		K(1.62, up({ lean = 8, turn = 2, la = A(30, 0, -10), ra = aim(0.5, -0.35, -0.79, 60), neck = A(-10, -6, 8) }), "QuadOut"),
+		K(2.0, up({ lean = 6, la = A(8, 0, -12), ra = A(22, 0, 12), neck = A(-4, 0, 10) }), "SineInOut"),
+	},
+})
+
+------------------------------------------------------------------------
+-- Маньяк оглушён паллетой (2.2 с, стоит): отлетает назад, хватается левой за голову, оружие
+-- в опущенной правой, два шага назад, трясёт головой, приходит в себя.
+------------------------------------------------------------------------
+
+local HOLD_HEAD = aim(0.4, 0.78, -0.47)
+
+OneShot.Stun = Clip.new({
+	Duration = 2.2,
+	FadeIn = 0.05,
+	FadeOut = 0.45,
+	Stiffness = 1.35,
+	Keys = {
+		K(0, body({ lean = 6, ll = A(0, 0, -3), rl = A(0, 0, 3), la = A(6, 0, -9), ra = A(16, 0, 12), neck = A(0, 0, 0) })),
+		-- удар: голову откидывает, руки разлетаются
+		K(0.08, body({ lean = -16, turn = 8, roll = -6, hip = V(0, -0.02, 0.22), ll = A(8, 0, -6), rl = A(14, 0, 8), la = A(60, 0, -50), ra = A(40, 0, 45), neck = A(30, -10, 8) }), "QuadOut"),
+		-- сгибается, держится за голову, шаг назад правой
+		K(0.3, body({ lean = 24, turn = 12, roll = 6, hip = V(0.08, -0.08, 0.32), ll = A(16, 0, -8), rl = A(-18, 0, 8), la = HOLD_HEAD, ra = A(-6, 0, 22), neck = A(-28, 12, -10) }), "SineInOut"),
+		-- шаг назад левой, шатается
+		K(0.62, body({ lean = 28, turn = -8, roll = -8, hip = V(-0.08, -0.1, 0.4), ll = A(-20, 0, -12), rl = A(18, 0, 10), la = aim(0.36, 0.76, -0.52), ra = A(-2, 0, 18), neck = A(-32, -10, 8) }), "SineInOut"),
+		-- широко стоит, трясёт головой
+		K(0.95, body({ lean = 24, turn = 6, roll = 4, hip = V(0, -0.1, 0.4), ll = A(-12, 0, -12), rl = A(12, 0, 10), la = HOLD_HEAD, ra = A(-4, 0, 20), neck = A(-24, 16, -6) }), "SineInOut"),
+		K(1.18, body({ lean = 25, turn = -4, roll = 2, hip = V(0, -0.1, 0.4), ll = A(-12, 0, -12), rl = A(12, 0, 10), la = aim(0.42, 0.74, -0.52), ra = A(-2, 0, 20), neck = A(-26, -16, 6) }), "SineInOut"),
+		K(1.42, body({ lean = 22, turn = 4, roll = 3, hip = V(0, -0.09, 0.36), ll = A(-10, 0, -10), rl = A(10, 0, 9), la = HOLD_HEAD, ra = A(0, 0, 18), neck = A(-20, 12, -4) }), "SineInOut"),
+		-- выпрямляется, рука опускается
+		K(1.78, body({ lean = 10, hip = V(0, -0.04, 0.2), ll = A(-6, 0, -6), rl = A(6, 0, 6), la = A(30, 0, -14), ra = A(10, 0, 14), neck = A(-8, 4, 0) }), "SineInOut"),
+	},
+})
+
+------------------------------------------------------------------------
+-- Маньяк ослеплён (2.5 с, может идти): закрывает глаза руками, отворачивает голову,
+-- пошатывается, трёт глаза, опускает руки.
+------------------------------------------------------------------------
+
+OneShot.Blind = upperClip({
+	Duration = 2.5,
+	FadeIn = 0.06,
+	FadeOut = 0.5,
+	Stiffness = 1.3,
+	Keys = {
+		K(0, up({ la = A(8, 0, -10), ra = A(16, 0, 12), neck = A(0, 0, 0) })),
+		K(0.1, up({ lean = -12, turn = 10, hip = V(0, 0, 0.12), la = aim(0.45, 0.62, -0.64), ra = aim(-0.35, 0.55, -0.76), neck = A(10, 35, 0) }), "QuadOut"),
+		K(0.45, up({ lean = -4, turn = -14, roll = 6, hip = V(0.05, -0.05, 0.18), la = aim(0.5, 0.58, -0.64), ra = aim(-0.3, 0.5, -0.8), neck = A(-8, -30, 6) }), "SineInOut"),
+		K(0.8, up({ lean = 6, turn = 12, roll = -6, hip = V(-0.05, -0.07, 0.16), la = aim(0.42, 0.66, -0.62), ra = aim(-0.38, 0.58, -0.72), neck = A(-14, 28, -6) }), "SineInOut"),
+		-- трёт глаза
+		K(1.15, up({ lean = 10, turn = -8, roll = 4, hip = V(0, -0.08, 0.1), la = aim(0.48, 0.52, -0.7), ra = aim(-0.25, 0.42, -0.87), neck = A(-18, -20, 8) }), "SineInOut"),
+		K(1.5, up({ lean = 8, turn = 6, roll = -3, hip = V(0, -0.06, 0.06), la = aim(0.4, 0.62, -0.67), ra = A(40, 0, 20), neck = A(-12, 14, -4) }), "SineInOut"),
+		K(1.95, up({ lean = 4, la = A(55, 0, 10), ra = A(25, 0, 14), neck = A(-6, 8, 0) }), "SineInOut"),
+	},
+})
+
+------------------------------------------------------------------------
+-- Маньяк поднимает выжившего (0.8 с): наклоняется и хватает, рывком закидывает на правое плечо
+-- (сервер кладёт тело на правое плечо, походка Carry держит его правой), оседает под весом.
+------------------------------------------------------------------------
+
+OneShot.Pickup = upperClip({
+	Duration = 0.8,
+	FadeIn = 0.1,
+	FadeOut = 0.28,
+	Stiffness = 1.3,
+	Keys = {
+		K(0, up({ ll = A(0, 0, -2), rl = A(0, 0, 2), la = A(8, 0, -10), ra = A(30, 0, 10), neck = A(0, 0, 0) })),
+		K(0.18, up({ lean = 28, turn = -10, roll = -4, hip = V(0, -0.22, 0.1), ll = A(22, 0, -8), rl = A(-14, 0, 8), la = A(55, 0, -12), ra = A(62, 0, 6), neck = A(20, 0, 0) }), "SineOut"),
+		K(0.36, up({ lean = -6, turn = 6, roll = 9, hip = V(0, 0.06, 0), ll = A(6, 0, -6), rl = A(-6, 0, 6), la = A(-25, 0, -24), ra = A(140, 0, 12), neck = A(-6, -6, 0) }), "BackOut"),
+		K(0.52, up({ lean = 8, roll = 4, hip = V(0, -0.1, 0), ll = A(4, 0, -5), rl = A(-4, 0, 5), la = A(5, 0, -14), ra = A(134, 0, 10), neck = A(-10, 0, 0) }), "SineInOut"),
+	},
+})
+
+------------------------------------------------------------------------
+-- Выживший опускает паллету (0.6 с, удар о землю на 0.22): хватает сверху двумя руками,
+-- рывком роняет вперёд всем корпусом, оглядывается.
+------------------------------------------------------------------------
+
+OneShot.PalletDrop = upperClip({
+	Duration = 0.6,
+	FadeIn = 0.05,
+	FadeOut = 0.25,
+	Stiffness = 1.5,
+	Keys = {
+		K(0, up({ la = A(10, 0, -8), ra = A(10, 0, 8), neck = A(0, 0, 0) })),
+		K(0.09, up({ lean = -6, hip = V(0, 0.05, 0), la = aim(-0.25, 0.75, -0.6), ra = aim(0.25, 0.75, -0.6), neck = A(14, 0, 0) }), "QuadOut"),
+		K(0.22, up({ lean = 26, turn = 4, roll = -3, hip = V(0, -0.18, -0.08), la = A(45, 0, -16), ra = A(50, 0, 14), neck = A(4, 0, 0) }), "CubicIn"),
+		K(0.32, up({ lean = 32, turn = 6, roll = -4, hip = V(0, -0.22, -0.1), la = A(20, 0, -20), ra = A(28, 0, 18), neck = A(8, 10, 0) }), "QuadOut"),
+		K(0.42, up({ lean = 14, turn = 10, hip = V(0, -0.08, 0), la = A(10, 0, -14), ra = A(12, 0, 12), neck = A(2, 30, 0) }), "SineInOut"),
+	},
+})
+
+------------------------------------------------------------------------
+-- Выжившего ударили (0.45 с, бежит с ускорением): удар в спину выгибает, затем резкий рывок
+-- вперёд, руки болтаются, спотыкается и переходит в бег.
+------------------------------------------------------------------------
+
+OneShot.Flinch = upperClip({
+	Duration = 0.45,
+	FadeIn = 0.03,
+	FadeOut = 0.22,
+	Stiffness = 1.9,
+	Keys = {
+		K(0, up({ la = A(10, 0, -8), ra = A(10, 0, 8), neck = A(0, 0, 0) })),
+		K(0.05, up({ lean = -14, turn = -6, roll = 8, hip = V(0, 0.04, -0.12), la = A(-35, 0, -40), ra = A(-25, 0, 45), neck = A(24, 8, 0) }), "QuadOut"),
+		K(0.16, up({ lean = 26, turn = 10, roll = -6, hip = V(0, -0.14, -0.1), la = A(75, 0, -50), ra = A(30, 0, 55), neck = A(-14, -6, 4) }), "QuadOut"),
+		K(0.27, up({ lean = 18, turn = -4, roll = 4, hip = V(0, -0.08, 0), la = A(40, 0, -30), ra = A(-20, 0, 30), neck = A(-6, 4, 0) }), "SineInOut"),
+	},
+})
+
+------------------------------------------------------------------------
+-- Охотница: замах топором (держится, пока заряжает — до Throw или Cancel) и бросок
+------------------------------------------------------------------------
+
+local WINDUP_FULL = {
+	lean = -14,
+	turn = -32,
+	roll = 8,
+	hip = V(0, -0.06, 0.12),
+	la = aim(-0.36, 0.1, -0.93),
+	ra = aim(0.32, 0.6, 0.73),
+	neck = A(-2, 30, -6),
+}
+local FULL_WINDUP_TIME = 1.3 -- KillerDefs.Huntress.FullWindup
+
+local windup = upperClip({
+	Duration = 30,
+	FadeIn = 0.08,
+	FadeOut = 0.3,
+	Keys = {
+		K(0, up({ la = A(10, 0, -10), ra = A(25, 0, 12), neck = A(0, 0, 0) })),
+		-- топор высоко за головой, корпус отклонён назад, левая рука вперёд — целится
+		K(0.3, up({ lean = -10, turn = -24, roll = 6, hip = V(0, -0.04, 0.08), la = aim(-0.42, 0.05, -0.91), ra = aim(0.3, 0.72, 0.62), neck = A(-2, 22, -4) }), "QuadOut"),
+		-- набирает силу броска до полного замаха
+		K(FULL_WINDUP_TIME, up(WINDUP_FULL), "SineInOut"),
+	},
+})
+do
+	local sample = windup.Fn
+	local sin = math.sin
+	windup.Fn = function(a: number, p: any?): Pose
+		local pose = sample(a, p)
+		local t = a * windup.Duration
+		if t > FULL_WINDUP_TIME then
+			-- полный замах: рука подрагивает от напряжения, корпус чуть покачивается
+			local k = math.min((t - FULL_WINDUP_TIME) / 0.5, 1)
+			pose.RArm = pose.RArm * CFrame.Angles(rad(sin(t * 31) * 1.6 * k), 0, rad(sin(t * 23) * 1.2 * k))
+			pose.Root = pose.Root * CFrame.Angles(rad(sin(t * 1.7) * 1.2 * k), rad(sin(t * 2.3) * 1.5 * k), 0)
+		end
+		return pose
+	end
+end
+OneShot.Windup = windup
+
+-- Бросок: ещё чуть назад, хлёсткий выброс руки с полным разворотом корпуса, захлёст вниз-влево
+local throw = upperClip({
+	Duration = 0.45,
+	FadeIn = 0,
+	FadeOut = 0.2,
+	Stiffness = 1.8,
+	Keys = {
+		K(0, up(WINDUP_FULL)),
+		K(0.05, up({ lean = -16, turn = -36, roll = 9, hip = V(0, -0.06, 0.14), la = aim(-0.3, 0.12, -0.95), ra = aim(0.3, 0.55, 0.78), neck = A(-2, 32, -6) }), "QuadOut"),
+		K(0.12, up({ lean = 6, turn = 6, roll = -2, hip = V(0, -0.1, 0), la = A(10, 0, -30), ra = aim(0.12, 0.6, -0.79), neck = A(0, 0, 0) }), "CubicIn"),
+		K(0.2, up({ lean = 20, turn = 28, roll = -8, hip = V(0, -0.16, -0.1), la = A(-30, 0, -28), ra = aim(-0.3, -0.35, -0.89), neck = A(6, -26, 4) })),
+		K(0.3, up({ lean = 24, turn = 36, roll = -10, hip = V(0, -0.18, -0.12), la = A(-36, 0, -24), ra = aim(-0.45, -0.7, -0.55), neck = A(8, -32, 6) }), "QuadOut"),
+	},
+});
+(throw :: any).Follows = "Windup"
+OneShot.Throw = throw;
+(OneShot.Wipe :: any).Follows = "Swing"
+
+------------------------------------------------------------------------
+-- Призрак: колокол в левой руке. Поднимает, звонит резкими встряхиваниями, голова склонена.
+------------------------------------------------------------------------
+
+local function bell(duration: number, rings: number): Clip.Clip
+	local lift = duration * 0.18
+	local lower = duration * 0.78
+	local keys = {
+		K(0, up({ la = A(52, 0, -12), ra = A(16, 0, 12), neck = A(0, 0, 0) })),
+		K(lift, up({ lean = 8, turn = 10, la = AT(116, -8, 0), ra = A(28, 0, 18), neck = A(-28, 0, 4) }), "SineOut"),
+	}
+	local from, to = lift + 0.04, lower - 0.1
+	for i = 1, rings do
+		local s = i % 2 == 1 and 1 or -1
+		local t = from + (to - from) * (i - 1) / math.max(rings - 1, 1)
+		table.insert(keys, K(t, up({ lean = 8 + s, turn = 10, roll = s * 2, la = AT(116 + s * 7, -8, s * 24), ra = A(28, 0, 18), neck = A(-30 + s, 0, 4) }), "BackOut"))
+	end
+	table.insert(keys, K(lower, up({ lean = 5, turn = 4, la = A(64, 0, -12), ra = A(20, 0, 14), neck = A(-16, 0, 2) }), "SineInOut"))
+	return upperClip({ Duration = duration, FadeIn = 0.1, FadeOut = duration - lower + 0.05, Keys = keys })
+end
+OneShot.Bell = bell(1.5, 7)
+OneShot.BellUncloak = bell(1.0, 5)
+
+------------------------------------------------------------------------
+-- На крюке: крик (1.4 с) — выгибается, рвётся вверх к крюку, болтает ногами, обмякает.
+-- Корпус вращается вокруг центра (тело висит на крюке, а не стоит на ногах).
+------------------------------------------------------------------------
+
+OneShot.HookScream = Clip.new({
+	Duration = 1.4,
+	FadeIn = 0.06,
+	FadeOut = 0.45,
+	Stiffness = 1.5,
+	Keys = {
+		K(0, hang({ lean = 7, roll = -8, ll = A(0, 0, -3), rl = A(-6, 0, 4), la = A(174, 0, 12), ra = A(10, 0, 7), neck = A(-28, 0, 8) })),
+		K(0.1, hang({ lean = -22, turn = 6, roll = -14, hip = V(0, 0.2, 0), ll = A(26, 0, -8), rl = A(-10, 0, 10), la = A(178, 0, 18), ra = A(110, 0, 34), neck = A(38, -10, 10) }), "SineOut"),
+		K(0.2, hang({ lean = -20, turn = 2, roll = -10, hip = V(0, 0.16, 0), ll = A(6, 0, -6), rl = A(14, 0, 8), la = A(177, 0, 16), ra = A(150, 0, 30), neck = A(36, 0, 6) }), "SineInOut"),
+		K(0.3, hang({ lean = -16, turn = -10, roll = -6, hip = V(0, 0.1, 0), ll = A(-12, 0, -6), rl = A(28, 0, 8), la = A(176, 0, 14), ra = A(115, 0, 45), neck = A(30, 12, -6) }), "SineInOut"),
+		K(0.5, hang({ lean = -20, turn = 8, roll = -12, hip = V(0, 0.12, 0), ll = A(22, 0, -4), rl = A(-14, 0, 10), la = A(178, 0, 18), ra = A(165, 0, 22), neck = A(34, -8, 8) }), "SineInOut"),
+		K(0.72, hang({ lean = -10, turn = -4, roll = -8, hip = V(0, 0.05, 0), ll = A(-6, 0, -4), rl = A(16, 0, 6), la = A(176, 0, 14), ra = A(120, 0, 35), neck = A(20, 6, 0) }), "SineInOut"),
+		K(0.95, hang({ lean = 10, roll = -8, ll = A(4, 0, -3), rl = A(-2, 0, 4), la = A(174, 0, 12), ra = A(30, 0, 10), neck = A(-30, 0, 10) }), "SineInOut"),
+	},
+})
+
+-- Сущность забирает (2.8 с): отчаянно отталкивает её лапы, бьётся; судорога, руки в стороны —
+-- тело поднимают (сервер: с 1.6 с вверх на 30 стад).
+do
+	local keys = {
+		K(0, hang({ lean = -4, roll = -8, hip = V(0, 0.03, 0), ll = A(10, 0, -4), rl = A(10, 0, 4), la = A(172, 0, 14), ra = A(158, 0, -6), neck = A(18, 0, 0) })),
+	}
+	local t, i = 0.12, 0
+	while t < 1.5 do
+		i += 1
+		local s = i % 2 == 1 and 1 or -1
+		local e = 0.7 + 0.3 * math.min(t / 0.8, 1) -- отчаяние нарастает
+		local h = Life.hash(i * 1.37)
+		table.insert(
+			keys,
+			K(
+				t,
+				hang({
+					lean = -10 - 6 * e + s * 4,
+					turn = s * 16 * e,
+					roll = -10 + s * 6 * e,
+					hip = V(0, 0.06 * e, 0),
+					ll = A(8 + s * 28 * e, 0, -6),
+					rl = A(8 - s * 28 * e, 0, 6),
+					la = A(150 + s * 14, 0, -12 - s * 12),
+					ra = A(140 - s * 22, 0, 22 + s * 10),
+					neck = A(18 + s * 6, -s * (20 + 12 * h) * e, s * 6),
+				}),
+				i % 3 == 0 and "QuadOut" or "SineInOut"
+			)
+		)
+		t += 0.12 + 0.05 * h -- неровный ритм
+	end
+	table.insert(keys, K(1.68, hang({ lean = -30, roll = -4, hip = V(0, 0.2, 0), ll = A(-8, 0, -4), rl = A(-4, 0, 4), la = A(165, 0, -40), ra = A(165, 0, 40), neck = A(40, 0, 0) }), "QuadOut"))
+	table.insert(keys, K(2.1, hang({ lean = -20, roll = -2, hip = V(0, 0.1, 0), ll = A(-6, 0, -3), rl = A(-2, 0, 3), la = A(30, 0, -80), ra = A(30, 0, 80), neck = A(36, 0, 6) }), "SineInOut"))
+	table.insert(keys, K(2.8, hang({ lean = -16, hip = V(0, 0.08, 0), ll = A(-4, 0, -2), rl = A(-2, 0, 2), la = A(24, 0, -84), ra = A(24, 0, 84), neck = A(40, 0, 8) }), "SineInOut"))
+	OneShot.Entity = Clip.new({ Duration = 2.8, FadeIn = 0.08, FadeOut = 0.3, Stiffness = 1.4, Keys = keys })
+end
+
+------------------------------------------------------------------------
+-- Прыжки через окно/паллету. Сервер везёт корень (Anchored) по прямой: вверх на 2.2 стада к
+-- середине препятствия за половину времени и вниз за вторую половину; высота препятствия 3.
+-- Ключи — в долях длительности: u = 0.5 — над подоконником.
+------------------------------------------------------------------------
+
+local function timed(duration: number, list: { { any } }): { Clip.Key }
+	local keys = {}
+	for _, k in list do
+		table.insert(keys, K(k[1] * duration, k[2], k[3]))
+	end
+	return keys
+end
+
+-- С бега (0.55 с): упор руками, тело перекатывается через левую руку, ноги проносятся над
+-- подоконником вбок, приземление и сразу бег.
+OneShot.Vault = Clip.new({
+	Duration = 0.55,
+	FadeIn = 0.04,
+	FadeOut = 0.12,
+	Stiffness = 1.5,
+	Keys = timed(0.55, {
+		{ 0, body({ lean = 14, hip = V(0, -0.04, 0), ll = A(24, 0, -3), rl = A(-26, 0, 3), la = A(-22, 0, -8), ra = A(38, 0, 8), neck = A(-2, 0, 0) }) },
+		-- толчок: корпус вперёд, руки тянутся к подоконнику, ноги отталкиваются
+		{ 0.16, body({ lean = 32, turn = 6, roll = 4, ll = A(-34, 0, -4), rl = A(-8, 0, 5), la = A(88, 0, -10), ra = A(84, 0, 10), neck = A(22, 0, 0) }), "QuadOut" },
+		-- упор левой, ноги проносятся вперёд-вправо
+		{ 0.33, body({ lean = 16, turn = 18, roll = 14, hip = V(0, 0.08, 0), ll = A(66, 0, 8), rl = A(78, 0, 20), la = A(34, 0, -6), ra = A(100, 0, 60), neck = A(10, -12, -6) }), "QuadIn" },
+		{ 0.5, body({ lean = 2, turn = 22, roll = 18, hip = V(0, 0.1, 0), ll = A(84, 0, 14), rl = A(90, 0, 26), la = A(4, 0, 2), ra = A(112, 0, 76), neck = A(4, -18, -10) }) },
+		-- соскальзывает вниз, ноги тянутся к земле
+		{ 0.68, body({ lean = 4, turn = 12, roll = 6, ll = A(46, 0, 6), rl = A(30, 0, 10), la = A(-28, 0, -26), ra = A(62, 0, 42), neck = A(0, -10, -2) }), "QuadOut" },
+		-- касание земли раньше корня: таз опускается навстречу
+		{ 0.85, body({ lean = 18, turn = 4, hip = V(0, -0.62, 0), ll = A(26, 0, -4), rl = A(-14, 0, 4), la = A(-8, 0, -14), ra = A(32, 0, 14), neck = A(-6, -2, 0) }), "SineInOut" },
+		{ 1, body({ lean = 15, hip = V(0, -0.04, 0), ll = A(-22, 0, -3), rl = A(28, 0, 3), la = A(36, 0, -8), ra = A(-20, 0, 8), neck = A(-2, 0, 0) }), "SineInOut" },
+	}),
+})
+
+-- Шагом (0.95 с): обе руки на подоконник, правое колено вверх, перекидывает ноги сидя, спрыгивает
+OneShot.VaultWalk = Clip.new({
+	Duration = 0.95,
+	FadeIn = 0.08,
+	FadeOut = 0.18,
+	Stiffness = 1.2,
+	Keys = timed(0.95, {
+		{ 0, body({ lean = 6, ll = A(8, 0, -3), rl = A(-10, 0, 3), la = A(10, 0, -8), ra = A(14, 0, 8), neck = A(0, 0, 0) }) },
+		{ 0.18, body({ lean = 30, turn = 4, ll = A(-20, 0, -4), rl = A(10, 0, 4), la = A(84, 0, -12), ra = A(84, 0, 12), neck = A(20, 0, 0) }), "SineInOut" },
+		{ 0.36, body({ lean = 34, turn = 10, roll = 8, hip = V(0, 0.05, 0), ll = A(-30, 0, -6), rl = A(70, 0, 14), la = A(44, 0, 0), ra = A(48, 0, -4), neck = A(22, -4, 0) }), "SineInOut" },
+		{ 0.52, body({ lean = 6, turn = 24, roll = 16, hip = V(0, 0.1, 0), ll = A(80, 0, 10), rl = A(88, 0, 26), la = A(6, 0, 4), ra = A(40, 0, 30), neck = A(6, -18, -8) }), "SineInOut" },
+		{ 0.72, body({ lean = -4, turn = 14, roll = 6, ll = A(40, 0, 4), rl = A(18, 0, 8), la = A(-10, 0, -12), ra = A(30, 0, 24), neck = A(0, -10, -2) }), "SineInOut" },
+		{ 0.88, body({ lean = 10, turn = 4, hip = V(0, -0.5, 0), ll = A(20, 0, -4), rl = A(-10, 0, 4), la = A(-6, 0, -12), ra = A(16, 0, 12), neck = A(-6, -2, 0) }), "SineInOut" },
+		{ 1, body({ lean = 6, hip = V(0, -0.02, 0), ll = A(-8, 0, -3), rl = A(10, 0, 3), la = A(12, 0, -8), ra = A(-6, 0, 8), neck = A(0, 0, 0) }), "SineInOut" },
+	}),
+})
+
+-- Маньяк (1.6 с): тяжело, сначала заносит правую ногу на подоконник, подтягивается на руках,
+-- перекидывает левую, слезает и грузно встаёт.
+OneShot.KillerVault = Clip.new({
+	Duration = 1.6,
+	FadeIn = 0.12,
+	FadeOut = 0.22,
+	Keys = timed(1.6, {
+		{ 0, body({ lean = 6, ll = A(0, 0, -3), rl = A(0, 0, 3), la = A(6, 0, -9), ra = A(16, 0, 12), neck = A(0, 0, 0) }) },
+		{ 0.14, body({ lean = 16, turn = -6, roll = -4, hip = V(0, -0.06, 0), ll = A(-6, 0, -4), rl = A(118, 0, 8), la = A(70, 0, -14), ra = A(64, 0, 16), neck = A(10, 6, 0) }), "SineInOut" },
+		{ 0.32, body({ lean = 34, turn = -4, roll = -6, hip = V(0, 0.04, 0), ll = A(-28, 0, -6), rl = A(88, 0, 10), la = A(60, 0, -6), ra = A(56, 0, 8), neck = A(22, 4, 0) }), "SineInOut" },
+		{ 0.5, body({ lean = 26, turn = 6, roll = 4, hip = V(0, 0.08, 0), ll = A(70, 0, -14), rl = A(30, 0, 10), la = A(28, 0, -4), ra = A(30, 0, 6), neck = A(18, -4, 0) }), "SineInOut" },
+		{ 0.7, body({ lean = 14, turn = 4, roll = 2, ll = A(46, 0, -8), rl = A(8, 0, 6), la = A(36, 0, -16), ra = A(44, 0, 18), neck = A(6, -2, 0) }), "SineInOut" },
+		{ 0.86, body({ lean = 12, hip = V(0, -0.5, 0), ll = A(24, 0, -6), rl = A(-14, 0, 5), la = A(14, 0, -12), ra = A(22, 0, 14), neck = A(-4, 0, 0) }), "SineInOut" },
+		{ 1, body({ lean = 7, ll = A(2, 0, -3), rl = A(-2, 0, 3), la = A(6, 0, -9), ra = A(16, 0, 12), neck = A(0, 0, 0) }), "SineInOut" },
+	}),
+})
+
+return Clips
+]]></string>
+          </Properties>
+        </Item>
+        <Item class="ModuleScript" referent="9">
           <Properties>
             <string name="Name">Driver</string>
             <string name="Source"><![CDATA[-- Привод суставов персонажа: поза -> пружины (Anim/Spring.lua) -> Motor6D.Transform.
@@ -606,7 +1501,7 @@ return Driver
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="8">
+        <Item class="ModuleScript" referent="10">
           <Properties>
             <string name="Name">Gait</string>
             <string name="Source"><![CDATA[-- Походка R6: шаг, бег, спринт, присед, хромота раненого, тяжёлый шаг маньяка, перенос выжившего
@@ -1180,7 +2075,7 @@ return Gait
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="9">
+        <Item class="ModuleScript" referent="11">
           <Properties>
             <string name="Name">Life</string>
             <string name="Source"><![CDATA[-- Мелкие «живые» движения без состояния (зависят только от времени и зерна персонажа):
@@ -1257,7 +2152,7 @@ return Life
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="10">
+        <Item class="ModuleScript" referent="12">
           <Properties>
             <string name="Name">Poses</string>
             <string name="Source"><![CDATA[-- Процедурные позы R6. Каждая поза — функция, возвращающая таблицу поворотов суставов:
@@ -1267,43 +2162,23 @@ return Life
 -- Корпус наклоняется вперёд ОТРИЦАТЕЛЬНЫМ X. Не указанные суставы берутся из базовой позы.
 --   Poses.locomotion / Poses.stepRate — походка (Anim/Gait.lua)
 --   Poses.State.*  — особые состояния (Anim/States.lua)
---   Poses.Action.* — зацикленные действия, пока игрок держит кнопку: (t, p) -> поза
+--   Poses.Action.* — действия, пока игрок держит кнопку: (t от начала действия, p) -> поза
+--     (Anim/Actions.lua — ключевые клипы)
 --   Poses.OneShot.* — одноразовые: { Duration, Fn(a, p) -> поза } или клип Anim/Clip.lua
---     (необязательно: FadeIn, FadeOut, Additive, Stiffness — как у клипа)
+--     (необязательно: FadeIn, FadeOut, Additive, Stiffness, Upper — см. Anim/Clips.lua);
+--     накладываются через Poses.applyShot, вариант по обстоятельствам — Poses.shotVariant
 local Rig = require(script.Parent.Rig)
 local Gait = require(script.Parent.Gait)
 local States = require(script.Parent.States)
+local Clips = require(script.Parent.Clips)
+local Actions = require(script.Parent.Actions)
 
 local Poses = {}
-
-local sin, abs, clamp = math.sin, math.abs, math.clamp
 
 local A = Rig.A
 Poses.A = A
 
-local V = Vector3.new
-
 export type Params = Gait.Params
-
-local function lerp(a: number, b: number, t: number): number
-	return a + (b - a) * t
-end
-
-local function smooth(t: number): number
-	t = clamp(t, 0, 1)
-	return t * t * (3 - 2 * t)
-end
-
--- Колено на одну ногу: опускаем торс на 1 стад и разводим ноги так,
--- чтобы прямые ноги R6 не уходили в землю.
-local function kneel(lean: number)
-	return {
-		Root = A(-lean),
-		RootPos = V(0, -1.05, 0),
-		LLeg = A(85 - lean * 0.2),
-		RLeg = A(-35 + lean * 0.2, 0, 4),
-	}
-end
 
 local function merge(base, over)
 	local out = table.clone(base)
@@ -1318,325 +2193,23 @@ Poses.stepRate = Gait.stepRate
 Poses.locomotion = Gait.locomotion
 Poses.State = States
 
-------------------------------------------------------------------------
--- Действия (зацикленные, пока игрок держит кнопку)
-------------------------------------------------------------------------
+-- Действия (Anim/Actions.lua): Repair, Heal, Cleanse, OpenChest, FreeTrap/DisarmTrap, Unhook,
+-- OpenGate, SelfHeal, EscapeTrap; маньяк: Hook, Break, Kick, SearchLocker,
+-- SetTrap/PickupTrap/ResetTrap/CloseHatch
+Poses.Action = Actions.Action
+Poses.ActionLength = Actions.Length
 
-Poses.Action = {}
-
-local function handsWork(t: number, speed: number, base: number, amp: number)
-	return A(base + sin(t * speed) * amp, 0, -6), A(base + sin(t * speed + 2.2) * amp, 0, 6)
-end
-
-function Poses.Action.Repair(t: number)
-	local la, ra = handsWork(t, 9, 72, 14)
-	return merge(kneel(18), { LArm = la, RArm = ra, Neck = A(-18, sin(t * 0.8) * 6, 0) })
-end
-
-function Poses.Action.Heal(t: number)
-	local la, ra = handsWork(t, 4, 62, 7)
-	return merge(kneel(20), { LArm = la, RArm = ra, Neck = A(-25, 0, 0) })
-end
-
-function Poses.Action.Cleanse(t: number)
-	local la, ra = handsWork(t, 5, 55, 12)
-	return merge(kneel(25), { LArm = la, RArm = ra, Neck = A(-25, 0, 0) })
-end
-
-function Poses.Action.OpenChest(t: number)
-	local la, ra = handsWork(t, 7, 70, 12)
-	return merge(kneel(20), { LArm = la, RArm = ra, Neck = A(-20, 0, 0) })
-end
-
-Poses.Action.FreeTrap = function(t: number)
-	local la, ra = handsWork(t, 6, 45, 15)
-	return merge(kneel(30), { LArm = la, RArm = ra, Neck = A(-30, 0, 0) })
-end
-Poses.Action.DisarmTrap = Poses.Action.FreeTrap
-
-function Poses.Action.Unhook(t: number)
-	return {
-		Root = A(4),
-		LArm = A(158 + sin(t * 8) * 6, 0, -12),
-		RArm = A(158 - sin(t * 8) * 6, 0, 12),
-		Neck = A(28, 0, 0),
-	}
-end
-
-function Poses.Action.OpenGate(t: number)
-	return {
-		Root = A(-6),
-		RArm = A(88 + sin(t * 1.4) * 5, 0, -6),
-		LArm = A(30, 0, -10),
-		Neck = A(-5, 0, 0),
-	}
-end
-
-function Poses.Action.SelfHeal(t: number)
-	return {
-		Root = A(-12),
-		LArm = A(55 + sin(t * 3) * 6, 0, 32),
-		RArm = A(55 - sin(t * 3) * 6, 0, -32),
-		Neck = A(-28, 0, 0),
-	}
-end
-
-function Poses.Action.EscapeTrap(t: number, p: Params)
-	local pose = Poses.State.Trapped(t * 2, p)
-	pose.LArm = A(40 + sin(t * 10) * 20, 0, 10)
-	pose.RArm = A(40 - sin(t * 10) * 20, 0, -10)
-	return pose
-end
-
--- Маньяк
-function Poses.Action.Hook(t: number)
-	return {
-		Root = A(6),
-		LArm = A(170 + sin(t * 5) * 4, 0, -8),
-		RArm = A(170 - sin(t * 5) * 4, 0, 8),
-		Neck = A(20, 0, 0),
-	}
-end
-
-function Poses.Action.Break(t: number)
-	local stomp = math.max(0, sin(t * 6))
-	return {
-		Root = A(-8 + stomp * 4),
-		RLeg = A(stomp * 75),
-		LArm = A(20, 0, -20),
-		RArm = A(25, 0, 25),
-		Neck = A(-25, 0, 0),
-	}
-end
-
-function Poses.Action.Kick(t: number)
-	local k = sin(t * 5)
-	return {
-		Root = A(6 * k),
-		RLeg = A(25 + k * 55),
-		LArm = A(-10 - k * 20, 0, -15),
-		RArm = A(20 + k * 20, 0, 15),
-		Neck = A(-20, 0, 0),
-	}
-end
-
-function Poses.Action.SearchLocker(t: number)
-	return {
-		Root = A(-10),
-		LArm = A(95 + sin(t * 8) * 6, 0, -10),
-		RArm = A(95 - sin(t * 8) * 6, 0, 10),
-		Neck = A(-5, 0, 0),
-	}
-end
-
-function Poses.Action.SetTrap(t: number)
-	local la, ra = handsWork(t, 6, 40, 12)
-	return merge(kneel(35), { LArm = la, RArm = ra, Neck = A(-30, 0, 0) })
-end
-Poses.Action.PickupTrap = Poses.Action.SetTrap
-Poses.Action.ResetTrap = Poses.Action.SetTrap
-Poses.Action.CloseHatch = Poses.Action.SetTrap
-
-------------------------------------------------------------------------
--- Одноразовые анимации: Duration и функция от прогресса a (0..1)
-------------------------------------------------------------------------
-
-Poses.OneShot = {}
-
-Poses.OneShot.Swing = {
-	Duration = 0.7,
-	Fn = function(a: number)
-		local arm
-		if a < 0.35 then
-			arm = lerp(30, 175, smooth(a / 0.35))
-		elseif a < 0.55 then
-			arm = lerp(175, 15, smooth((a - 0.35) / 0.2))
-		else
-			arm = lerp(15, 30, smooth((a - 0.55) / 0.45))
-		end
-		local strike = a > 0.35 and a < 0.75 and 1 or 0
-		return {
-			Root = A(-12 * strike, (a < 0.35 and 12 or -10), 0),
-			RArm = A(arm, 0, 12),
-			LArm = A(30 - strike * 20, 0, -18),
-		}
-	end,
-}
-
-Poses.OneShot.Wipe = {
-	Duration = 2.4,
-	Fn = function(a: number)
-		local rub = sin(a * 24) * 18
-		return {
-			Root = A(-8),
-			RArm = A(70, 0, -35),
-			LArm = A(65, 0, 30 + rub),
-			Neck = A(-25, 0, 0),
-		}
-	end,
-}
-
-Poses.OneShot.Stun = {
-	Duration = 2.2,
-	Fn = function(a: number)
-		local wob = sin(a * 30) * (1 - a) * 6
-		return {
-			Root = A(14, wob, wob),
-			LArm = A(140, 0, -25),
-			RArm = A(140, 0, 25),
-			Neck = A(28, 0, 0),
-		}
-	end,
-}
-
-Poses.OneShot.Blind = {
-	Duration = 2.5,
-	Fn = function(a: number)
-		return {
-			Root = A(8, sin(a * 18) * 8, 0),
-			LArm = A(150, 0, 38),
-			RArm = A(150, 0, -38),
-			Neck = A(-15, 0, 0),
-		}
-	end,
-}
-
-Poses.OneShot.Pickup = {
-	Duration = 0.8,
-	Fn = function(a: number)
-		local b = sin(a * math.pi)
-		return {
-			Root = A(-55 * b),
-			RootPos = V(0, -0.5 * b, 0),
-			LLeg = A(55 * b),
-			RLeg = A(50 * b),
-			LArm = A(80 * b, 0, -10),
-			RArm = A(80 * b, 0, 10),
-		}
-	end,
-}
-
-Poses.OneShot.Vault = {
-	Duration = 0.7,
-	Fn = function(a: number)
-		local b = sin(a * math.pi)
-		return {
-			Root = A(-50 * b),
-			LArm = A(60 + 110 * b, 0, -10),
-			RArm = A(60 + 110 * b, 0, 10),
-			LLeg = A(-30 * b),
-			RLeg = A(-50 * b),
-			Neck = A(30 * b, 0, 0),
-		}
-	end,
-}
-
-Poses.OneShot.KillerVault = {
-	Duration = 1.6,
-	Fn = function(a: number)
-		local b = sin(a * math.pi)
-		return {
-			Root = A(-30 * b),
-			RLeg = A(95 * b),
-			LLeg = A(-10 * b),
-			LArm = A(70 * b, 0, -15),
-			RArm = A(70 * b, 0, 15),
-		}
-	end,
-}
-
-Poses.OneShot.PalletDrop = {
-	Duration = 0.6,
-	Fn = function(a: number)
-		local push = a < 0.4 and smooth(a / 0.4) or 1
-		return {
-			Root = A(-15 * push),
-			LArm = A(lerp(60, 110, push), 0, -10),
-			RArm = A(lerp(60, 110, push), 0, 10),
-		}
-	end,
-}
-
-Poses.OneShot.Flinch = {
-	Duration = 0.45,
-	Fn = function(a: number)
-		local b = sin(a * math.pi)
-		return {
-			Root = A(14 * b, 0, 6 * b),
-			LArm = A(50 * b, 0, -30 * b),
-			RArm = A(50 * b, 0, 30 * b),
-			Neck = A(20 * b, 0, 0),
-		}
-	end,
-}
-
-Poses.OneShot.Windup = {
-	Duration = 30, -- держится, пока сервер не отправит Throw
-	Fn = function(a: number)
-		return {
-			Root = A(4, -12, 0),
-			RArm = A(200 + sin(a * 60) * 3, 0, 18),
-			LArm = A(60, 0, -20),
-		}
-	end,
-}
-
-Poses.OneShot.Throw = {
-	Duration = 0.45,
-	Fn = function(a: number)
-		return {
-			Root = A(-15 * sin(a * math.pi), lerp(-12, 15, smooth(a * 2)), 0),
-			RArm = A(lerp(200, 40, smooth(a * 2.5)), 0, 10),
-			LArm = A(40, 0, -20),
-		}
-	end,
-}
-
-Poses.OneShot.Bell = {
-	Duration = 1.5,
-	Fn = function(a: number)
-		local hit = abs(sin(a * 18))
-		return {
-			LArm = A(80, 0, -15),
-			RArm = A(70 + hit * 15, 0, 35),
-			Neck = A(-15, 0, 0),
-		}
-	end,
-}
-
-Poses.OneShot.HookScream = {
-	Duration = 1.4,
-	Fn = function(a: number)
-		local b = sin(a * math.pi)
-		return {
-			LArm = A(150 * b, 0, -20),
-			RArm = A(150, 0, 20),
-			Neck = A(40 * b, 0, 0),
-			Root = A(10 * b),
-		}
-	end,
-}
-
-Poses.OneShot.Entity = {
-	Duration = 2,
-	Fn = function(a: number)
-		local f = sin(a * 40)
-		return {
-			Root = A(25 * a, f * 10, 0),
-			LArm = A(170 + f * 10, 0, -30),
-			RArm = A(170 - f * 10, 0, 30),
-			LLeg = A(40 * a + f * 20),
-			RLeg = A(40 * a - f * 20),
-			Neck = A(50, 0, 0),
-		}
-	end,
-}
+-- Одноразовые (Anim/Clips.lua): Swing, Wipe, Stun, Blind, Pickup, Vault (+VaultWalk), KillerVault,
+-- PalletDrop, Flinch, Windup, Throw, Bell (+BellUncloak), HookScream, Entity
+Poses.OneShot = Clips.OneShot
+Poses.applyShot = Clips.apply
+Poses.shotVariant = Clips.variant
 
 return Poses
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="11">
+        <Item class="ModuleScript" referent="13">
           <Properties>
             <string name="Name">Rig</string>
             <string name="Source"><![CDATA[-- Математика суставов R6.
@@ -1740,7 +2313,7 @@ return Rig
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="12">
+        <Item class="ModuleScript" referent="14">
           <Properties>
             <string name="Name">Spring</string>
             <string name="Source"><![CDATA[-- Пружины для процедурной анимации: суставы догоняют позу «живо» — с инерцией,
@@ -1928,7 +2501,7 @@ return Spring
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="13">
+        <Item class="ModuleScript" referent="15">
           <Properties>
             <string name="Name">States</string>
             <string name="Source"><![CDATA[-- Особые состояния выживших: ползёт (повержен), на плече у маньяка, на крюке, в шкафчике,
@@ -2151,11 +2724,11 @@ return States
           </Properties>
         </Item>
       </Item>
-      <Item class="Folder" referent="14">
+      <Item class="Folder" referent="16">
         <Properties>
           <string name="Name">Art</string>
         </Properties>
-        <Item class="ModuleScript" referent="15">
+        <Item class="ModuleScript" referent="17">
           <Properties>
             <string name="Name">Hatchet</string>
             <string name="Source"><![CDATA[-- Метательный топор Охотницы (строится на клиенте для полёта снаряда).
@@ -2227,7 +2800,7 @@ return Hatchet
           </Properties>
         </Item>
       </Item>
-      <Item class="ModuleScript" referent="16">
+      <Item class="ModuleScript" referent="18">
         <Properties>
           <string name="Name">Config</string>
           <string name="Source"><![CDATA[-- Все настройки игры в одном месте. Меняй числа, чтобы настроить баланс.
@@ -2345,7 +2918,7 @@ return Config
 ]]></string>
         </Properties>
       </Item>
-      <Item class="ModuleScript" referent="17">
+      <Item class="ModuleScript" referent="19">
         <Properties>
           <string name="Name">ItemDefs</string>
           <string name="Source"><![CDATA[-- Предметы выживших из сундуков.
@@ -2374,7 +2947,7 @@ return {
 ]]></string>
         </Properties>
       </Item>
-      <Item class="ModuleScript" referent="18">
+      <Item class="ModuleScript" referent="20">
         <Properties>
           <string name="Name">KillerDefs</string>
           <string name="Source"><![CDATA[-- Маньяки: характеристики и способности.
@@ -2446,7 +3019,7 @@ return KillerDefs
 ]]></string>
         </Properties>
       </Item>
-      <Item class="ModuleScript" referent="19">
+      <Item class="ModuleScript" referent="21">
         <Properties>
           <string name="Name">Remotes</string>
           <string name="Source"><![CDATA[-- Создаёт (на сервере) или находит (на клиенте) все RemoteEvent'ы игры.
@@ -2503,7 +3076,7 @@ return Remotes
 ]]></string>
         </Properties>
       </Item>
-      <Item class="ModuleScript" referent="20">
+      <Item class="ModuleScript" referent="22">
         <Properties>
           <string name="Name">Sounds</string>
           <string name="Source"><![CDATA[-- Библиотека звуков: слоты игры, поиск настоящих звуков и встроенный синтез.
@@ -3333,7 +3906,7 @@ return Sounds
 ]]></string>
         </Properties>
       </Item>
-      <Item class="ModuleScript" referent="21">
+      <Item class="ModuleScript" referent="23">
         <Properties>
           <string name="Name">Util</string>
           <string name="Source"><![CDATA[-- Общие функции для сервера и клиента.
@@ -3403,19 +3976,19 @@ return Util
       </Item>
     </Item>
   </Item>
-  <Item class="ServerScriptService" referent="22">
+  <Item class="ServerScriptService" referent="24">
     <Properties>
       <string name="Name">ServerScriptService</string>
     </Properties>
-    <Item class="Folder" referent="23">
+    <Item class="Folder" referent="25">
       <Properties>
         <string name="Name">Server</string>
       </Properties>
-      <Item class="Folder" referent="24">
+      <Item class="Folder" referent="26">
         <Properties>
           <string name="Name">Core</string>
         </Properties>
-        <Item class="ModuleScript" referent="25">
+        <Item class="ModuleScript" referent="27">
           <Properties>
             <string name="Name">Actions</string>
             <string name="Source"><![CDATA[-- Реестр действий (ремонт, лечение, крюк, шкафчики и т.д.).
@@ -3656,7 +4229,7 @@ return Actions
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="26">
+        <Item class="ModuleScript" referent="28">
           <Properties>
             <string name="Name">Characters</string>
             <string name="Source"><![CDATA[-- Персонажи R6: появление, внешний вид маньяков, группы столкновений.
@@ -3862,7 +4435,7 @@ return Characters
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="27">
+        <Item class="ModuleScript" referent="29">
           <Properties>
             <string name="Name">Lifecycle</string>
             <string name="Source"><![CDATA[-- Выбывание из раунда (смерть, побег, выход) и «отцепление» от объектов
@@ -3913,7 +4486,7 @@ return Lifecycle
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="28">
+        <Item class="ModuleScript" referent="30">
           <Properties>
             <string name="Name">Lobby</string>
             <string name="Source"><![CDATA[-- Выбор в лобби: «хочу быть маньяком» и выбор маньяка.
@@ -3963,7 +4536,7 @@ return Lobby
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="29">
+        <Item class="ModuleScript" referent="31">
           <Properties>
             <string name="Name">Match</string>
             <string name="Source"><![CDATA[-- Один раунд: старт, главный цикл, конец.
@@ -4354,7 +4927,7 @@ return Match
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="30">
+        <Item class="ModuleScript" referent="32">
           <Properties>
             <string name="Name">Scoring</string>
             <string name="Source"><![CDATA[-- Очки крови: 4 категории у выживших и 4 у маньяка, сохраняются в DataStore.
@@ -4469,7 +5042,7 @@ return Scoring
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="31">
+        <Item class="ModuleScript" referent="33">
           <Properties>
             <string name="Name">SoundLibrary</string>
             <string name="Source"><![CDATA[-- Поиск настоящих звуков в публичной библиотеке Creator Store (AssetService:SearchAudioAsync).
@@ -4866,7 +5439,7 @@ return SoundLibrary
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="32">
+        <Item class="ModuleScript" referent="34">
           <Properties>
             <string name="Name">State</string>
             <string name="Source"><![CDATA[-- Общее состояние раунда и вспомогательные функции для всех систем.
@@ -4996,7 +5569,7 @@ return State
           </Properties>
         </Item>
       </Item>
-      <Item class="Script" referent="33">
+      <Item class="Script" referent="35">
         <Properties>
           <string name="Name">Main</string>
           <token name="RunContext">0</token>
@@ -5102,15 +5675,15 @@ end
 ]]></string>
         </Properties>
       </Item>
-      <Item class="Folder" referent="34">
+      <Item class="Folder" referent="36">
         <Properties>
           <string name="Name">Map</string>
         </Properties>
-        <Item class="Folder" referent="35">
+        <Item class="Folder" referent="37">
           <Properties>
             <string name="Name">Art</string>
           </Properties>
-          <Item class="ModuleScript" referent="36">
+          <Item class="ModuleScript" referent="38">
             <Properties>
               <string name="Name">Contract</string>
               <string name="Source"><![CDATA[-- Контракт моделей: что игровая логика ожидает от каждой модели.
@@ -5276,7 +5849,7 @@ return Contract
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="37">
+          <Item class="ModuleScript" referent="39">
             <Properties>
               <string name="Name">Items</string>
               <string name="Source"><![CDATA[-- Предметы выживших в руке: аптечка, ящик с инструментами, фонарик.
@@ -5432,7 +6005,7 @@ return ItemArt
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="38">
+          <Item class="ModuleScript" referent="40">
             <Properties>
               <string name="Name">KillerGear</string>
               <string name="Source"><![CDATA[-- Внешний вид маньяков: снаряжение из деталей, приваренное к частям тела R6.
@@ -5867,7 +6440,7 @@ return KillerGear
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="39">
+          <Item class="ModuleScript" referent="41">
             <Properties>
               <string name="Name">Kit</string>
               <string name="Source"><![CDATA[-- Набор инструментов для моделирования из деталей (Part).
@@ -6525,7 +7098,7 @@ return Kit
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="40">
+          <Item class="ModuleScript" referent="42">
             <Properties>
               <string name="Name">Lobby</string>
               <string name="Source"><![CDATA[-- Лобби: лагерь у костра на поляне в тёмном лесу (как главное меню DBD).
@@ -6678,7 +7251,7 @@ return Lobby
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="41">
+          <Item class="ModuleScript" referent="43">
             <Properties>
               <string name="Name">LobbyCamp</string>
               <string name="Source"><![CDATA[-- Реквизит лагеря в лобби: кострище, бревно-сиденье, палатка, ящики, бочка, фонарь,
@@ -6987,7 +7560,7 @@ return Camp
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="42">
+          <Item class="ModuleScript" referent="44">
             <Properties>
               <string name="Name">MapProps</string>
               <string name="Source"><![CDATA[-- Сборник шаблонов объектов карты. Каждый объект живёт в своём модуле Art/Props/<Имя>.lua,
@@ -7011,7 +7584,7 @@ return MapProps
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="43">
+          <Item class="ModuleScript" referent="45">
             <Properties>
               <string name="Name">Nature</string>
               <string name="Source"><![CDATA[-- Природа: деревья, сухие деревья, камни, кукуруза, туман, огонь, мелочи по всей карте.
@@ -7077,7 +7650,7 @@ return Nature
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="44">
+          <Item class="ModuleScript" referent="46">
             <Properties>
               <string name="Name">NatureFX</string>
               <string name="Source"><![CDATA[-- Огонь и туман: только частицы со встроенными текстурами и один тёплый свет.
@@ -7180,7 +7753,7 @@ return FX
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="45">
+          <Item class="ModuleScript" referent="47">
             <Properties>
               <string name="Name">NatureGround</string>
               <string name="Source"><![CDATA[-- Камни, кукуруза и мелкая растительность (трава, папоротник, куст, камешки).
@@ -7411,7 +7984,7 @@ return Ground
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="46">
+          <Item class="ModuleScript" referent="48">
             <Properties>
               <string name="Name">NatureScatter</string>
               <string name="Source"><![CDATA[-- Разброс мелочей по карте (≤ 450 деталей на всю карту): трава, папоротники, кусты, ветки, пни,
@@ -7557,7 +8130,7 @@ return Scatter
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="47">
+          <Item class="ModuleScript" referent="49">
             <Properties>
               <string name="Name">NatureTrees</string>
               <string name="Source"><![CDATA[-- Деревья: ель (с уровнями детализации), сухое дерево, пень, упавшая ветка.
@@ -7831,11 +8404,11 @@ return Trees
 ]]></string>
             </Properties>
           </Item>
-          <Item class="Folder" referent="48">
+          <Item class="Folder" referent="50">
             <Properties>
               <string name="Name">Props</string>
             </Properties>
-            <Item class="ModuleScript" referent="49">
+            <Item class="ModuleScript" referent="51">
               <Properties>
                 <string name="Name">Chest</string>
                 <string name="Source"><![CDATA[-- Сундук
@@ -8008,7 +8581,7 @@ return M
 ]]></string>
               </Properties>
             </Item>
-            <Item class="ModuleScript" referent="50">
+            <Item class="ModuleScript" referent="52">
               <Properties>
                 <string name="Name">Crow</string>
                 <string name="Source"><![CDATA[-- Ворона
@@ -8081,7 +8654,7 @@ return M
 ]]></string>
               </Properties>
             </Item>
-            <Item class="ModuleScript" referent="51">
+            <Item class="ModuleScript" referent="53">
               <Properties>
                 <string name="Name">ExitGate</string>
                 <string name="Source"><![CDATA[-- Ворота выхода: бетонная проходная (пилоны с цоколем и оголовком, ригель с двутавром), большая рифлёная
@@ -8364,7 +8937,7 @@ return M
 ]]></string>
               </Properties>
             </Item>
-            <Item class="ModuleScript" referent="52">
+            <Item class="ModuleScript" referent="54">
               <Properties>
                 <string name="Name">Generator</string>
                 <string name="Source"><![CDATA[-- Генератор (как в DBD): стальные салазки на опорах, двигатель с рёбрами охлаждения и двумя поршнями,
@@ -8594,7 +9167,7 @@ return M
 ]]></string>
               </Properties>
             </Item>
-            <Item class="ModuleScript" referent="53">
+            <Item class="ModuleScript" referent="55">
               <Properties>
                 <string name="Name">Hatch</string>
                 <string name="Source"><![CDATA[-- Люк: бетонная (или каменная) плита вровень с землёй со скошенными краями, тёмный провал в стальной
@@ -8724,7 +9297,7 @@ return M
 ]]></string>
               </Properties>
             </Item>
-            <Item class="ModuleScript" referent="54">
+            <Item class="ModuleScript" referent="56">
               <Properties>
                 <string name="Name">Hook</string>
                 <string name="Source"><![CDATA[-- Крюк и лапы Сущности
@@ -8951,7 +9524,7 @@ return M
 ]]></string>
               </Properties>
             </Item>
-            <Item class="ModuleScript" referent="55">
+            <Item class="ModuleScript" referent="57">
               <Properties>
                 <string name="Name">Locker</string>
                 <string name="Source"><![CDATA[-- Шкафчик
@@ -9185,7 +9758,7 @@ return M
 ]]></string>
               </Properties>
             </Item>
-            <Item class="ModuleScript" referent="56">
+            <Item class="ModuleScript" referent="58">
               <Properties>
                 <string name="Name">Pallet</string>
                 <string name="Source"><![CDATA[-- Паллета
@@ -9438,7 +10011,7 @@ return M
 ]]></string>
               </Properties>
             </Item>
-            <Item class="ModuleScript" referent="57">
+            <Item class="ModuleScript" referent="59">
               <Properties>
                 <string name="Name">Totem</string>
                 <string name="Source"><![CDATA[-- Тотемы (обычный и проклятый)
@@ -9749,7 +10322,7 @@ return M
 ]]></string>
               </Properties>
             </Item>
-            <Item class="ModuleScript" referent="58">
+            <Item class="ModuleScript" referent="60">
               <Properties>
                 <string name="Name">Trap</string>
                 <string name="Source"><![CDATA[-- Медвежий капкан
@@ -9861,7 +10434,7 @@ return M
               </Properties>
             </Item>
           </Item>
-          <Item class="ModuleScript" referent="59">
+          <Item class="ModuleScript" referent="61">
             <Properties>
               <string name="Name">Structures</string>
               <string name="Source"><![CDATA[-- Постройки. Модули: Buildings (здания, внешняя стена), Dressing (оформление ячеек), Common (игровые помощники).
@@ -9884,7 +10457,7 @@ end
 return Structures
 ]]></string>
             </Properties>
-            <Item class="ModuleScript" referent="60">
+            <Item class="ModuleScript" referent="62">
               <Properties>
                 <string name="Name">BuildingHouse</string>
                 <string name="Source"><![CDATA[-- Дом из двух комнат: оштукатуренные стены с обвалившейся штукатуркой (видна кладка), каменный цоколь
@@ -10150,7 +10723,7 @@ return house
 ]]></string>
               </Properties>
             </Item>
-            <Item class="ModuleScript" referent="61">
+            <Item class="ModuleScript" referent="63">
               <Properties>
                 <string name="Name">BuildingPerimeter</string>
                 <string name="Source"><![CDATA[-- Внешняя стена карты: пролёты из бетона и кирпича между пилонами, парапет поверху, потёки, заплаты.
@@ -10278,7 +10851,7 @@ return outerWalls
 ]]></string>
               </Properties>
             </Item>
-            <Item class="ModuleScript" referent="62">
+            <Item class="ModuleScript" referent="64">
               <Properties>
                 <string name="Name">BuildingShack</string>
                 <string name="Source"><![CDATA[-- Хижина маньяка (центр карты): брусчатый каркас, обшивка досками с щелями и сорванными досками,
@@ -10500,7 +11073,7 @@ return shack
 ]]></string>
               </Properties>
             </Item>
-            <Item class="ModuleScript" referent="63">
+            <Item class="ModuleScript" referent="65">
               <Properties>
                 <string name="Name">BuildingWalls</string>
                 <string name="Source"><![CDATA[-- Общие помощники стен для зданий и оформления ячеек.
@@ -10764,7 +11337,7 @@ return W
 ]]></string>
               </Properties>
             </Item>
-            <Item class="ModuleScript" referent="64">
+            <Item class="ModuleScript" referent="66">
               <Properties>
                 <string name="Name">Buildings</string>
                 <string name="Source"><![CDATA[-- Здания: хижина маньяка (центр карты), дом из двух комнат, внешняя стена карты.
@@ -10780,7 +11353,7 @@ return Buildings
 ]]></string>
               </Properties>
             </Item>
-            <Item class="ModuleScript" referent="65">
+            <Item class="ModuleScript" referent="67">
               <Properties>
                 <string name="Name">Common</string>
                 <string name="Source"><![CDATA[-- Общие игровые помощники для построек (НЕ художественные — их не меняем):
@@ -10824,7 +11397,7 @@ return Common
 ]]></string>
               </Properties>
             </Item>
-            <Item class="ModuleScript" referent="66">
+            <Item class="ModuleScript" referent="68">
               <Properties>
                 <string name="Name">Dressing</string>
                 <string name="Source"><![CDATA[-- Оформление ячеек: петли с паллетой/окном, укрытие у генератора, шкафчики (DressingLoops) и
@@ -10844,7 +11417,7 @@ return Dressing
 ]]></string>
               </Properties>
             </Item>
-            <Item class="ModuleScript" referent="67">
+            <Item class="ModuleScript" referent="69">
               <Properties>
                 <string name="Name">DressingLoops</string>
                 <string name="Source"><![CDATA[-- Стенки «петель» (паллета, окно) и укрытия (у генератора, ниша со шкафчиками) в разных стилях:
@@ -11086,7 +11659,7 @@ return Loops
 ]]></string>
               </Properties>
             </Item>
-            <Item class="ModuleScript" referent="68">
+            <Item class="ModuleScript" referent="70">
               <Properties>
                 <string name="Name">DressingProps</string>
                 <string name="Source"><![CDATA[-- Оформление ячеек предметами: свалка (остов машины или пачка смятых кузовов, шины, бочка, лом),
@@ -11326,13 +11899,15 @@ local function grave(map, g: CFrame, h: number, rng: Random)
 		end
 	end
 	main.Name = "Tombstone"
-	-- холмик: два клина гребнем вдоль могилы (иногда осевший)
+	-- холмик: округлый — лежащий вдоль могилы цилиндр, утопленный в землю (иногда осевший),
+	-- и пологий скат земли в ногах
 	local mound = g * C(rng:NextNumber(-0.15, 0.15), 0, -2.0) * A(0, rng:NextNumber(-4, 4), 0)
 	local earth = Kit.jitter(Color3.fromRGB(58, 46, 36), 0.06, rng)
 	local mh = rng:NextNumber(0.22, 0.4)
-	for _, s in { -1, 1 } do
-		Kit.wedge(map.Decor, mound * C(s * 0.45, mh / 2 - 0.02, 0) * A(0, -s * 90, 0), V(3.0, mh, 0.9), earth, Mat.Ground, DECOR)
-	end
+	local d = 1.9
+	Kit.cyl(map.Decor, mound * C(0, mh - d / 2, 0) * A(0, 90, 0), 3.0, d, earth, Mat.Ground, DECOR)
+	local foot = 2 * math.sqrt(math.max((d / 2) ^ 2 - (d / 2 - mh) ^ 2, 0.01))
+	Kit.wedge(map.Decor, mound * C(0, mh / 2 - 0.02, -1.5 - 0.35), V(foot * 0.9, mh, 0.7), Kit.dark(earth, 0.05), Mat.Ground, DECOR)
 	if kind == 1 and rng:NextNumber() < 0.5 then
 		-- погасшая лампадка у камня
 		Kit.vcyl(map.Decor, g * C(rng:NextNumber(-0.6, 0.6), 0.25, -0.55), 0.5, 0.26, Kit.jitter(Color3.fromRGB(150, 54, 40), 0.08, rng), Mat.Glass, DECOR)
@@ -11453,7 +12028,7 @@ return Props
               </Properties>
             </Item>
           </Item>
-          <Item class="ModuleScript" referent="69">
+          <Item class="ModuleScript" referent="71">
             <Properties>
               <string name="Name">Templates</string>
               <string name="Source"><![CDATA[-- Реестр шаблонов объектов. Каждый объект строится ОДИН раз (с CSG) в начале работы сервера
@@ -11558,7 +12133,7 @@ return Templates
             </Properties>
           </Item>
         </Item>
-        <Item class="ModuleScript" referent="70">
+        <Item class="ModuleScript" referent="72">
           <Properties>
             <string name="Name">MapBuilder</string>
             <string name="Source"><![CDATA[-- Процедурно строит карту (каждый раунд новая раскладка) и освещение.
@@ -11874,7 +12449,7 @@ return MapBuilder
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="71">
+        <Item class="ModuleScript" referent="73">
           <Properties>
             <string name="Name">PropFX</string>
             <string name="Source"><![CDATA[-- Визуальные состояния объектов карты. Игровые системы вызывают только эти функции,
@@ -12207,7 +12782,7 @@ return PropFX
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="72">
+        <Item class="ModuleScript" referent="74">
           <Properties>
             <string name="Name">Terrain</string>
             <string name="Source"><![CDATA[-- Ландшафт (Roblox Terrain): трава, тропинки, грязь, камни, холмы за стенами.
@@ -12450,7 +13025,7 @@ return Terrain
           </Properties>
         </Item>
       </Item>
-      <Item class="ModuleScript" referent="73">
+      <Item class="ModuleScript" referent="75">
         <Properties>
           <string name="Name">Powers</string>
           <string name="Source"><![CDATA[-- Диспетчер способностей маньяков.
@@ -12516,7 +13091,7 @@ end)
 return Powers
 ]]></string>
         </Properties>
-        <Item class="ModuleScript" referent="74">
+        <Item class="ModuleScript" referent="76">
           <Properties>
             <string name="Name">Huntress</string>
             <string name="Source"><![CDATA[-- Охотница: метательные топоры (сервер считает полёт, клиенты рисуют).
@@ -12718,7 +13293,7 @@ return Huntress
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="75">
+        <Item class="ModuleScript" referent="77">
           <Properties>
             <string name="Name">Trapper</string>
             <string name="Source"><![CDATA[-- Траппер: медвежьи капканы.
@@ -12973,7 +13548,7 @@ return Trapper
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="76">
+        <Item class="ModuleScript" referent="78">
           <Properties>
             <string name="Name">Wraith</string>
             <string name="Source"><![CDATA[-- Призрак: колокол, невидимость и рывок после проявления.
@@ -13111,11 +13686,11 @@ return Wraith
           </Properties>
         </Item>
       </Item>
-      <Item class="Folder" referent="77">
+      <Item class="Folder" referent="79">
         <Properties>
           <string name="Name">Systems</string>
         </Properties>
-        <Item class="ModuleScript" referent="78">
+        <Item class="ModuleScript" referent="80">
           <Properties>
             <string name="Name">Carry</string>
             <string name="Source"><![CDATA[-- Подъём, перенос на плече, вырывание, крюки, Сущность и жертвоприношение.
@@ -13471,7 +14046,7 @@ return Carry
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="79">
+        <Item class="ModuleScript" referent="81">
           <Properties>
             <string name="Name">Chase</string>
             <string name="Source"><![CDATA[-- Погоня: маньяк видит бегущего рядом выжившего -> музыка погони и очки.
@@ -13536,7 +14111,7 @@ return Chase
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="80">
+        <Item class="ModuleScript" referent="82">
           <Properties>
             <string name="Name">Combat</string>
             <string name="Source"><![CDATA[-- Атака маньяка (выпад), оглушение паллетой и ослепление фонариком.
@@ -13692,7 +14267,7 @@ return Combat
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="81">
+        <Item class="ModuleScript" referent="83">
           <Properties>
             <string name="Name">Crows</string>
             <string name="Source"><![CDATA[-- Вороны: взлетают, когда рядом пробегает выживший, и выдают его маньяку.
@@ -13798,7 +14373,7 @@ return Crows
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="82">
+        <Item class="ModuleScript" referent="84">
           <Properties>
             <string name="Name">Exits</string>
             <string name="Source"><![CDATA[-- Ворота, обрушение Сущности (эндгейм) и люк.
@@ -13984,7 +14559,7 @@ return Exits
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="83">
+        <Item class="ModuleScript" referent="85">
           <Properties>
             <string name="Name">Generators</string>
             <string name="Source"><![CDATA[-- Генераторы: ремонт, проверки навыка, повреждение маньяком, Проклятие «Руина».
@@ -14153,7 +14728,7 @@ return Generators
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="84">
+        <Item class="ModuleScript" referent="86">
           <Properties>
             <string name="Name">Health</string>
             <string name="Source"><![CDATA[-- Здоровье выживших: удары, повержение, лечение, истекание кровью.
@@ -14296,7 +14871,7 @@ return Health
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="85">
+        <Item class="ModuleScript" referent="87">
           <Properties>
             <string name="Name">Items</string>
             <string name="Source"><![CDATA[-- Сундуки и предметы: аптечка, ящик с инструментами, фонарик.
@@ -14533,7 +15108,7 @@ return Items
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="86">
+        <Item class="ModuleScript" referent="88">
           <Properties>
             <string name="Name">Lockers</string>
             <string name="Source"><![CDATA[-- Шкафчики: спрятаться, выйти, обыскать (маньяк хватает выжившего).
@@ -14676,7 +15251,7 @@ return Lockers
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="87">
+        <Item class="ModuleScript" referent="89">
           <Properties>
             <string name="Name">Obstacles</string>
             <string name="Source"><![CDATA[-- Паллеты и перелезание через окна/паллеты.
@@ -14789,7 +15364,8 @@ Actions.register("Vault", {
 			State.playAnim(data.Player, "KillerVault")
 		else
 			duration = data.Sprinting and 0.55 or 0.95
-			State.playAnim(data.Player, "Vault")
+			-- длительность клипа должна совпасть с перемещением: быстрый прыжок или шагом
+			State.playAnim(data.Player, data.Sprinting and "Vault" or "VaultWalk")
 			if data.Sprinting then
 				-- быстрый прыжок шумит
 				State.noise(root.Position)
@@ -14821,7 +15397,7 @@ return Obstacles
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="88">
+        <Item class="ModuleScript" referent="90">
           <Properties>
             <string name="Name">Totems</string>
             <string name="Source"><![CDATA[-- Тотемы: очистка выжившими, проклятый тотем включает Проклятие «Руина».
@@ -14893,26 +15469,26 @@ return Totems
       </Item>
     </Item>
   </Item>
-  <Item class="SoundService" referent="89">
+  <Item class="SoundService" referent="91">
     <Properties>
       <string name="Name">SoundService</string>
       <token name="AmbientReverb">0</token>
     </Properties>
   </Item>
-  <Item class="StarterPlayer" referent="90">
+  <Item class="StarterPlayer" referent="92">
     <Properties>
       <string name="Name">StarterPlayer</string>
       <bool name="EnableMouseLockOption">false</bool>
     </Properties>
-    <Item class="StarterPlayerScripts" referent="91">
+    <Item class="StarterPlayerScripts" referent="93">
       <Properties>
         <string name="Name">StarterPlayerScripts</string>
       </Properties>
-      <Item class="Folder" referent="92">
+      <Item class="Folder" referent="94">
         <Properties>
           <string name="Name">Client</string>
         </Properties>
-        <Item class="ModuleScript" referent="93">
+        <Item class="ModuleScript" referent="95">
           <Properties>
             <string name="Name">Animator</string>
             <string name="Source"><![CDATA[-- Процедурные анимации R6 для всех персонажей.
@@ -14958,7 +15534,12 @@ local LOD = {
 	SnapAfter = 0.5, -- после такого перерыва поза ставится сразу, без пружин
 }
 
-type Shot = { Name: string, Def: any, Start: number }
+-- Cut — момент отмены: слой не обрывается, а плавно уходит за CUT_FADE
+type Shot = { Name: string, Def: any, Start: number, Cut: number? }
+
+local CUT_FADE = 0.22 -- с: плавная отмена одноразовой анимации (Cancel)
+local ACTION_FADE_IN = 0.3 -- с: вход в действие (присесть к генератору и т.п.)
+local ACTION_FADE_OUT = 0.25 -- с: выход из действия
 
 type Entry = {
 	Char: Model,
@@ -14980,9 +15561,18 @@ type Entry = {
 	Pending: number,
 	Pose: { [string]: any },
 	Concealed: boolean?,
+	Action: string?, -- текущее действие и когда оно началось (клипы действий идут от начала)
+	ActionStart: number,
+	PrevAction: string?, -- закончившееся действие, пока его слой плавно уходит
+	PrevStart: number,
+	PrevEnd: number,
+	RunAt: number, -- когда последний раз бежал (быстрый прыжок через окно)
 }
 
 -- Спрятавшийся в шкафчике шире шкафчика: другим игрокам его не видно (как в DBD)
+-- Снимаем только своё скрытие (= 1): Effects.updateCloak (RenderStepped, раньше нас в кадре)
+-- мог уже поставить свою прозрачность — маньяк вытащил из шкафчика: Hidden и Status = Carried
+-- приходят вместе, и обнуление здесь навсегда перебило бы его 0.75 (он кэширует значение).
 local function conceal(entry: Entry, on: boolean)
 	if (entry.Concealed or false) == on then
 		return
@@ -14990,7 +15580,12 @@ local function conceal(entry: Entry, on: boolean)
 	entry.Concealed = on
 	for _, d in entry.Char:GetDescendants() do
 		if d:IsA("BasePart") or d:IsA("Decal") then
-			(d :: any).LocalTransparencyModifier = on and 1 or 0
+			local v = d :: any
+			if on then
+				v.LocalTransparencyModifier = 1
+			elseif v.LocalTransparencyModifier == 1 then
+				v.LocalTransparencyModifier = 0
+			end
 		end
 	end
 end
@@ -15021,6 +15616,10 @@ local function register(char: Instance)
 		-- случайный сдвиг, чтобы редко обновляемые персонажи не считались в одном кадре
 		Pending = math.random() * 0.1,
 		Pose = {},
+		ActionStart = 0,
+		PrevStart = 0,
+		PrevEnd = 0,
+		RunAt = -math.huge,
 	}
 	entries[char] = entry
 	char.Destroying:Connect(function()
@@ -15038,7 +15637,10 @@ end
 
 local function startShot(entry: Entry, name: string, t: number)
 	if name == "Cancel" then
-		entry.Shot = nil
+		local shot = entry.Shot
+		if shot and not shot.Cut then
+			shot.Cut = t
+		end
 		return
 	end
 	local def = Poses.OneShot[name]
@@ -15162,13 +15764,16 @@ local function choosePose(entry: Entry, t: number, dt: number, killerRoot: BaseP
 	local step = math.floor(entry.Phase / math.pi)
 	if step ~= entry.Step then
 		entry.Step = step
-		local grounded = hum.FloorMaterial ~= Enum.Material.Air
+		local grounded = Audio.floorMaterial(char) ~= nil
 		if speed > 1.5 and grounded and status ~= "Hooked" and status ~= "Carried" and health > 0 then
 			Audio.footstep(char, isKiller, speed, crouching)
 		end
 	end
 
 	conceal(entry, char ~= player.Character and attr("Hidden") == true)
+	if attr("Running") then
+		entry.RunAt = t
+	end
 
 	local base
 	local action = attr("ActionName")
@@ -15191,10 +15796,27 @@ local function choosePose(entry: Entry, t: number, dt: number, killerRoot: BaseP
 	end
 	-- своя таблица позы: слои кладутся в неё, не трогая возвращённые позы
 	local pose = Clip.copy(base, entry.Pose)
+	-- действие: клип идёт от начала действия, слой плавно входит и плавно уходит
+	if action ~= entry.Action then
+		if entry.Action and Poses.Action[entry.Action] then
+			entry.PrevAction, entry.PrevStart, entry.PrevEnd = entry.Action, entry.ActionStart, t
+		end
+		entry.Action, entry.ActionStart = action, t
+	end
 	if locomotion then
+		local prev = entry.PrevAction
+		if prev then
+			local k = (t - entry.PrevEnd) / ACTION_FADE_OUT
+			if k >= 1 then
+				entry.PrevAction = nil
+			else
+				Clip.layer(pose, Poses.Action[prev](t - entry.PrevStart, p), Clip.Ease.SineInOut(1 - k))
+			end
+		end
 		local actionPose = action and Poses.Action[action]
 		if actionPose then
-			Clip.layer(pose, actionPose(t, p), 1)
+			local e = t - entry.ActionStart
+			Clip.layer(pose, actionPose(e, p), Clip.Ease.SineInOut(math.min(e / ACTION_FADE_IN, 1)))
 		end
 		if attr("Item") == "Flashlight" and attr("ItemActive") then
 			pose.RArm = Poses.A(92 + math.sin(t * 3) * 2, 0, 4)
@@ -15208,7 +15830,8 @@ local function choosePose(entry: Entry, t: number, dt: number, killerRoot: BaseP
 		local name = char:GetAttribute("Anim")
 		local loc = entry.LocalShot
 		if not (loc and loc.Name == name and os.clock() - loc.At < 0.5) and typeof(name) == "string" then
-			startShot(entry, name, t)
+			-- сервер шлёт одно имя на разные длительности (прыжок с бега/шагом, колокол)
+			startShot(entry, Poses.shotVariant(name, t - entry.RunAt < 0.4, attr("PowerState")), t)
 		end
 	end
 	local stiffness = 1
@@ -15216,12 +15839,14 @@ local function choosePose(entry: Entry, t: number, dt: number, killerRoot: BaseP
 	if shot then
 		local def = shot.Def
 		local elapsed = t - shot.Start
-		if elapsed >= def.Duration or (shot.Name == "Windup" and attr("PowerCharge") == 0 and elapsed > 0.3) then
+		if not shot.Cut and shot.Name == "Windup" and attr("PowerCharge") == 0 and elapsed > 0.3 then
+			shot.Cut = t
+		end
+		local cut = shot.Cut and (t - shot.Cut) / CUT_FADE or 0
+		if elapsed >= def.Duration or cut >= 1 then
 			entry.Shot = nil
 		else
-			local w = Clip.weight(def, elapsed)
-			Clip.layer(pose, def.Fn(elapsed / def.Duration, p), w, def.Additive)
-			stiffness = 1 + ((def.Stiffness or 1) - 1) * w
+			stiffness = Poses.applyShot(pose, def, elapsed, p, 1 - Clip.Ease.SineInOut(cut))
 		end
 	end
 	return pose, stiffness
@@ -15310,7 +15935,7 @@ return Animator
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="94">
+        <Item class="ModuleScript" referent="96">
           <Properties>
             <string name="Name">Audio</string>
             <string name="Source"><![CDATA[-- Звук на клиенте.
@@ -15991,13 +16616,32 @@ function Audio.surface(material: Enum.Material): string
 	return SURFACE[material.Name] or "Footstep"
 end
 
+-- Материал пола под персонажем. У чужих персонажей на клиенте Humanoid.FloorMaterial бывает Air
+-- (их физику считает не этот клиент), поэтому тогда смотрим лучом вниз. nil — персонаж в воздухе.
+local floorParams = RaycastParams.new()
+floorParams.FilterType = Enum.RaycastFilterType.Exclude
+function Audio.floorMaterial(char: Model): Enum.Material?
+	local hum = char:FindFirstChildOfClass("Humanoid")
+	if hum and hum.FloorMaterial ~= Enum.Material.Air then
+		return hum.FloorMaterial
+	end
+	local root = char:FindFirstChild("HumanoidRootPart") :: BasePart?
+	if not root then
+		return nil
+	end
+	floorParams.FilterDescendantsInstances = { char }
+	-- R6: центр корня на 3 стада над землёй (у масштабированного маньяка — больше), плюс запас
+	local hit = workspace:Raycast(root.Position, Vector3.new(0, -(root.Size.Y * 1.5 + 1.5), 0), floorParams)
+	return if hit then (hit.Material or Enum.Material.Plastic) else nil
+end
+
 function Audio.footstep(char: Model, isKiller: boolean, speed: number, crouching: boolean)
 	local root = char:FindFirstChild("HumanoidRootPart")
 	if not root then
 		return
 	end
-	local hum = char:FindFirstChildOfClass("Humanoid")
-	local slot = if hum then Audio.surface(hum.FloorMaterial) else "Footstep"
+	local floor = Audio.floorMaterial(char)
+	local slot = if floor then Audio.surface(floor) else "Footstep"
 	local vol = if crouching then 0.35 else math.clamp(speed / 16, 0.45, 1.1)
 	if isKiller and char == player.Character then
 		vol *= 0.6 -- свои шаги маньяк слышит у самой камеры
@@ -16279,7 +16923,7 @@ return Audio
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="95">
+        <Item class="ModuleScript" referent="97">
           <Properties>
             <string name="Name">Auras</string>
             <string name="Source"><![CDATA[-- Ауры (подсветка сквозь стены), как в DBD.
@@ -16364,7 +17008,7 @@ return Auras
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="96">
+        <Item class="ModuleScript" referent="98">
           <Properties>
             <string name="Name">CameraController</string>
             <string name="Source"><![CDATA[-- Камера: маньяк от первого лица с покачиванием, выживший от третьего,
@@ -16691,7 +17335,7 @@ return CameraController
 ]]></string>
           </Properties>
         </Item>
-        <Item class="LocalScript" referent="97">
+        <Item class="LocalScript" referent="99">
           <Properties>
             <string name="Name">Client</string>
             <string name="Source"><![CDATA[-- Клиент: связывает интерфейс, управление, анимации, камеру, звук и эффекты.
@@ -16954,7 +17598,7 @@ end)
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="98">
+        <Item class="ModuleScript" referent="100">
           <Properties>
             <string name="Name">Effects</string>
             <string name="Source"><![CDATA[-- Визуальные эффекты на клиенте: следы бега и кровь (видит только маньяк),
@@ -17286,7 +17930,7 @@ return Effects
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="99">
+        <Item class="ModuleScript" referent="101">
           <Properties>
             <string name="Name">Input</string>
             <string name="Source"><![CDATA[-- Управление (клавиатура, геймпад, сенсорные кнопки на телефоне).
@@ -17484,7 +18128,7 @@ return Input
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="100">
+        <Item class="ModuleScript" referent="102">
           <Properties>
             <string name="Name">Interaction</string>
             <string name="Source"><![CDATA[-- Поиск ближайшего доступного действия для подсказки и нажатия.
@@ -17715,11 +18359,11 @@ return Interaction
 ]]></string>
           </Properties>
         </Item>
-        <Item class="Folder" referent="101">
+        <Item class="Folder" referent="103">
           <Properties>
             <string name="Name">UI</string>
           </Properties>
-          <Item class="ModuleScript" referent="102">
+          <Item class="ModuleScript" referent="104">
             <Properties>
               <string name="Name">Hud</string>
               <string name="Source"><![CDATA[-- Основной интерфейс: генераторы, портреты выживших, подсказки, полоски,
@@ -18247,7 +18891,7 @@ return Hud
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="103">
+          <Item class="ModuleScript" referent="105">
             <Properties>
               <string name="Name">LobbyUI</string>
               <string name="Source"><![CDATA[-- Меню лобби: очки крови, «хочу быть маньяком», выбор маньяка.
@@ -18377,7 +19021,7 @@ return LobbyUI
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="104">
+          <Item class="ModuleScript" referent="106">
             <Properties>
               <string name="Name">Results</string>
               <string name="Source"><![CDATA[-- Экран итогов раунда с очками крови по категориям.
@@ -18512,7 +19156,7 @@ return Results
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="105">
+          <Item class="ModuleScript" referent="107">
             <Properties>
               <string name="Name">SkillCheck</string>
               <string name="Source"><![CDATA[-- Круглая проверка навыка, как в Dead by Daylight.
@@ -18673,7 +19317,7 @@ return SkillCheck
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="106">
+          <Item class="ModuleScript" referent="108">
             <Properties>
               <string name="Name">Widgets</string>
               <string name="Source"><![CDATA[-- Маленькие помощники для создания интерфейса из кода.
@@ -18783,7 +19427,7 @@ return Widgets
           </Item>
         </Item>
       </Item>
-      <Item class="LocalScript" referent="107">
+      <Item class="LocalScript" referent="109">
         <Properties>
           <string name="Name">RbxCharacterSounds</string>
           <string name="Source"><![CDATA[-- Пустой скрипт с именем стандартного RbxCharacterSounds отключает стандартные звуки шагов.
